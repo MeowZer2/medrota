@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id        String    @id @default(uuid())
+  name      String
+  country   String
+  status    String    @default("pending")
+  createdAt DateTime  @default(now())
+  programs  Program[]
+  users     User[]
+}
+
+model Program {
+  id             String           @id @default(uuid())
+  name           String
+  specialty      String
+  orgId          String
+  org            Organization     @relation(fields: [orgId], references: [id])
+  createdAt      DateTime         @default(now())
+  members        ProgramMember[]
+  academicYears  AcademicYear[]
+  residents      ResidentProfile[]
+  attendingRoster AttendingRoster[]
+  attendingTemplates AttendingScheduleTemplate[]
+  invites        Invite[]
+}
+
+model Invite {
+  id        String   @id @default(uuid())
+  programId String
+  program   Program  @relation(fields: [programId], references: [id])
+  token     String   @unique @default(uuid())
+  role      String   @default("viewer")
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+}
+
+model User {
+  id           String          @id @default(uuid())
+  name         String
+  email        String          @unique
+  passwordHash String
+  orgId        String?
+  org          Organization?   @relation(fields: [orgId], references: [id])
+  createdAt    DateTime        @default(now())
+  memberships  ProgramMember[]
+}
+
+model ProgramMember {
+  id        String   @id @default(uuid())
+  programId String
+  userId    String
+  role      String
+  program   Program  @relation(fields: [programId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model AcademicYear {
+  id        String    @id @default(uuid())
+  programId String
+  program   Program   @relation(fields: [programId], references: [id])
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime  @default(now())
+  blocks    Block[]
+  holidays  PublicHoliday[]
+}
+
+model PublicHoliday {
+  id             String       @id @default(uuid())
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  date           DateTime
+  name           String
+}
+
+model Block {
+  id             String         @id @default(uuid())
+  academicYearId String
+  academicYear   AcademicYear   @relation(fields: [academicYearId], references: [id])
+  number         Int
+  startDate      DateTime
+  endDate        DateTime
+  isPublished    Boolean        @default(false)
+  publicToken    String?        @unique
+  createdAt      DateTime       @default(now())
+  enrollments    BlockEnrollment[]
+  settings       BlockSettings?
+  attendingEntries AttendingEntry[]
+  callDays       CallDay[]
+  versions       ScheduleVersion[]
+  flags          DayFlag[]
+}
+
+model DayFlag {
+  id        String   @id @default(uuid())
+  blockId   String
+  block     Block    @relation(fields: [blockId], references: [id])
+  date      DateTime
+  label     String
+  color     String   @default("#F59E0B")
+  createdAt DateTime @default(now())
+}
+
+model ResidentProfile {
+  id                String   @id @default(uuid())
+  programId         String
+  program           Program  @relation(fields: [programId], references: [id])
+  name              String
+  pgyLevel          String
+  residentRole      String
+  email             String?
+  isMedStudent      Boolean  @default(false)
+  isServiceResident Boolean  @default(true)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  enrollments       BlockEnrollment[]
+  assignments       CallAssignment[]
+}
+
+model BlockEnrollment {
+  id              String          @id @default(uuid())
+  blockId         String
+  block           Block           @relation(fields: [blockId], references: [id])
+  residentId      String
+  resident        ResidentProfile @relation(fields: [residentId], references: [id])
+  vacationDates   DateTime[]
+  academicDayPref String?
+  callCapOverride Int?
+}
+
+model BlockSettings {
+  id                     String  @id @default(uuid())
+  blockId                String  @unique
+  block                  Block   @relation(fields: [blockId], references: [id])
+  allowWeekendConsecutive Boolean @default(false)
+  allowAttendingOnlyDays  Boolean @default(false)
+  avoidAcademicDays       Boolean @default(true)
+  maxCallsPerResident     Int     @default(9)
+  maxCallsMedStudent      Int     @default(5)
+  limitWeekendCalls       Boolean @default(true)
+}
+
+model AttendingRoster {
+  id                String   @id @default(uuid())
+  programId         String
+  program           Program  @relation(fields: [programId], references: [id])
+  attendingName     String
+  typicalActivities String[]
+  createdAt         DateTime @default(now())
+}
+
+model AttendingEntry {
+  id            String   @id @default(uuid())
+  blockId       String
+  block         Block    @relation(fields: [blockId], references: [id])
+  attendingName String
+  date          DateTime
+  activityLabel String
+  notes         String?
+  isCallDay     Boolean  @default(false)
+  callDays      CallDay[]
+}
+
+model CallDay {
+  id               String          @id @default(uuid())
+  blockId          String
+  block            Block           @relation(fields: [blockId], references: [id])
+  date             DateTime
+  isHoliday        Boolean         @default(false)
+  holidayName      String?
+  attendingEntryId String?
+  attendingEntry   AttendingEntry? @relation(fields: [attendingEntryId], references: [id])
+  assignments      CallAssignment[]
+}
+
+model CallAssignment {
+  id             String          @id @default(uuid())
+  callDayId      String
+  callDay        CallDay         @relation(fields: [callDayId], references: [id])
+  residentId     String
+  resident       ResidentProfile @relation(fields: [residentId], references: [id])
+  roleOnDay      String
+  isOverride     Boolean         @default(false)
+  overrideReason String?
+  createdAt      DateTime        @default(now())
+}
+
+model ScheduleVersion {
+  id           String   @id @default(uuid())
+  blockId      String
+  block        Block    @relation(fields: [blockId], references: [id])
+  snapshotJson Json
+  publishedBy  String?
+  publishedAt  DateTime @default(now())
+}
+
+model AttendingScheduleTemplate {
+  id            String  @id @default(uuid())
+  programId     String
+  program       Program @relation(fields: [programId], references: [id])
+  attendingName String
+  dayOfWeek     Int     // 0=Mon, 1=Tue, ..., 6=Sun
+  activityLabel String
+}

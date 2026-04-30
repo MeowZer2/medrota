@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx prisma:*)",
+      "Bash(PRISMA_MIGRATE_SKIP_GENERATE=true npx prisma migrate dev --name add_publish_fields_and_invite --skip-seed)",
+      "Bash(node -e ':*)"
+    ]
+  }
+}
