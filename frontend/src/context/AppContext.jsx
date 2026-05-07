@@ -51,9 +51,18 @@ export function AppProvider({ children }) {
         return fresh ?? data.currentBlock;
       });
       setHasProgram(true);
+      return true;
     } catch (err) {
       const status = err?.response?.status;
-      if (status === 404) setHasProgram(false);
+      if (status === 404) {
+        setCurrentProgram(null);
+        setCurrentBlock(null);
+        setAcademicYears([]);
+        setCurrentAcademicYear(null);
+        setHasProgram(false);
+        return false;
+      }
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -93,6 +102,7 @@ export function AppProvider({ children }) {
       const payload = JSON.parse(atob(token.split('.')[1]));
       setCurrentUser({ userId: payload.userId, email: payload.email, name: payload.name });
     } catch { /* ignore */ }
+    setLoading(true);
     return fetchProgram();
   }
 

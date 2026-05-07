@@ -15,8 +15,22 @@ const flagsRoutes = require('./routes/flags');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const allowedOrigins = new Set([
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
+]);
 
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS origin not allowed: ${origin}`));
+  },
+  credentials: true,
+}));
 app.use(express.json());
 
 // ── Request logger ─────────────────────────────────────────────────────────────
@@ -42,6 +56,11 @@ app.use('/api/flags', flagsRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.use((err, _req, res, _next) => {
+  console.error('[error]', err);
+  res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
 app.listen(PORT, () => {

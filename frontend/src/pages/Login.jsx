@@ -70,9 +70,9 @@ export default function Login() {
     try {
       const { data } = await api.post('/auth/login', form);
       localStorage.setItem('token', data.token);
-      refreshContext();
+      const hasProgram = await refreshContext();
       toast.success('Welcome back!');
-      navigate('/dashboard');
+      navigate(hasProgram ? '/dashboard' : '/setup');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Invalid credentials');
     } finally {
