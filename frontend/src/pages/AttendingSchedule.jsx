@@ -616,6 +616,7 @@ export default function AttendingSchedule() {
   const [showResetModal, setShowResetModal] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const [resetting, setResetting]           = useState(false);
+  const [copying, setCopying]               = useState(false);
   const latestBlockIdRef = useRef(blockId);
 
   useEffect(() => {
@@ -813,6 +814,30 @@ export default function AttendingSchedule() {
     setSchedule(prev => ({ ...prev, [iso]: newEntries }));
   }, [blockId, roster, template]);
 
+  const handleCopyPreviousBlock = async () => {
+    const blocks = currentAcademicYear?.blocks ?? [];
+    const sourceBlock = blocks.find(b => b.number === blockNum - 1);
+    if (!sourceBlock || !blockId) {
+      toast.error('No previous block is available to copy');
+      return;
+    }
+
+    setCopying(true);
+    try {
+      const { data } = await api.post('/attending/copy', {
+        sourceBlockId: sourceBlock.id,
+        targetBlockId: blockId,
+      });
+      await fetchSchedule();
+      const skipped = data.skipped ? `, ${data.skipped} skipped` : '';
+      toast.success(`Copied from Block ${sourceBlock.number}: ${data.created} created, ${data.updated} updated${skipped}`);
+    } catch (err) {
+      toast.error(err.response?.data?.error ?? 'Failed to copy previous block');
+    } finally {
+      setCopying(false);
+    }
+  };
+
   // ── Apply full template to block (and optionally all blocks in the year) ──────
 
   const handleApplyTemplate = async (scope = 'this') => {
@@ -863,6 +888,7 @@ export default function AttendingSchedule() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   const allYearBlocks = currentAcademicYear?.blocks ?? [];
+  const previousBlock = allYearBlocks.find(b => b.number === blockNum - 1);
 
   return (
     <Layout>
@@ -878,7 +904,7 @@ export default function AttendingSchedule() {
               {allYearBlocks.length > 0 && (
                 <BlockSelector
                   blocks={allYearBlocks}
-                  activeBlockId={currentBlock?.id ?? null}
+                  activeBlockId={blockId}
                   onSelect={setCurrentBlock}
                 />
               )}
@@ -886,6 +912,22 @@ export default function AttendingSchedule() {
 
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0, alignItems: 'flex-start' }}>
+
+              {/* Copy previous block */}
+              <motion.button
+                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                onClick={handleCopyPreviousBlock}
+                disabled={copying || resetting || !blockId || !previousBlock}
+                style={{
+                  padding: '9px 14px', borderRadius: 10, cursor: (copying || resetting || !blockId || !previousBlock) ? 'not-allowed' : 'pointer',
+                  background: '#EEF4FF', color: '#2C5F8A', border: '1.5px solid #D6E4F7',
+                  fontSize: 13, fontWeight: 600, opacity: (!blockId || !previousBlock) ? 0.5 : 1,
+                }}
+                onMouseEnter={e => { if (blockId && previousBlock && !copying && !resetting) e.currentTarget.style.background = '#DCE9F5'; }}
+                onMouseLeave={e => e.currentTarget.style.background = '#EEF4FF'}
+              >
+                {copying ? 'Copying...' : 'Copy previous block'}
+              </motion.button>
 
               {/* Clear block */}
               <motion.button
