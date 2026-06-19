@@ -66,7 +66,7 @@ const FLAG_PRESETS = [
 
 // ── DayCell (grid) ────────────────────────────────────────────────────────────
 
-const DayCell = memo(function DayCell({ day, attendings, assignment, flag, onClick, isHoliday, animDelay = 0 }) {
+const DayCell = memo(function DayCell({ day, attendings, assignment, flag, onClick, isHoliday }) {
   const weekend = isWeekend(day);
 
   // Split attendings: non-call go in top section, call-day go in bottom
@@ -96,15 +96,22 @@ const DayCell = memo(function DayCell({ day, attendings, assignment, flag, onCli
   const chipBase = { display: 'block', padding: '2px 6px', borderRadius: 4, fontSize: 11, lineHeight: '16px' };
 
   return (
-    <motion.button
-      initial={{ opacity: 0, scale: 0.94 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.2, delay: animDelay }}
-      whileHover={{ y: -2, boxShadow: '0 6px 18px rgba(26,58,92,0.10)' }}
-      whileTap={{ scale: 0.96 }}
+    <button
       onClick={() => onClick(day)}
       className={`flex flex-col text-left w-full${isHoliday ? ' holiday-glow' : ''}`}
-      style={{ background: bg, border, borderRadius: 8, padding: 8, minHeight: 90, cursor: 'pointer', position: 'relative' }}
+      style={{
+        background: bg,
+        border,
+        borderRadius: 8,
+        padding: 8,
+        minHeight: 90,
+        cursor: 'pointer',
+        position: 'relative',
+        transition: 'transform 90ms ease, border-color 90ms ease, background-color 90ms ease',
+        willChange: 'transform',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ''; }}
     >
       {/* Date header row */}
       <div className="flex items-baseline gap-1 mb-1 flex-wrap">
@@ -152,7 +159,7 @@ const DayCell = memo(function DayCell({ day, attendings, assignment, flag, onCli
       {!hasTopSection && !hasBottomSection && (
         <span style={{ fontSize: 10, color: '#CBD5E1', fontStyle: 'italic' }}>Unassigned</span>
       )}
-    </motion.button>
+    </button>
   );
 }, (prevProps, nextProps) => (
   prevProps.day === nextProps.day &&
@@ -160,8 +167,7 @@ const DayCell = memo(function DayCell({ day, attendings, assignment, flag, onCli
   prevProps.assignment === nextProps.assignment &&
   prevProps.flag === nextProps.flag &&
   prevProps.onClick === nextProps.onClick &&
-  prevProps.isHoliday === nextProps.isHoliday &&
-  prevProps.animDelay === nextProps.animDelay
+  prevProps.isHoliday === nextProps.isHoliday
 ));
 
 // ── DayRow (mobile) ───────────────────────────────────────────────────────────
@@ -180,7 +186,7 @@ function DayRow({ day, attendings, assignment, flag, onClick, isHoliday }) {
     : isHoliday ? '#FCA5A5' : weekend ? '#E2E8F0' : 'transparent';
 
   return (
-    <button onClick={onClick} className="w-full flex items-start gap-3 px-4 py-3 text-left transition-all duration-200"
+    <button onClick={onClick} className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors duration-100"
       style={{ background: rowBg, borderLeft: `3px solid ${accentColor}`, borderBottom: '1px solid #F1F5F9' }}
       onMouseEnter={e => { e.currentTarget.style.background = '#F0F5FF'; }}
       onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}
@@ -478,7 +484,7 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
 
   useEffect(() => {
     if (isOpen) {
-      const t = setTimeout(() => setVisible(true), 10);
+      const t = setTimeout(() => setVisible(true), 8);
       return () => clearTimeout(t);
     } else {
       setVisible(false);
@@ -487,7 +493,7 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
 
   if (!day) {
     return (
-      <div className={`modal-backdrop${visible ? ' open' : ''}`} onClick={onClose}>
+      <div className={`modal-backdrop${visible ? ' open' : ''}`} style={{ background: 'rgba(15,23,42,0.34)', backdropFilter: 'none', transition: 'opacity 120ms ease' }} onClick={onClose}>
         <div className={`w-full max-w-sm rounded-t-2xl md:rounded-2xl overflow-hidden modal-panel${visible ? ' open' : ''}`} />
       </div>
     );
@@ -512,11 +518,12 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
   return (
     <div
       className={`modal-backdrop${visible ? ' open' : ''}`}
+      style={{ background: 'rgba(15,23,42,0.34)', backdropFilter: 'none', transition: 'opacity 120ms ease' }}
       onClick={onClose}
     >
       <div
         className={`w-full max-w-sm rounded-t-2xl md:rounded-2xl overflow-hidden modal-panel${visible ? ' open' : ''}`}
-        style={{ background: '#fff', boxShadow: '0 20px 60px rgba(26,58,92,0.18)', border: '1px solid #E8EFF6' }}
+        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6', transition: 'opacity 120ms ease, transform 120ms ease' }}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
@@ -593,16 +600,16 @@ function GenSummaryModal({ summary, onClose }) {
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(3px)' }}
+      style={{ background: 'rgba(15,23,42,0.34)' }}
       onClick={onClose}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 16 }}
-        transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+        transition={{ duration: 0.14, ease: 'easeOut' }}
         className="w-full max-w-sm rounded-2xl overflow-hidden"
-        style={{ background: '#fff', boxShadow: '0 20px 60px rgba(26,58,92,0.18)', border: '1px solid #E8EFF6' }}
+        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
         onClick={e => e.stopPropagation()}
       >
         <div style={{ height: 4, background: 'linear-gradient(90deg, #16A34A 0%, #2C5F8A 100%)' }} />
@@ -692,16 +699,16 @@ function PublishConfirmModal({ onConfirm, onClose, publishing }) {
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(3px)' }}
+      style={{ background: 'rgba(15,23,42,0.34)' }}
       onClick={onClose}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 12 }}
-        transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
+        transition={{ duration: 0.14, ease: 'easeOut' }}
         className="w-full max-w-sm rounded-2xl overflow-hidden"
-        style={{ background: '#fff', boxShadow: '0 20px 60px rgba(26,58,92,0.18)', border: '1px solid #E8EFF6' }}
+        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
         onClick={e => e.stopPropagation()}
       >
         <div style={{ height: 4, background: 'linear-gradient(90deg, #16A34A 0%, #2C5F8A 100%)' }} />
@@ -737,16 +744,16 @@ function ClearConfirmModal({ blockNum, onConfirm, onClose, clearing }) {
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(3px)' }}
+      style={{ background: 'rgba(15,23,42,0.34)' }}
       onClick={onClose}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 12 }}
-        transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
+        transition={{ duration: 0.14, ease: 'easeOut' }}
         className="w-full max-w-sm rounded-2xl overflow-hidden"
-        style={{ background: '#fff', boxShadow: '0 20px 60px rgba(26,58,92,0.18)', border: '1px solid #E8EFF6' }}
+        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
         onClick={e => e.stopPropagation()}
       >
         <div style={{ height: 4, background: '#DC2626' }} />
@@ -794,16 +801,16 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(3px)' }}
+      style={{ background: 'rgba(15,23,42,0.34)' }}
       onClick={onClose}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 12 }}
-        transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+        transition={{ duration: 0.14, ease: 'easeOut' }}
         className="w-full max-w-md rounded-2xl overflow-hidden"
-        style={{ background: '#fff', boxShadow: '0 20px 60px rgba(26,58,92,0.18)', border: '1px solid #E8EFF6' }}
+        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
         onClick={e => e.stopPropagation()}
       >
         <div style={{ height: 4, background: 'linear-gradient(90deg, #16A34A 0%, #2C5F8A 100%)' }} />
@@ -1552,7 +1559,6 @@ export default function Calendar() {
                             flag={flagsMap[toISODate(day)] ?? null}
                             isHoliday={false}
                             onClick={handleDayClick}
-                            animDelay={wi * 0.04 + di * 0.025}
                           />
                         ) : (
                           <div className="h-full rounded-xl" style={{ background: '#F8FAFC', border: '1px solid #F1F5F9', minHeight: 100 }} />
