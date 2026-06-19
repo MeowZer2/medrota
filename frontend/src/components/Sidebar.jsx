@@ -310,7 +310,7 @@ export default function Sidebar({ userName }) {
 
         <button
           onClick={() => setProgramOpen(o => !o)}
-          className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg w-full transition-all duration-200"
+          className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg w-full transition-colors duration-100"
           style={{ background: '#F0F5FF', color: '#4A6FA5', border: 'none', cursor: 'pointer' }}
           onMouseEnter={e => e.currentTarget.style.background = '#E4EDFF'}
           onMouseLeave={e => e.currentTarget.style.background = '#F0F5FF'}
@@ -539,7 +539,7 @@ export default function Sidebar({ userName }) {
           {/* Settings */}
           <div className="relative shrink-0">
             <button
-              className="p-1.5 rounded-lg transition-all duration-200"
+              className="p-1.5 rounded-lg transition-colors duration-100"
               style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
               onMouseEnter={e => { e.currentTarget.style.background = '#F0F5FF'; e.currentTarget.style.color = '#2C5F8A'; setTooltip('settings'); }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94A3B8'; setTooltip(null); }}
@@ -571,7 +571,7 @@ export default function Sidebar({ userName }) {
           {/* Logout */}
           <div className="relative shrink-0">
             <button
-              className="p-1.5 rounded-lg transition-all duration-200"
+              className="p-1.5 rounded-lg transition-colors duration-100"
               style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
               onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626'; setTooltip('logout'); }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94A3B8'; setTooltip(null); }}

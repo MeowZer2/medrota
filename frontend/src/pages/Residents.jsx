@@ -98,7 +98,7 @@ function ServiceToggle({ on, onChange, disabled }) {
 
 // ── ResidentCard — single resident row ────────────────────────────────────────
 
-function ResidentCard({ resident, blockId, onToggleEnroll, onEdit, onRemove, index }) {
+function ResidentCard({ resident, blockId, onToggleEnroll, onEdit, onRemove }) {
   const isMed     = resident.isMedStudent;
   const isService = resident.isServiceResident;
 
@@ -113,10 +113,7 @@ function ResidentCard({ resident, blockId, onToggleEnroll, onEdit, onRemove, ind
   const vacation = parseVacationRanges(resident.vacationDates ?? []);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, delay: index * 0.03 }}
+    <div
       style={{
         display: 'flex', alignItems: 'flex-start', gap: 12,
         padding: '12px 16px', borderRadius: 12,
@@ -205,13 +202,13 @@ function ResidentCard({ resident, blockId, onToggleEnroll, onEdit, onRemove, ind
           </svg>
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
 // ── ResidentSection — a labelled section of resident cards ───────────────────
 
-function ResidentSection({ title, accent, residents, blockId, onToggleEnroll, onEdit, onRemove, emptyLabel, indexOffset = 0 }) {
+function ResidentSection({ title, accent, residents, blockId, onToggleEnroll, onEdit, onRemove, emptyLabel }) {
   return (
     <div style={{ background: '#fff', border: '1px solid #E8EFF6', borderRadius: 16, boxShadow: '0 1px 3px rgba(26,58,92,0.05)', marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderBottom: residents.length > 0 ? '1px solid #F1F5F9' : 'none' }}>
@@ -225,7 +222,7 @@ function ResidentSection({ title, accent, residents, blockId, onToggleEnroll, on
         <p style={{ fontSize: 13, color: '#CBD5E1', fontStyle: 'italic', padding: '14px 18px', textAlign: 'center' }}>{emptyLabel}</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 14px 14px' }}>
-          {residents.map((r, i) => (
+          {residents.map(r => (
             <ResidentCard
               key={r.id}
               resident={r}
@@ -233,7 +230,6 @@ function ResidentSection({ title, accent, residents, blockId, onToggleEnroll, on
               onToggleEnroll={onToggleEnroll}
               onEdit={onEdit}
               onRemove={onRemove}
-              index={indexOffset + i}
             />
           ))}
         </div>
@@ -258,15 +254,15 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(3px)' }}
+      style={{ background: 'rgba(15,23,42,0.34)' }}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.94, y: 16 }}
+        initial={{ opacity: 0, scale: 0.97, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.94, y: 16 }}
-        transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+        exit={{ opacity: 0, scale: 0.97, y: 8 }}
+        transition={{ duration: 0.14, ease: 'easeOut' }}
         className="w-full max-w-md rounded-2xl overflow-hidden max-h-[90vh] flex flex-col"
-        style={{ background: '#fff', boxShadow: '0 20px 60px rgba(26,58,92,0.18)', border: '1px solid #E8EFF6' }}
+        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 shrink-0" style={{ borderBottom: '1px solid #E8EFF6' }}>
@@ -660,7 +656,7 @@ export default function Residents() {
       <Layout>
         {/* Header */}
         <motion.div className="flex flex-wrap items-start gap-3 mb-8"
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.14, ease: 'easeOut' }}>
           <div style={{ flex: '1 1 200px', minWidth: 0 }}>
             <h1 className="text-[28px] font-semibold leading-tight" style={{ color: '#1A3A5C' }}>Residents</h1>
             <p className="mt-1 text-sm" style={{ color: '#94A3B8' }}>
@@ -669,7 +665,7 @@ export default function Residents() {
                 : 'Manage residents for this program'}
             </p>
             <motion.div className="mt-4 h-px" initial={{ width: 0 }} animate={{ width: 192 }}
-              transition={{ duration: 0.6, delay: 0.15 }}
+              transition={{ duration: 0.16, delay: 0.04, ease: 'easeOut' }}
               style={{ background: 'linear-gradient(90deg, #2C5F8A 0%, transparent 100%)' }} />
 
             {/* Block selector */}
@@ -713,7 +709,7 @@ export default function Residents() {
             onAction={() => setModalOpen(true)}
           />
         ) : (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.05 }}>
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.14, delay: 0.02, ease: 'easeOut' }}>
             {/* Service resident sections */}
             <ResidentSection title="Senior Residents" accent="#2C5F8A"
               residents={serviceSeniors} blockId={blockId}

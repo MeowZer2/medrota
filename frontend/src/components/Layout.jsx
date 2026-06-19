@@ -58,7 +58,7 @@ export default function Layout({ children }) {
           </div>
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-lg transition-all duration-200"
+            className="p-2 rounded-lg transition-colors duration-100"
             style={{ color: '#64748B' }}
             onMouseEnter={e => { e.currentTarget.style.background = '#F0F5FF'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}

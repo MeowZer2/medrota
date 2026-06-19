@@ -61,12 +61,12 @@ function StatsSkeleton() {
 // ── animation variants ────────────────────────────────────────────────────────
 
 const staggerContainer = {
-  animate: { transition: { staggerChildren: 0.07 } },
+  animate: { transition: { staggerChildren: 0.02 } },
 };
 
 const fadeSlideUp = {
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } },
+  initial: { opacity: 0, y: 6 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.14, ease: 'easeOut' } },
 };
 
 // ── stat card icons ───────────────────────────────────────────────────────────
@@ -149,8 +149,8 @@ export default function Dashboard() {
       const { data } = await api.get(`/programs/stats?blockId=${blockId}`);
       setStats(data);
       const pct = blockProgress(data.block.startDate, data.block.endDate);
-      setTimeout(() => setBarProgress(pct), 120);
-      setTimeout(() => setBarsVisible(true), 300);
+      setTimeout(() => setBarProgress(pct), 50);
+      setTimeout(() => setBarsVisible(true), 120);
     } catch {
       setStats(null);
     } finally {
@@ -197,7 +197,7 @@ export default function Dashboard() {
     <PageWrapper>
       <Layout>
         {/* Hero greeting */}
-        <motion.div className="mb-6" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+        <motion.div className="mb-6" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.14, ease: 'easeOut' }}>
           <h1 className="md:text-[28px] text-[22px] font-semibold leading-tight" style={{ color: '#1A3A5C' }}>
             {getGreeting()}{userName ? `, ${userName}` : ''}
           </h1>
@@ -206,14 +206,14 @@ export default function Dashboard() {
             className="mt-4 h-px"
             initial={{ width: 0 }}
             animate={{ width: 192 }}
-            transition={{ duration: 0.6, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+            transition={{ duration: 0.16, delay: 0.04, ease: 'easeOut' }}
             style={{ background: 'linear-gradient(90deg, #2C5F8A 0%, transparent 100%)' }}
           />
         </motion.div>
 
         {/* Block selector */}
         {currentAcademicYear?.blocks?.length > 0 && (
-          <motion.div className="mb-6" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 }}>
+          <motion.div className="mb-6" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.14, delay: 0.02, ease: 'easeOut' }}>
             <BlockSelector
               blocks={currentAcademicYear.blocks}
               activeBlockId={currentBlock?.id}
@@ -241,7 +241,7 @@ export default function Dashboard() {
                 <motion.div
                   key={s.key}
                   variants={fadeSlideUp}
-                  whileHover={{ y: -2, boxShadow: '0 8px 24px rgba(26,58,92,0.12)' }}
+                  whileHover={{ y: -1 }}
                   className="bg-white rounded-xl p-5 flex flex-col"
                   style={{
                     border: '1px solid #E8EFF6',
@@ -306,7 +306,7 @@ export default function Dashboard() {
                   className="h-full rounded-full"
                   initial={{ width: '0%' }}
                   animate={{ width: `${barProgress}%` }}
-                  transition={{ duration: 0.9, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  transition={{ duration: 0.18, delay: 0.04, ease: 'easeOut' }}
                   style={{ background: 'linear-gradient(90deg, #1A3A5C 0%, #2C5F8A 100%)' }}
                 />
               </div>
@@ -317,8 +317,8 @@ export default function Dashboard() {
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                 className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white"
                 style={{ background: '#1A3A5C' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#2C5F8A'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(26,58,92,0.25)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#1A3A5C'; e.currentTarget.style.boxShadow = ''; }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#2C5F8A'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#1A3A5C'; }}
               >
                 Auto-generate
               </motion.button>
@@ -412,7 +412,7 @@ export default function Dashboard() {
                           className="w-full rounded-t-md"
                           initial={{ height: 0 }}
                           animate={barsVisible ? { height: Math.max(heightPx, 4) } : { height: 0 }}
-                          transition={{ duration: 0.5, delay: i * 0.06, ease: [0.25, 0.46, 0.45, 0.94] }}
+                          transition={{ duration: 0.16, delay: i * 0.015, ease: 'easeOut' }}
                           style={{
                             background: r.callCount === maxCalls
                               ? 'linear-gradient(180deg, #2C5F8A 0%, #1A3A5C 100%)'

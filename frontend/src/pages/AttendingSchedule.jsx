@@ -1048,9 +1048,9 @@ export default function AttendingSchedule() {
 
         {/* Reset block confirmation modal */}
         {showResetModal && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(3px)' }}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(15,23,42,0.34)' }}
             onClick={() => setShowResetModal(false)}>
-            <div style={{ background: '#fff', borderRadius: 16, maxWidth: 400, width: '100%', overflow: 'hidden', boxShadow: '0 20px 60px rgba(26,58,92,0.18)' }}
+            <div style={{ background: '#fff', borderRadius: 16, maxWidth: 400, width: '100%', overflow: 'hidden', boxShadow: '0 14px 36px rgba(26,58,92,0.16)' }}
               onClick={e => e.stopPropagation()}>
               <div style={{ height: 4, background: '#C2410C' }} />
               <div style={{ padding: '24px 24px 20px' }}>
@@ -1075,9 +1075,9 @@ export default function AttendingSchedule() {
 
         {/* Clear block confirmation modal */}
         {showClearModal && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(3px)' }}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(15,23,42,0.34)' }}
             onClick={() => setShowClearModal(false)}>
-            <div style={{ background: '#fff', borderRadius: 16, maxWidth: 400, width: '100%', overflow: 'hidden', boxShadow: '0 20px 60px rgba(26,58,92,0.18)' }}
+            <div style={{ background: '#fff', borderRadius: 16, maxWidth: 400, width: '100%', overflow: 'hidden', boxShadow: '0 14px 36px rgba(26,58,92,0.16)' }}
               onClick={e => e.stopPropagation()}>
               <div style={{ height: 4, background: '#DC2626' }} />
               <div style={{ padding: '24px 24px 20px' }}>
