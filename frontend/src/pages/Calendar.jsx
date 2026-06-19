@@ -777,8 +777,11 @@ function ClearConfirmModal({ blockNum, onConfirm, onClose, clearing }) {
 
 // ── PublishSuccessModal ──────────────────────────────────────────────────────
 
-function PublishSuccessModal({ publicUrl, onClose }) {
+function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
   const [copied, setCopied] = useState(false);
+  const publishedLabel = publishedAt
+    ? new Date(publishedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+    : null;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(publicUrl).then(() => {
@@ -812,6 +815,13 @@ function PublishSuccessModal({ publicUrl, onClose }) {
           </div>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1A3A5C', margin: '0 0 6px' }}>Schedule published!</h2>
           <p style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>Share this link with your team.</p>
+
+          {(publishedLabel || versionId) && (
+            <div className="rounded-lg px-3 py-2 mb-4" style={{ background: '#F8FAFC', border: '1px solid #E8EFF6' }}>
+              {publishedLabel && <p style={{ fontSize: 12, color: '#1A3A5C', margin: 0 }}>Published {publishedLabel}</p>}
+              {versionId && <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>Version {versionId.slice(0, 8)}</p>}
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             <input
@@ -1149,6 +1159,7 @@ export default function Calendar() {
   const [publishPulsing, setPublishPulsing]     = useState(false);
   const [showPublishModal, setShowPublishModal]     = useState(false);
   const [showPublishSuccess, setShowPublishSuccess] = useState(false);
+  const [publishResult, setPublishResult]           = useState(null);
   const [publishing, setPublishing]                 = useState(false);
   const [exportingExcel, setExportingExcel]         = useState(false);
   const [showClearModal, setShowClearModal]         = useState(false);
@@ -1402,10 +1413,13 @@ export default function Calendar() {
       await refreshContext();
       // Update currentBlock to the refreshed version with new publicToken
       setCurrentBlock(prev => prev ? { ...prev, isPublished: true, publicToken: data.publicToken } : prev);
+      setPublishResult(data);
       setPublishPulsing(true);
       setTimeout(() => setPublishPulsing(false), 1200);
       setShowPublishModal(false);
       setShowPublishSuccess(true);
+      const publishedLabel = data.publishedAt ? new Date(data.publishedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'now';
+      toast.success(`Schedule published ${publishedLabel}`);
     } catch {
       toast.error('Failed to publish');
       setShowPublishModal(false);
@@ -1623,6 +1637,8 @@ export default function Calendar() {
           {showPublishSuccess && publicUrl && (
             <PublishSuccessModal
               publicUrl={publicUrl}
+              publishedAt={publishResult?.publishedAt}
+              versionId={publishResult?.versionId}
               onClose={() => setShowPublishSuccess(false)}
             />
           )}
