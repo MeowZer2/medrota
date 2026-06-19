@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma  = require('../lib/prisma');
 const ExcelJS = require('exceljs');
+const { shapePublicSchedule } = require('../services/publicScheduleShape');
 
 const router = express.Router();
 // No auth middleware — fully public
@@ -19,23 +20,27 @@ router.get('/:token/export/excel', async (req, res) => {
     const latestVersion = await prisma.scheduleVersion.findFirst({
       where: { blockId: block.id },
       orderBy: { publishedAt: 'desc' },
+      select: { snapshotJson: true, publishedAt: true },
     });
     if (!latestVersion) return res.status(404).json({ error: 'No published version' });
 
-    const snapshot    = latestVersion.snapshotJson;
-    const blockData   = snapshot.block;
+    const publicSchedule = shapePublicSchedule({
+      snapshot: latestVersion.snapshotJson,
+      publishedAt: latestVersion.publishedAt,
+    });
+    const blockData   = publicSchedule.block;
     const programName = blockData.programName ?? 'Program';
 
     const holidayMap = {};
     for (const h of blockData.holidays ?? []) { holidayMap[new Date(h.date).toISOString().slice(0, 10)] = h.name; }
     const attendingMap = {};
-    for (const e of snapshot.attendingEntries ?? []) {
+    for (const e of publicSchedule.attendingEntries ?? []) {
       const iso = new Date(e.date).toISOString().slice(0, 10);
       if (!attendingMap[iso]) attendingMap[iso] = [];
       attendingMap[iso].push(e);
     }
     const assignMap = {};
-    for (const cd of snapshot.callDays ?? []) {
+    for (const cd of publicSchedule.callDays ?? []) {
       const iso = new Date(cd.date).toISOString().slice(0, 10);
       assignMap[iso] = cd.assignments ?? [];
     }
@@ -175,6 +180,7 @@ router.get('/:token', async (req, res) => {
     const latestVersion = await prisma.scheduleVersion.findFirst({
       where: { blockId: block.id },
       orderBy: { publishedAt: 'desc' },
+      select: { snapshotJson: true, publishedAt: true },
     });
 
     if (!latestVersion) {
@@ -183,22 +189,16 @@ router.get('/:token', async (req, res) => {
 
     // Return the frozen snapshot — NOT live data
     // Flags are fetched live (they're editorial annotations, not part of the snapshot)
-    const snapshot = latestVersion.snapshotJson;
     const flags = await prisma.dayFlag.findMany({
       where: { blockId: block.id },
+      select: { date: true, label: true, color: true },
       orderBy: { date: 'asc' },
     });
-    res.json({
-      block: {
-        ...snapshot.block,
-        isPublished: true,
-        publicToken: token,
-      },
-      attendingEntries: snapshot.attendingEntries,
-      callDays:         snapshot.callDays,
-      publishedAt:      latestVersion.publishedAt,
+    res.json(shapePublicSchedule({
+      snapshot: latestVersion.snapshotJson,
+      publishedAt: latestVersion.publishedAt,
       flags,
-    });
+    }));
   } catch (err) {
     console.error('[public/:token] Error:', err.message);
     res.status(500).json({ error: 'Internal server error' });
