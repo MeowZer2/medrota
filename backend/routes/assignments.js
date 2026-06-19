@@ -38,13 +38,28 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'blockId, date, residentId, roleOnDay required' });
   }
 
-  const dayDate = new Date(date);
+  const requestedDate = new Date(date);
+  const startOfDay = new Date(
+    requestedDate.getFullYear(),
+    requestedDate.getMonth(),
+    requestedDate.getDate()
+  );
+  const nextDay = new Date(startOfDay);
+  nextDay.setDate(nextDay.getDate() + 1);
 
-  let callDay = await prisma.callDay.findFirst({ where: { blockId, date: dayDate } });
+  let callDay = await prisma.callDay.findFirst({
+    where: {
+      blockId,
+      date: {
+        gte: startOfDay,
+        lt: nextDay,
+      },
+    },
+  });
 
   if (!callDay) {
     callDay = await prisma.callDay.create({
-      data: { blockId, date: dayDate, attendingEntryId: attendingEntryId ?? null },
+      data: { blockId, date: startOfDay, attendingEntryId: attendingEntryId ?? null },
     });
   } else if (attendingEntryId !== undefined) {
     callDay = await prisma.callDay.update({

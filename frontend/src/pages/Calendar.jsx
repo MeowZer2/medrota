@@ -14,10 +14,12 @@ import {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
+function apiDateKey(value) { return String(value).slice(0, 10); }
+
 function buildAssignmentsMap(list) {
   const map = {};
   for (const a of list) {
-    const iso = toISODate(new Date(a.callDay.date));
+    const iso = apiDateKey(a.callDay.date);
     if (!map[iso]) map[iso] = { callDayId: a.callDay.id };
     if (a.roleOnDay === 'senior') {
       map[iso].seniorId = a.residentId;
@@ -31,8 +33,6 @@ function buildAssignmentsMap(list) {
   }
   return map;
 }
-
-function apiDateKey(value) { return String(value).slice(0, 10); }
 
 // ── Chip ──────────────────────────────────────────────────────────────────────
 
@@ -1013,25 +1013,26 @@ export default function Calendar() {
 
   const blockNum  = parseInt(blockNumber ?? '1', 10);
   const programId = currentProgram?.programId ?? null;
+  const routeBlock = blockNumber && currentAcademicYear?.blocks
+    ? currentAcademicYear.blocks.find(b => b.number === blockNum)
+    : null;
+  const shownBlock = routeBlock ?? currentBlock;
 
   // Sync currentBlock from context when navigating directly to a block URL
   useEffect(() => {
-    if (currentAcademicYear?.blocks) {
-      const matchingBlock = currentAcademicYear.blocks.find(b => b.number === blockNum);
-      if (matchingBlock && matchingBlock.id !== currentBlock?.id) {
-        setCurrentBlock(matchingBlock);
-      }
+    if (routeBlock && routeBlock.id !== currentBlock?.id) {
+      setCurrentBlock(routeBlock);
     }
-  }, [blockNum, currentAcademicYear, currentBlock?.id, setCurrentBlock]);
+  }, [routeBlock, currentBlock?.id, setCurrentBlock]);
 
-  const blockId = currentBlock?.id ?? null;
+  const blockId = shownBlock?.id ?? null;
 
   const days = useMemo(() => {
-    if (currentBlock?.startDate && currentBlock?.endDate) {
-      return getDaysFromDates(currentBlock.startDate, currentBlock.endDate);
+    if (shownBlock?.startDate && shownBlock?.endDate) {
+      return getDaysFromDates(shownBlock.startDate, shownBlock.endDate);
     }
     return getDaysInBlock(blockNum);
-  }, [currentBlock, blockNum]);
+  }, [shownBlock, blockNum]);
 
   const [attendingEntries, setAttendingEntries] = useState([]);
   const [assignmentsMap, setAssignmentsMap]     = useState({});
