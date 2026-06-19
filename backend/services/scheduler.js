@@ -297,6 +297,39 @@ async function generateSchedule(blockId) {
 
   console.log(`[scheduler] block spans ${days.length} days (${toISO(days[0])} → ${toISO(days[days.length - 1])})`);
 
+  const existingCallDays = await prisma.callDay.findMany({
+    where: { blockId },
+    include: {
+      assignments: {
+        where: { isOverride: true },
+        include: { resident: true },
+      },
+    },
+  });
+  const overrideByIso = new Map();
+  const residentById = new Map(residents.map(r => [r.id, r]));
+
+  for (const callDay of existingCallDays) {
+    const iso = toISO(new Date(callDay.date));
+    const info = { callDay, hasSenior: false, hasJunior: false, assignments: callDay.assignments };
+
+    for (const assignment of callDay.assignments) {
+      if (assignment.roleOnDay === 'senior') info.hasSenior = true;
+      if (assignment.roleOnDay === 'junior') info.hasJunior = true;
+
+      const resident = residentById.get(assignment.residentId);
+      if (resident) {
+        resident.callCount++;
+        resident.assigned.add(iso);
+        const day = new Date(callDay.date);
+        const dow = day.getUTCDay();
+        if (dow === 5 || dow === 6 || dow === 0) applyWeekendState(resident, day, dow);
+      }
+    }
+
+    if (callDay.assignments.length > 0) overrideByIso.set(iso, info);
+  }
+
   // ── Phase 1: Assign seniors + regular juniors ─────────────────────────────────
   let assignedCount = 0;
   const warnings = [];
@@ -310,13 +343,17 @@ async function generateSchedule(blockId) {
     const dow       = day.getUTCDay();
     const isWeekendDay = dow === 5 || dow === 6 || dow === 0;
 
-    const callDay = await prisma.callDay.create({
+    const overrideInfo = overrideByIso.get(iso);
+    const callDay = overrideInfo?.callDay ?? await prisma.callDay.create({
       data: { blockId, date: day, isHoliday },
     });
 
-    dayMap.set(iso, { callDayId: callDay.id, day, hasSenior: false, hasJunior: false });
+    let dayHasSenior = overrideInfo?.hasSenior ?? false;
+    let dayHasJunior = overrideInfo?.hasJunior ?? false;
+    dayMap.set(iso, { callDayId: callDay.id, day, hasSenior: dayHasSenior, hasJunior: dayHasJunior });
 
     if (isHoliday) {
+      if (dayHasSenior || dayHasJunior) assignedCount++;
       console.log(`[scheduler] ${iso} HOLIDAY — skipping`);
       continue;
     }
@@ -351,15 +388,12 @@ async function generateSchedule(blockId) {
 
     console.log(`[scheduler] ${iso} — eligible seniors: [${seniors.map(r => r.name).join(', ')}] juniors: [${juniors.map(r => r.name).join(', ')}]`);
 
-    let dayHasSenior = false;
-    let dayHasJunior = false;
-
     // ── Assign senior ──────────────────────────────────────────────────────────
-    let seniorCandidates = seniors;
+    let seniorCandidates = dayHasSenior ? [] : seniors;
 
     // Weekend fallback: if no eligible senior on a weekend due to weekend constraints,
     // pick the resident with fewest calls who is not on vacation
-    if (seniorCandidates.length === 0 && isWeekendDay) {
+    if (!dayHasSenior && seniorCandidates.length === 0 && isWeekendDay) {
       const relaxed = regularResidents
         .filter(r => r.role === 'senior' && !r.vacationSet.has(iso) && r.callCount < r.maxCalls)
         .sort((a, b) => a.callCount - b.callCount);
@@ -367,11 +401,9 @@ async function generateSchedule(blockId) {
         const r = relaxed[0];
         await prisma.callAssignment.create({
           data: {
-            callDayId:      callDay.id,
-            residentId:     r.id,
-            roleOnDay:      'senior',
-            isOverride:     true,
-            overrideReason: 'weekend-constraint-relaxed',
+            callDayId:  callDay.id,
+            residentId: r.id,
+            roleOnDay:  'senior',
           },
         });
         r.callCount++;
@@ -401,11 +433,11 @@ async function generateSchedule(blockId) {
     }
 
     // ── Assign junior ──────────────────────────────────────────────────────────
-    let juniorCandidates = juniors;
+    let juniorCandidates = dayHasJunior ? [] : juniors;
 
     // Weekend fallback: if no eligible junior on a weekend due to weekend constraints,
     // pick the resident with fewest calls who is not on vacation
-    if (juniorCandidates.length === 0 && isWeekendDay) {
+    if (!dayHasJunior && juniorCandidates.length === 0 && isWeekendDay) {
       const relaxed = regularResidents
         .filter(r => r.role === 'junior' && !r.vacationSet.has(iso) && r.callCount < r.maxCalls)
         .sort((a, b) => a.callCount - b.callCount);
@@ -413,11 +445,9 @@ async function generateSchedule(blockId) {
         const r = relaxed[0];
         await prisma.callAssignment.create({
           data: {
-            callDayId:      callDay.id,
-            residentId:     r.id,
-            roleOnDay:      'junior',
-            isOverride:     true,
-            overrideReason: 'weekend-constraint-relaxed',
+            callDayId:  callDay.id,
+            residentId: r.id,
+            roleOnDay:  'junior',
           },
         });
         r.callCount++;
@@ -461,6 +491,8 @@ async function generateSchedule(blockId) {
     for (const [iso, info] of dayMap) {
       if (holidaySet.has(iso)) continue;
       if (!info.hasSenior) continue; // no senior — med student cannot observe
+
+      if (info.hasJunior) continue;  // existing junior coverage, including overrides
 
       const day    = info.day;
       const prevIso = toISO(addDays(day, -1));

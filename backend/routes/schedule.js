@@ -15,14 +15,22 @@ router.post('/generate', async (req, res) => {
   try {
     console.log(`[schedule/generate] blockId=${blockId} — pre-clearing existing data`);
     // Step 1: find all CallDay ids for this block
-    const callDays = await prisma.callDay.findMany({ where: { blockId } });
+    const callDays = await prisma.callDay.findMany({ where: { blockId }, include: { assignments: true } });
     const callDayIds = callDays.map(d => d.id);
-    // Step 2: delete all CallAssignments for those days first (respects FK constraint)
+    // Step 2: delete generated assignments only; manual overrides seed the generator.
     if (callDayIds.length > 0) {
-      await prisma.callAssignment.deleteMany({ where: { callDayId: { in: callDayIds } } });
+      await prisma.callAssignment.deleteMany({ where: { callDayId: { in: callDayIds }, isOverride: false } });
     }
-    // Step 3: now safe to delete CallDays
-    await prisma.callDay.deleteMany({ where: { blockId } });
+    // Step 3: delete only empty CallDays, preserving days with manual overrides.
+    const remainingOverrideDays = await prisma.callDay.findMany({
+      where: { blockId, assignments: { some: {} } },
+      select: { id: true },
+    });
+    const keepIds = new Set(remainingOverrideDays.map(d => d.id));
+    const emptyCallDayIds = callDayIds.filter(id => !keepIds.has(id));
+    if (emptyCallDayIds.length > 0) {
+      await prisma.callDay.deleteMany({ where: { id: { in: emptyCallDayIds } } });
+    }
 
     const summary = await generateSchedule(blockId);
     console.log(`[schedule/generate] done: assigned=${summary.assigned}/${summary.workDays} warnings=${summary.warnings.length}`);
@@ -41,12 +49,14 @@ router.delete('/clear', async (req, res) => {
     // Step 1: find all CallDay ids for this block
     const callDays = await prisma.callDay.findMany({ where: { blockId } });
     const callDayIds = callDays.map(d => d.id);
-    // Step 2: delete all CallAssignments for those days first (respects FK constraint)
+    // Step 2: delete generated assignments only; preserve manual overrides.
     if (callDayIds.length > 0) {
-      await prisma.callAssignment.deleteMany({ where: { callDayId: { in: callDayIds } } });
+      await prisma.callAssignment.deleteMany({ where: { callDayId: { in: callDayIds }, isOverride: false } });
     }
-    // Step 3: now safe to delete CallDays
-    const { count } = await prisma.callDay.deleteMany({ where: { blockId } });
+    // Step 3: delete only empty CallDays.
+    const { count } = await prisma.callDay.deleteMany({
+      where: { blockId, assignments: { none: {} } },
+    });
     res.json({ cleared: count });
   } catch (err) {
     console.error('[schedule/clear] Error:', err.message);

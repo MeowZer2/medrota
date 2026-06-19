@@ -48,7 +48,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/assignments — upsert CallDay + assignment for (blockId, date, residentId, roleOnDay)
 router.post('/', async (req, res) => {
-  const { blockId, date, residentId, roleOnDay, attendingEntryId } = req.body;
+  const { blockId, date, residentId, roleOnDay, attendingEntryId, isOverride, overrideReason } = req.body;
   if (!blockId || !date || !residentId || !roleOnDay) {
     return res.status(400).json({ error: 'blockId, date, residentId, roleOnDay required' });
   }
@@ -82,8 +82,23 @@ router.post('/', async (req, res) => {
   });
 
   const assignment = existing
-    ? await prisma.callAssignment.update({ where: { id: existing.id }, data: { roleOnDay } })
-    : await prisma.callAssignment.create({ data: { callDayId: callDay.id, residentId, roleOnDay } });
+    ? await prisma.callAssignment.update({
+        where: { id: existing.id },
+        data: {
+          roleOnDay,
+          ...(isOverride !== undefined && { isOverride }),
+          ...(overrideReason !== undefined && { overrideReason }),
+        },
+      })
+    : await prisma.callAssignment.create({
+        data: {
+          callDayId: callDay.id,
+          residentId,
+          roleOnDay,
+          isOverride: isOverride ?? false,
+          overrideReason: overrideReason ?? null,
+        },
+      });
 
   res.status(201).json({ callDay, assignment });
 });

@@ -1176,12 +1176,12 @@ export default function Calendar() {
       let newSeniorAid, newJuniorAid;
 
       if (seniorId) {
-        const { data } = await api.post('/assignments', { blockId, date: iso, residentId: seniorId, roleOnDay: 'senior', attendingEntryId });
+        const { data } = await api.post('/assignments', { blockId, date: iso, residentId: seniorId, roleOnDay: 'senior', attendingEntryId, isOverride: true, overrideReason: 'manual' });
         newCallDayId = data.callDay.id;
         newSeniorAid = data.assignment.id;
       }
       if (juniorId) {
-        const { data } = await api.post('/assignments', { blockId, date: iso, residentId: juniorId, roleOnDay: 'junior', attendingEntryId });
+        const { data } = await api.post('/assignments', { blockId, date: iso, residentId: juniorId, roleOnDay: 'junior', attendingEntryId, isOverride: true, overrideReason: 'manual' });
         newCallDayId = data.callDay.id;
         newJuniorAid = data.assignment.id;
       }
