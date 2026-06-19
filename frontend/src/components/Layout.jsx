@@ -32,7 +32,7 @@ export default function Layout({ children }) {
         <div className="fixed inset-0 z-40 md:hidden">
           <div
             className="absolute inset-0"
-            style={{ background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(2px)' }}
+            style={{ background: 'rgba(15,23,42,0.34)' }}
             onClick={() => setSidebarOpen(false)}
           />
           <div className="relative z-50 h-full">

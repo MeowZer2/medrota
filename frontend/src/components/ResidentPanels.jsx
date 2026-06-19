@@ -1,5 +1,5 @@
 // Shared resident UI components used by both Residents.jsx and BlockPage.jsx
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 // ── icons ─────────────────────────────────────────────────────────────────────
 
@@ -113,15 +113,14 @@ export function ResidentRow({ resident, onRemove, onEdit }) {
   const ranges   = parseVacationRanges(resident.vacationDates);
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, x: -12 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
-      transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
-      whileHover={{ y: -1, boxShadow: '0 4px 12px rgba(26,58,92,0.09)' }}
+    <div
       className="flex items-center gap-3 px-4 py-3 rounded-xl group"
-      style={{ border: '1px solid #E8EFF6', background: '#fff', cursor: 'default' }}
+      style={{
+        border: '1px solid #E8EFF6',
+        background: '#fff',
+        cursor: 'default',
+        transition: 'background 100ms ease, border-color 100ms ease',
+      }}
     >
       {/* Avatar */}
       <div
@@ -153,34 +152,32 @@ export function ResidentRow({ resident, onRemove, onEdit }) {
       {/* Action buttons — show on hover */}
       <div className="flex items-center gap-1 shrink-0">
         {onEdit && (
-          <motion.button
-            whileTap={{ scale: 0.9 }}
+          <button
             onClick={() => onEdit(resident)}
-            className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200"
+            className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-100"
             style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
             onMouseEnter={e => { e.currentTarget.style.background = '#EEF4FF'; e.currentTarget.style.color = '#2C5F8A'; }}
             onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = '#94A3B8'; }}
             title="Edit resident"
           >
             <PencilIcon />
-          </motion.button>
+          </button>
         )}
 
         {onRemove && (
-          <motion.button
-            whileTap={{ scale: 0.9 }}
+          <button
             onClick={() => onRemove(resident.id)}
-            className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200"
+            className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-100"
             style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
             onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626'; }}
             onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = '#94A3B8'; }}
             title="Remove resident"
           >
             <TrashIcon />
-          </motion.button>
+          </button>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -207,21 +204,13 @@ export function ResidentPanel({ title, accent, residents, onRemove, onEdit, empt
       </div>
 
       <div className="flex flex-col gap-2 p-3" style={{ background: '#F8FAFC', minHeight: 120 }}>
-        <AnimatePresence mode="popLayout">
-          {residents.length === 0 ? (
-            <motion.div
-              key="empty"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex items-center justify-center py-8"
-            >
-              <p className="text-sm" style={{ color: '#CBD5E1' }}>{emptyLabel}</p>
-            </motion.div>
-          ) : (
-            residents.map(r => <ResidentRow key={r.id} resident={r} onRemove={onRemove} onEdit={onEdit} />)
-          )}
-        </AnimatePresence>
+        {residents.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <p className="text-sm" style={{ color: '#CBD5E1' }}>{emptyLabel}</p>
+          </div>
+        ) : (
+          residents.map(r => <ResidentRow key={r.id} resident={r} onRemove={onRemove} onEdit={onEdit} />)
+        )}
       </div>
     </div>
   );

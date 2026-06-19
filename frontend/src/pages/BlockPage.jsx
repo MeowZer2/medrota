@@ -152,7 +152,7 @@ export default function BlockPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className="px-5 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+              className="px-5 py-2 rounded-lg text-sm font-medium transition-colors duration-100"
               style={{
                 background: active ? '#fff' : 'transparent',
                 color: active ? '#1A3A5C' : '#5A7A9A',
@@ -183,7 +183,7 @@ export default function BlockPage() {
           </div>
           <button
             onClick={() => navigate(`/blocks/${num}/calendar`)}
-            className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all duration-200"
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors duration-100"
             style={{ background: '#1A3A5C' }}
             onMouseEnter={e => { e.currentTarget.style.background = '#2C5F8A'; }}
             onMouseLeave={e => { e.currentTarget.style.background = '#1A3A5C'; }}

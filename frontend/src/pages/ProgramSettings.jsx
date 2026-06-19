@@ -359,16 +359,16 @@ export default function ProgramSettings() {
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4"
-              style={{ background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(3px)' }}
+              style={{ background: 'rgba(15,23,42,0.34)' }}
               onClick={() => setSnapshotModal(null)}
             >
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 16 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 16 }}
-                transition={{ duration: 0.25 }}
+                transition={{ duration: 0.14, ease: 'easeOut' }}
                 className="w-full max-w-2xl max-h-[80vh] rounded-2xl overflow-hidden flex flex-col"
-                style={{ background: '#fff', boxShadow: '0 20px 60px rgba(26,58,92,0.18)', border: '1px solid #E8EFF6' }}
+                style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
                 onClick={e => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
