@@ -1202,33 +1202,39 @@ export default function Calendar() {
 
   const handleAutoGenerate = useCallback(async () => {
     if (!blockId) { toast.error('No block selected'); return; }
+    const currentBlockId = blockId;
     setGenerating(true);
     try {
-      const { data: summary } = await api.post('/schedule/generate', { blockId });
-      const { data: asgn } = await api.get(`/assignments?blockId=${blockId}`);
+      const { data: summary } = await api.post('/schedule/generate', { blockId: currentBlockId });
+      const { data: asgn } = await api.get(`/assignments?blockId=${currentBlockId}`);
+      if (latestBlockIdRef.current !== currentBlockId) return;
       setAssignmentsMap(buildAssignmentsMap(asgn));
       setGenSummary(summary);
-      toast.success('Schedule generated!');
+      const warningText = summary.warnings?.length ? ` (${summary.warnings.length} warning${summary.warnings.length === 1 ? '' : 's'})` : '';
+      toast.success(`Schedule generated${warningText}!`);
     } catch (err) {
       toast.error(err.response?.data?.error ?? 'Failed to generate schedule');
     } finally {
-      setGenerating(false);
+      if (latestBlockIdRef.current === currentBlockId) setGenerating(false);
     }
   }, [blockId]);
 
   const handleClearSchedule = useCallback(async () => {
     if (!blockId) return;
+    const currentBlockId = blockId;
     setClearing(true);
     try {
-      await api.delete('/schedule/clear', { data: { blockId } });
-      setAssignmentsMap({});
+      await api.delete('/schedule/clear', { data: { blockId: currentBlockId } });
+      const { data: asgn } = await api.get(`/assignments?blockId=${currentBlockId}`);
+      if (latestBlockIdRef.current !== currentBlockId) return;
+      setAssignmentsMap(buildAssignmentsMap(asgn));
       setGenSummary(null);
       setShowClearModal(false);
       toast.success('Schedule cleared successfully');
     } catch (err) {
       toast.error(err.response?.data?.error ?? 'Failed to clear schedule');
     } finally {
-      setClearing(false);
+      if (latestBlockIdRef.current === currentBlockId) setClearing(false);
     }
   }, [blockId]);
 
