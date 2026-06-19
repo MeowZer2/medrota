@@ -133,6 +133,57 @@ router.post('/publish', async (req, res) => {
   }
 });
 
+// GET /api/schedule/diagnostics?blockId= — non-destructive duplicate logical-day report
+router.get('/diagnostics', async (req, res) => {
+  const { blockId } = req.query;
+  if (!blockId) return res.status(400).json({ error: 'blockId required' });
+
+  try {
+    const [callDays, attendingEntries] = await Promise.all([
+      prisma.callDay.findMany({
+        where: { blockId },
+        select: { id: true, date: true, assignments: { select: { id: true } } },
+        orderBy: { date: 'asc' },
+      }),
+      prisma.attendingEntry.findMany({
+        where: { blockId },
+        select: { id: true, date: true, attendingName: true, activityLabel: true, isCallDay: true },
+        orderBy: { date: 'asc' },
+      }),
+    ]);
+
+    const dateKey = value => new Date(value).toISOString().slice(0, 10);
+    const duplicateGroups = (items, keyFor) => {
+      const groups = new Map();
+      for (const item of items) {
+        const key = keyFor(item);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(item);
+      }
+      return [...groups.entries()]
+        .filter(([, rows]) => rows.length > 1)
+        .map(([key, rows]) => ({ key, count: rows.length, rows }));
+    };
+
+    const duplicateCallDays = duplicateGroups(callDays, d => dateKey(d.date));
+    const duplicateAttendingEntries = duplicateGroups(
+      attendingEntries,
+      e => `${dateKey(e.date)}|${e.attendingName}|${e.activityLabel}`
+    );
+
+    res.json({
+      blockId,
+      callDayCount: callDays.length,
+      attendingEntryCount: attendingEntries.length,
+      duplicateCallDays,
+      duplicateAttendingEntries,
+    });
+  } catch (err) {
+    console.error('[schedule/diagnostics] Error:', err.message);
+    res.status(500).json({ error: 'Failed to build diagnostics' });
+  }
+});
+
 // GET /api/schedule/export/excel?blockId=
 router.get('/export/excel', async (req, res) => {
   const { blockId } = req.query;
