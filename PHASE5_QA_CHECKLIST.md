@@ -1,6 +1,6 @@
 # Phase 5 Scheduling QA
 
-Status: passed regression audit after commit `4230e68`.
+Status: closed after mock-backed regression audit and real local DB persistence check.
 
 Automated smoke check:
 
@@ -20,13 +20,29 @@ This mock-backed smoke check does not touch the database. It validates:
 - Duplicate diagnostics route wiring exists.
 - Publish success UI is wired to `publishedAt` and `versionId`.
 
-Manual persistence spot-checks:
+Real local DB persistence check:
 
-- Create a manual assignment, reload, and confirm `isOverride` remains persisted.
-- Run auto-generate and confirm the manual override remains.
-- Clear generated schedule and confirm manual overrides remain.
-- Save block settings, restart backend, reload the block, and confirm settings persist.
-- Publish a schedule, restart backend, reload the block, and confirm published status persists.
-- Call `GET /api/schedule/diagnostics?blockId=<blockId>` on a test block with known duplicates and confirm duplicate groups are reported without mutations.
+```powershell
+cd backend
+npm run phase5:db
+```
 
-Phase 5 is ready to close if these spot-checks pass against a local test database.
+This check uses the existing Prisma client and the configured local PostgreSQL database. It creates one isolated organization named with the `MedRota PHASE5_DB_` prefix, verifies Phase 5 persistence behavior with fresh database reads, and removes its own test organization when complete.
+
+The DB-backed check validates:
+
+- Manual override assignments persist after fresh Prisma reads.
+- Auto-generate preserves manual overrides.
+- Clear schedule preserves overrides and removes generated assignments.
+- Block settings persist after update and reload.
+- Published block state, public token, and schedule version persist.
+- `maxCallsPerResident`, `maxCallsMedStudent`, and academic-day avoidance affect generation.
+- Generated assignments do not duplicate residents or create multiple juniors on a day.
+
+Latest closeout checks:
+
+- `cd backend && npm run phase5:smoke`: passed.
+- `cd backend && node --check scripts/phase5-db-persistence.js`: passed.
+- `cd backend && npm run phase5:db`: passed.
+
+Phase 5 is closed and ready for Phase 6 planning.
