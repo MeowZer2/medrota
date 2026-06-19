@@ -5,6 +5,25 @@ const auth    = require('../middleware/auth');
 const router = express.Router();
 router.use(auth);
 
+function startOfLogicalDay(value) {
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  }
+  const date = new Date(value);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function addDays(date, count) {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + count);
+  return next;
+}
+
+function nextLogicalDay(value) {
+  return addDays(value, 1);
+}
+
 // GET /api/attending-template?programId=
 // Returns template entries grouped by attendingName:
 // [{ attendingName, days: [{ id, dayOfWeek, activityLabel }] }]
@@ -101,20 +120,20 @@ router.post('/:programId/apply/:blockId', async (req, res) => {
     const block = await prisma.block.findUnique({ where: { id: bId } });
     if (!block) return { created: 0, updated: 0 };
 
-    const start = new Date(block.startDate);
-    const end   = new Date(block.endDate);
-    const cur   = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const endL  = new Date(end.getFullYear(),   end.getMonth(),   end.getDate());
+    const cur   = startOfLogicalDay(block.startDate);
+    const endL  = startOfLogicalDay(block.endDate);
     const days  = [];
-    while (cur <= endL) { days.push(new Date(cur)); cur.setDate(cur.getDate() + 1); }
+    while (cur <= endL) {
+      days.push(new Date(cur));
+      cur.setUTCDate(cur.getUTCDate() + 1);
+    }
 
     let created = 0, updated = 0;
     for (const day of days) {
-      const monBasedDow = (day.getDay() + 6) % 7;
+      const monBasedDow = (day.getUTCDay() + 6) % 7;
       const entries = template.filter(t => t.dayOfWeek === monBasedDow);
-      const startOfDay = new Date(day);
-      const nextDay = new Date(day);
-      nextDay.setDate(nextDay.getDate() + 1);
+      const startOfDay = startOfLogicalDay(day);
+      const nextDay = nextLogicalDay(startOfDay);
       for (const t of entries) {
         const existing = await prisma.attendingEntry.findFirst({
           where: {
@@ -136,7 +155,7 @@ router.post('/:programId/apply/:blockId', async (req, res) => {
           await prisma.attendingEntry.create({
             data: {
               blockId: bId,
-              date: day,
+              date: startOfDay,
               attendingName: t.attendingName,
               activityLabel: t.activityLabel,
               isCallDay: false,

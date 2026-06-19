@@ -6,19 +6,23 @@ const router = express.Router();
 router.use(auth);
 
 function startOfLogicalDay(value) {
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  }
   const date = new Date(value);
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
 function nextLogicalDay(value) {
   const next = new Date(value);
-  next.setDate(next.getDate() + 1);
+  next.setUTCDate(next.getUTCDate() + 1);
   return next;
 }
 
 function addDays(date, count) {
   const next = new Date(date);
-  next.setDate(next.getDate() + count);
+  next.setUTCDate(next.getUTCDate() + count);
   return next;
 }
 
@@ -233,7 +237,7 @@ router.put('/:id', async (req, res) => {
     where: { id },
     data: {
       ...(attendingName  !== undefined && { attendingName }),
-      ...(date           !== undefined && { date: new Date(date) }),
+      ...(date           !== undefined && { date: startOfLogicalDay(date) }),
       ...(activityLabel  !== undefined && { activityLabel }),
       ...(notes          !== undefined && { notes }),
       ...(isCallDay      !== undefined && { isCallDay }),

@@ -14,16 +14,25 @@ const prisma = require('../lib/prisma');
 // ── helpers ────────────────────────────────────────────────────────────────────
 
 function toISO(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(date.getUTCDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
 
 function addDays(date, n) {
   const d = new Date(date);
-  d.setDate(d.getDate() + n);
+  d.setUTCDate(d.getUTCDate() + n);
   return d;
+}
+
+function startOfLogicalDay(value) {
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  }
+  const date = new Date(value);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
 function isWeekday(dow) { return dow >= 1 && dow <= 5; }
@@ -36,15 +45,15 @@ function isWeekday(dow) { return dow >= 1 && dow <= 5; }
  */
 function getWeekKey(date) {
   const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
+  d.setUTCHours(0, 0, 0, 0);
   // If Sunday, shift to the previous day (Saturday) before computing the week key
-  if (d.getDay() === 0) d.setDate(d.getDate() - 1);
+  if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() - 1);
   // Standard ISO week number (Monday = start of week)
-  const dow = d.getDay() || 7; // Mon=1 … Sun=7
-  d.setDate(d.getDate() + 4 - dow); // shift to Thursday (ISO week anchor)
-  const yearStart = new Date(d.getFullYear(), 0, 1);
+  const dow = d.getUTCDay() || 7; // Mon=1 … Sun=7
+  d.setUTCDate(d.getUTCDate() + 4 - dow); // shift to Thursday (ISO week anchor)
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-  return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`;
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
 /** Build fresh weekend-state object for a resident (reset each scheduler run). */
@@ -246,7 +255,7 @@ async function generateSchedule(blockId) {
 
   function isEligible(r, day, ignoreWeekendState = false) {
     const iso = toISO(day);
-    const dow = day.getDay();
+    const dow = day.getUTCDay();
 
     if (r.vacationSet.has(iso))    return { ok: false, reason: 'vacation' };
     if (r.callCount >= r.maxCalls) return { ok: false, reason: `cap(${r.callCount}/${r.maxCalls})` };
@@ -254,7 +263,7 @@ async function generateSchedule(blockId) {
     // No back-to-back weekday calls
     const prevDay = addDays(day, -1);
     const prevIso = toISO(prevDay);
-    const prevDow = prevDay.getDay();
+    const prevDow = prevDay.getUTCDay();
     if (isWeekday(dow) && isWeekday(prevDow) && r.assigned.has(prevIso)) {
       return { ok: false, reason: 'back-to-back-weekday' };
     }
@@ -279,11 +288,12 @@ async function generateSchedule(blockId) {
 
   // ── Generate day list ─────────────────────────────────────────────────────────
   const days = [];
-  const blockStart = new Date(block.startDate);
-  const blockEnd   = new Date(block.endDate);
-  const cur = new Date(blockStart.getFullYear(), blockStart.getMonth(), blockStart.getDate());
-  const end = new Date(blockEnd.getFullYear(),   blockEnd.getMonth(),   blockEnd.getDate());
-  while (cur <= end) { days.push(new Date(cur)); cur.setDate(cur.getDate() + 1); }
+  const cur = startOfLogicalDay(block.startDate);
+  const end = startOfLogicalDay(block.endDate);
+  while (cur <= end) {
+    days.push(new Date(cur));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
 
   console.log(`[scheduler] block spans ${days.length} days (${toISO(days[0])} → ${toISO(days[days.length - 1])})`);
 
@@ -297,7 +307,7 @@ async function generateSchedule(blockId) {
   for (const day of days) {
     const iso       = toISO(day);
     const isHoliday = holidaySet.has(iso);
-    const dow       = day.getDay();
+    const dow       = day.getUTCDay();
     const isWeekendDay = dow === 5 || dow === 6 || dow === 0;
 
     const callDay = await prisma.callDay.create({

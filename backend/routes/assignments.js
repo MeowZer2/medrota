@@ -5,6 +5,21 @@ const auth = require('../middleware/auth');
 const router = express.Router();
 router.use(auth);
 
+function startOfLogicalDay(value) {
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  }
+  const date = new Date(value);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function nextLogicalDay(value) {
+  const next = new Date(value);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next;
+}
+
 // GET /api/assignments?blockId= — all assignments for a block (joined with date + resident)
 // GET /api/assignments?callDayId= — assignments for one call day
 router.get('/', async (req, res) => {
@@ -38,14 +53,8 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'blockId, date, residentId, roleOnDay required' });
   }
 
-  const requestedDate = new Date(date);
-  const startOfDay = new Date(
-    requestedDate.getFullYear(),
-    requestedDate.getMonth(),
-    requestedDate.getDate()
-  );
-  const nextDay = new Date(startOfDay);
-  nextDay.setDate(nextDay.getDate() + 1);
+  const startOfDay = startOfLogicalDay(date);
+  const nextDay = nextLogicalDay(startOfDay);
 
   let callDay = await prisma.callDay.findFirst({
     where: {
