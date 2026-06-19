@@ -582,9 +582,9 @@ async function clearSchedule(blockId) {
   const callDays = await prisma.callDay.findMany({ where: { blockId } });
   const callDayIds = callDays.map(d => d.id);
   if (callDayIds.length > 0) {
-    await prisma.callAssignment.deleteMany({ where: { callDayId: { in: callDayIds } } });
+    await prisma.callAssignment.deleteMany({ where: { callDayId: { in: callDayIds }, isOverride: false } });
   }
-  const { count } = await prisma.callDay.deleteMany({ where: { blockId } });
+  const { count } = await prisma.callDay.deleteMany({ where: { blockId, assignments: { none: {} } } });
   return { cleared: count };
 }
 
