@@ -16,6 +16,14 @@ import {
 
 function apiDateKey(value) { return String(value).slice(0, 10); }
 
+const DEFAULT_BLOCK_SETTINGS = {
+  maxCallsPerResident: 9,
+  maxCallsMedStudent: 5,
+  allowWeekendConsecutive: false,
+  allowAttendingOnlyDays: false,
+  avoidAcademicDays: true,
+};
+
 function buildAssignmentsMap(list) {
   const map = {};
   for (const a of list) {
@@ -853,6 +861,88 @@ function Spinner() {
     style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />;
 }
 
+function BlockSettingsPanel({ settings, saving, loading, onChange, onSave }) {
+  const numberInputStyle = {
+    width: 72,
+    padding: '7px 9px',
+    borderRadius: 8,
+    border: '1px solid #DCE6F1',
+    color: '#1A3A5C',
+    fontSize: 13,
+    fontWeight: 600,
+    background: '#fff',
+  };
+
+  const labelStyle = { fontSize: 12, color: '#64748B', fontWeight: 600 };
+  const toggleLabelStyle = { fontSize: 12, color: '#1A3A5C', fontWeight: 600 };
+
+  const updateNumber = (key) => (event) => {
+    onChange({ ...settings, [key]: Number(event.target.value) });
+  };
+  const updateBoolean = (key) => (event) => {
+    onChange({ ...settings, [key]: event.target.checked });
+  };
+
+  return (
+    <div className="rounded-xl mb-4 px-5 py-4"
+      style={{ border: '1px solid #E8EFF6', background: '#fff', boxShadow: '0 1px 3px rgba(26,58,92,0.05)' }}>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: '#1A3A5C', margin: 0 }}>Block Settings</h2>
+          <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>Used by auto-generate for this block</p>
+        </div>
+        <button
+          onClick={onSave}
+          disabled={saving || loading}
+          className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
+          style={{ background: '#1A3A5C', border: 'none', cursor: saving || loading ? 'not-allowed' : 'pointer', opacity: saving || loading ? 0.7 : 1 }}
+          onMouseEnter={e => { if (!saving && !loading) e.currentTarget.style.background = '#2C5F8A'; }}
+          onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}
+        >
+          {saving ? 'Saving...' : 'Save settings'}
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-4">
+        <label className="flex items-center gap-2">
+          <span style={labelStyle}>Max resident calls</span>
+          <input
+            type="number"
+            min="1"
+            max="30"
+            value={settings.maxCallsPerResident}
+            onChange={updateNumber('maxCallsPerResident')}
+            style={numberInputStyle}
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          <span style={labelStyle}>Max med student calls</span>
+          <input
+            type="number"
+            min="0"
+            max="30"
+            value={settings.maxCallsMedStudent}
+            onChange={updateNumber('maxCallsMedStudent')}
+            style={numberInputStyle}
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={settings.allowWeekendConsecutive} onChange={updateBoolean('allowWeekendConsecutive')} />
+          <span style={toggleLabelStyle}>Allow weekend consecutive</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={settings.allowAttendingOnlyDays} onChange={updateBoolean('allowAttendingOnlyDays')} />
+          <span style={toggleLabelStyle}>Allow attending-only days</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={settings.avoidAcademicDays} onChange={updateBoolean('avoidAcademicDays')} />
+          <span style={toggleLabelStyle}>Avoid academic days</span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
 const CalendarTopBar = memo(function CalendarTopBar({
   blockNum, blockStart, blockEnd, days, assignmentMap,
   onAutoGenerate, generating,
@@ -1051,10 +1141,35 @@ export default function Calendar() {
   const [exportingExcel, setExportingExcel]         = useState(false);
   const [showClearModal, setShowClearModal]         = useState(false);
   const [clearing, setClearing]                     = useState(false);
+  const [blockSettings, setBlockSettings]           = useState(DEFAULT_BLOCK_SETTINGS);
+  const [settingsLoading, setSettingsLoading]       = useState(false);
+  const [settingsSaving, setSettingsSaving]         = useState(false);
   const latestBlockIdRef = useRef(blockId);
 
   useEffect(() => {
     latestBlockIdRef.current = blockId;
+  }, [blockId]);
+
+  useEffect(() => {
+    if (!blockId) return;
+    const currentBlockId = blockId;
+    let cancelled = false;
+
+    async function fetchSettings() {
+      setSettingsLoading(true);
+      try {
+        const { data } = await api.get(`/blocks/${currentBlockId}/settings`);
+        if (cancelled || latestBlockIdRef.current !== currentBlockId) return;
+        setBlockSettings({ ...DEFAULT_BLOCK_SETTINGS, ...data });
+      } catch (err) {
+        if (!cancelled) toast.error(err.response?.data?.error ?? 'Failed to load block settings');
+      } finally {
+        if (!cancelled && latestBlockIdRef.current === currentBlockId) setSettingsLoading(false);
+      }
+    }
+
+    fetchSettings();
+    return () => { cancelled = true; };
   }, [blockId]);
 
   // Derived from context — persists across tab switches
@@ -1219,6 +1334,30 @@ export default function Calendar() {
     }
   }, [blockId]);
 
+  const handleSaveSettings = useCallback(async () => {
+    if (!blockId) return;
+    const currentBlockId = blockId;
+    const payload = {
+      maxCallsPerResident: Math.max(1, Number(blockSettings.maxCallsPerResident) || DEFAULT_BLOCK_SETTINGS.maxCallsPerResident),
+      maxCallsMedStudent: Math.max(0, Number(blockSettings.maxCallsMedStudent) || DEFAULT_BLOCK_SETTINGS.maxCallsMedStudent),
+      allowWeekendConsecutive: Boolean(blockSettings.allowWeekendConsecutive),
+      allowAttendingOnlyDays: Boolean(blockSettings.allowAttendingOnlyDays),
+      avoidAcademicDays: Boolean(blockSettings.avoidAcademicDays),
+    };
+
+    setSettingsSaving(true);
+    try {
+      const { data } = await api.put(`/blocks/${currentBlockId}/settings`, payload);
+      if (latestBlockIdRef.current !== currentBlockId) return;
+      setBlockSettings({ ...DEFAULT_BLOCK_SETTINGS, ...data });
+      toast.success('Block settings saved');
+    } catch (err) {
+      toast.error(err.response?.data?.error ?? 'Failed to save block settings');
+    } finally {
+      if (latestBlockIdRef.current === currentBlockId) setSettingsSaving(false);
+    }
+  }, [blockId, blockSettings]);
+
   const handleClearSchedule = useCallback(async () => {
     if (!blockId) return;
     const currentBlockId = blockId;
@@ -1331,8 +1470,8 @@ export default function Calendar() {
       <Layout>
         <CalendarTopBar
           blockNum={blockNum}
-          blockStart={currentBlock?.startDate}
-          blockEnd={currentBlock?.endDate}
+          blockStart={shownBlock?.startDate}
+          blockEnd={shownBlock?.endDate}
           days={days}
           assignmentMap={assignmentsMap}
           onAutoGenerate={handleAutoGenerate}
@@ -1348,6 +1487,14 @@ export default function Calendar() {
           exportingExcel={exportingExcel}
           onViewPublished={handleViewPublished}
           blockId={blockId}
+        />
+
+        <BlockSettingsPanel
+          settings={blockSettings}
+          saving={settingsSaving}
+          loading={settingsLoading}
+          onChange={setBlockSettings}
+          onSave={handleSaveSettings}
         />
 
         {loadingData ? (
