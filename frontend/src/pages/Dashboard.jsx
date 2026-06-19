@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../api/axios';
-import { useApp } from '../context/AppContext';
+import { useBlock, useUser } from '../context/AppContext';
 import Layout from '../components/Layout';
 import PageWrapper from '../components/PageWrapper';
 import EmptyState from '../components/EmptyState';
@@ -135,7 +135,8 @@ function fmtActivityTime(timestamp) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { currentUser, currentProgram, currentBlock, setCurrentBlock, currentAcademicYear } = useApp();
+  const { currentUser, currentProgram } = useUser();
+  const { currentBlock, setCurrentBlock, currentAcademicYear } = useBlock();
 
   const [stats, setStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);

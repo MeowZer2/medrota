@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../api/axios';
-import { useApp } from '../context/AppContext';
+import { useUser } from '../context/AppContext';
 
 export default function JoinProgram() {
   const { token }       = useParams();
   const navigate        = useNavigate();
-  const { currentUser, refreshContext } = useApp();
+  const { currentUser, refreshContext } = useUser();
   const [status, setStatus] = useState('loading'); // loading | joining | success | error
   const [message, setMessage] = useState('');
 
@@ -39,7 +39,7 @@ export default function JoinProgram() {
         setStatus('error');
         setMessage(msg);
       });
-  }, [token, currentUser]);
+  }, [token, currentUser, navigate, refreshContext]);
 
   const content = {
     loading: { icon: null, title: 'Checking invite…', sub: '', spinner: true },

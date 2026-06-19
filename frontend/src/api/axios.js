@@ -9,10 +9,6 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  console.log('[axios]', config.method?.toUpperCase(), config.baseURL + config.url, {
-    hasAuth: !!config.headers.Authorization,
-    body: config.data,
-  });
   return config;
 });
 

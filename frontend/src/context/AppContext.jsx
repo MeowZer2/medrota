@@ -1,7 +1,9 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../api/axios';
 
 const AppContext = createContext(null);
+const UserContext = createContext(null);
+const BlockContext = createContext(null);
 
 export function AppProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -86,7 +88,7 @@ export function AppProvider({ children }) {
 
   // Re-fetch program when token changes (login/logout).
   // Returns a promise so callers can await full context reload.
-  function refreshContext() {
+  const refreshContext = useCallback(() => {
     const token = localStorage.getItem('token');
     if (!token) {
       setCurrentUser(null);
@@ -104,24 +106,50 @@ export function AppProvider({ children }) {
     } catch { /* ignore */ }
     setLoading(true);
     return fetchProgram();
-  }
+  }, [fetchProgram]);
+
+  const userValue = useMemo(() => ({
+    currentUser,
+    currentProgram,
+    hasProgram,
+    loading,
+    refreshContext,
+  }), [currentUser, currentProgram, hasProgram, loading, refreshContext]);
+
+  const blockValue = useMemo(() => ({
+    currentBlock,
+    setCurrentBlock,
+    academicYears,
+    currentAcademicYear,
+    setCurrentAcademicYear,
+  }), [currentBlock, academicYears, currentAcademicYear]);
+
+  const appValue = useMemo(() => ({
+    ...userValue,
+    ...blockValue,
+  }), [userValue, blockValue]);
 
   return (
-    <AppContext.Provider value={{
-      currentUser,
-      currentProgram,
-      currentBlock,
-      setCurrentBlock,
-      academicYears,
-      currentAcademicYear,
-      setCurrentAcademicYear,
-      hasProgram,
-      loading,
-      refreshContext,
-    }}>
-      {children}
-    </AppContext.Provider>
+    <UserContext.Provider value={userValue}>
+      <BlockContext.Provider value={blockValue}>
+        <AppContext.Provider value={appValue}>
+          {children}
+        </AppContext.Provider>
+      </BlockContext.Provider>
+    </UserContext.Provider>
   );
+}
+
+export function useUser() {
+  const ctx = useContext(UserContext);
+  if (!ctx) throw new Error('useUser must be used inside AppProvider');
+  return ctx;
+}
+
+export function useBlock() {
+  const ctx = useContext(BlockContext);
+  if (!ctx) throw new Error('useBlock must be used inside AppProvider');
+  return ctx;
 }
 
 export function useApp() {

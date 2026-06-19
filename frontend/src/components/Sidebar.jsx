@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { memo, useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useApp } from '../context/AppContext';
+import { useBlock, useUser } from '../context/AppContext';
 import api from '../api/axios';
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -253,15 +253,11 @@ function YearSwitcher({ years, current, onChange, onAddYear, addingYear }) {
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
-export default function Sidebar({ userName }) {
+const Sidebar = memo(function Sidebar({ userName }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const {
-    currentProgram, currentUser,
-    currentBlock, setCurrentBlock,
-    academicYears, currentAcademicYear, setCurrentAcademicYear,
-    refreshContext,
-  } = useApp();
+  const { currentProgram, currentUser, refreshContext } = useUser();
+  const { currentBlock, setCurrentBlock, academicYears, currentAcademicYear, setCurrentAcademicYear } = useBlock();
 
   const [programOpen, setProgramOpen] = useState(false);
   const [tooltip, setTooltip] = useState(null);
@@ -603,4 +599,6 @@ export default function Sidebar({ userName }) {
       </div>
     </aside>
   );
-}
+});
+
+export default Sidebar;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import Layout from '../components/Layout';
@@ -6,7 +6,7 @@ import PageWrapper from '../components/PageWrapper';
 import { ResidentListSkeleton } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import api from '../api/axios';
-import { useApp } from '../context/AppContext';
+import { useBlock, useUser } from '../context/AppContext';
 import BlockSelector from '../components/BlockSelector';
 import { PlusIcon, PgyBadge, CallBadge, VacationRangePill, parseVacationRanges, labelStyle, inputStyle } from '../components/ResidentPanels';
 
@@ -571,7 +571,8 @@ function EditModal({ resident, blockId, onClose, onSaved }) {
 // ── main page ─────────────────────────────────────────────────────────────────
 
 export default function Residents() {
-  const { currentProgram, currentBlock, setCurrentBlock, currentAcademicYear } = useApp();
+  const { currentProgram } = useUser();
+  const { currentBlock, setCurrentBlock, currentAcademicYear } = useBlock();
   const programId     = currentProgram?.programId ?? null;
   const blockId       = currentBlock?.id ?? null;
   const allYearBlocks = currentAcademicYear?.blocks ?? [];
@@ -580,21 +581,37 @@ export default function Residents() {
   const [loading, setLoading]             = useState(false);
   const [modalOpen, setModalOpen]         = useState(false);
   const [editingResident, setEditingResident] = useState(null);
+  const latestBlockIdRef = useRef(blockId);
 
-  const fetchResidents = useCallback(async () => {
+  useEffect(() => {
+    latestBlockIdRef.current = blockId;
+  }, [blockId]);
+
+  const fetchResidents = useCallback(async ({ signal } = {}) => {
     if (!programId) return;
+    const currentBlockId = blockId;
     setLoading(true);
     try {
-      const url = blockId
-        ? `/residents?programId=${programId}&blockId=${blockId}`
+      const url = currentBlockId
+        ? `/residents?programId=${programId}&blockId=${currentBlockId}`
         : `/residents?programId=${programId}`;
-      const { data } = await api.get(url);
+      const { data } = await api.get(url, { signal });
+      if (latestBlockIdRef.current !== currentBlockId) return;
       setResidents(data);
-    } catch { /* silently fail */ }
-    finally { setLoading(false); }
+    } catch (err) {
+      if (err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') {
+        // Keep the existing silent failure behavior.
+      }
+    } finally {
+      if (!signal?.aborted && latestBlockIdRef.current === currentBlockId) setLoading(false);
+    }
   }, [programId, blockId]);
 
-  useEffect(() => { fetchResidents(); }, [fetchResidents]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchResidents({ signal: controller.signal });
+    return () => controller.abort();
+  }, [fetchResidents]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 

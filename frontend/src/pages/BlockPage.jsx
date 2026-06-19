@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { ResidentPanel } from '../components/ResidentPanels';
 import api from '../api/axios';
-import { useApp } from '../context/AppContext';
+import { useUser } from '../context/AppContext';
 
 // Placeholder block date ranges (replace when real block data is wired up)
 const BLOCK_DATES = {
@@ -56,7 +56,7 @@ function ScheduleTab({ blockNum }) {
 // ── residents tab ─────────────────────────────────────────────────────────────
 
 function ResidentsTab() {
-  const { currentProgram } = useApp();
+  const { currentProgram } = useUser();
   const programId = currentProgram?.programId ?? null;
   const [residents, setResidents] = useState([]);
   const [loading, setLoading] = useState(false);

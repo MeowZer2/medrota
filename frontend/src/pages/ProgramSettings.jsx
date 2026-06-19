@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import Layout from '../components/Layout';
 import PageWrapper from '../components/PageWrapper';
 import api from '../api/axios';
-import { useApp } from '../context/AppContext';
+import { useBlock, useUser } from '../context/AppContext';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -34,7 +34,8 @@ function Label({ children }) {
 // ── main ──────────────────────────────────────────────────────────────────────
 
 export default function ProgramSettings() {
-  const { currentUser, currentProgram, currentBlock, refreshContext } = useApp();
+  const { currentUser, currentProgram, refreshContext } = useUser();
+  const { currentBlock } = useBlock();
   const navigate = useNavigate();
   const programId = currentProgram?.programId;
 
@@ -66,16 +67,16 @@ export default function ProgramSettings() {
   const [members, setMembers]       = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
 
-  const loadMembers = () => {
+  const loadMembers = useCallback(() => {
     if (!programId) return;
     setLoadingMembers(true);
     api.get(`/programs/${programId}/members`)
       .then(({ data }) => setMembers(data))
       .catch(() => toast.error('Failed to load members'))
       .finally(() => setLoadingMembers(false));
-  };
+  }, [programId]);
 
-  useEffect(() => { loadMembers(); }, [programId]);
+  useEffect(() => { loadMembers(); }, [loadMembers]);
 
   const handleRoleChange = async (userId, role) => {
     try {

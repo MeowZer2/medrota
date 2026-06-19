@@ -186,7 +186,7 @@ export function ResidentRow({ resident, onRemove, onEdit }) {
 
 // ── resident panel ────────────────────────────────────────────────────────────
 
-export function ResidentPanel({ title, accent, residents, onRemove, onEdit, emptyLabel, onAdd }) {
+export function ResidentPanel({ title, accent, residents, onRemove, onEdit, emptyLabel }) {
   return (
     <div
       className="flex flex-col rounded-xl overflow-hidden"

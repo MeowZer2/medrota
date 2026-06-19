@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
-import { AppProvider, useApp } from './context/AppContext';
+import { AppProvider, useUser } from './context/AppContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -17,7 +17,7 @@ import JoinProgram from './pages/JoinProgram';
 
 function AnimatedRoutes() {
   const location = useLocation();
-  const { currentUser, hasProgram, loading } = useApp();
+  const { currentUser, hasProgram, loading } = useUser();
 
   // Public paths that skip auth redirect
   const isPublicPath =

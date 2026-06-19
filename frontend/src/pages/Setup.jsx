@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import api from '../api/axios';
-import { useApp } from '../context/AppContext';
+import { useUser } from '../context/AppContext';
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -110,7 +110,7 @@ function Confetti() {
 
 export default function Setup() {
   const navigate = useNavigate();
-  const { refreshContext } = useApp();
+  const { refreshContext } = useUser();
 
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -139,11 +139,6 @@ export default function Setup() {
     e.preventDefault();
     setLoading(true);
     try {
-      console.log('[Setup] POST /organizations', {
-        url: 'http://localhost:3000/api/organizations',
-        token: localStorage.getItem('token') ? 'present' : 'MISSING',
-        body: { name: orgName, country },
-      });
       const { data } = await api.post('/organizations', { name: orgName, country });
       setOrgId(data.organization.id);
       setStep(2);

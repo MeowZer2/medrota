@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 import Layout from '../components/Layout';
 import PageWrapper from '../components/PageWrapper';
 import api from '../api/axios';
-import { useApp } from '../context/AppContext';
+import { useBlock } from '../context/AppContext';
 
 // ── Toggle ────────────────────────────────────────────────────────────────────
 
@@ -69,7 +69,7 @@ function NumberInput({ value, onChange, min = 0, max = 30 }) {
 export default function BlockSettings() {
   const { blockNumber } = useParams();
   const navigate        = useNavigate();
-  const { currentAcademicYear, setCurrentBlock } = useApp();
+  const { currentAcademicYear } = useBlock();
 
   // Resolve the block from context
   const block = currentAcademicYear?.blocks?.find(b => String(b.number) === String(blockNumber));
