@@ -91,23 +91,40 @@ async function generateSchedule(blockId) {
   );
 
   // ── Build resident state ──────────────────────────────────────────────────────
-  let usedFallback = false;
-  let enrollmentSource = block.enrollments;
+  const programId = block.academicYear?.program?.id;
+  const activeServiceResidents = programId
+    ? await prisma.residentProfile.findMany({
+        where: { programId, isActive: true, isServiceResident: true },
+        orderBy: { createdAt: 'asc' },
+      })
+    : [];
 
-  // Fallback: if fewer than 2 residents enrolled, load all program residents
-  if (enrollmentSource.length < 2 && block.academicYear?.program?.id) {
-    console.warn(`[scheduler] Only ${enrollmentSource.length} enrollments for block ${blockId}, falling back to ALL program residents`);
-    usedFallback = true;
-    const allResidents = await prisma.residentProfile.findMany({
-      where: { programId: block.academicYear.program.id },
-    });
-    console.log(`[scheduler] Fallback: found ${allResidents.length} residents for program ${block.academicYear.program.id}`);
-    enrollmentSource = allResidents.map(r => ({
-      resident: r,
-      vacationDates: [],
-      callCapOverride: null,
-    }));
+  const enrollmentByResidentId = new Map();
+
+  // Explicit enrollments carry block-specific data and include off-service
+  // residents and med students. If present, these values must win.
+  for (const enrollment of block.enrollments) {
+    enrollmentByResidentId.set(enrollment.resident.id, enrollment);
   }
+
+  // Service residents are program-level participants and often do not have
+  // BlockEnrollment rows unless they have vacations or overrides for this block.
+  for (const resident of activeServiceResidents) {
+    if (!enrollmentByResidentId.has(resident.id)) {
+      enrollmentByResidentId.set(resident.id, {
+        resident,
+        vacationDates: [],
+        academicDayPref: null,
+        callCapOverride: null,
+      });
+    }
+  }
+
+  const enrollmentSource = [...enrollmentByResidentId.values()];
+  const usedFallback = enrollmentSource.length > block.enrollments.length;
+
+  console.log(`[scheduler] active service residents: ${activeServiceResidents.length}`);
+  console.log(`[scheduler] merged resident pool: ${enrollmentSource.length}`);
 
   const residents = enrollmentSource.map(e => {
     const defaultMax = e.resident.isMedStudent ? cfg.maxCallsMedStudent : cfg.maxCallsPerResident;
