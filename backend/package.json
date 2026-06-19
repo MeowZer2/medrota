@@ -7,6 +7,7 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "phase5:smoke": "node scripts/phase5-smoke.js",
+    "phase5:db": "node scripts/phase5-db-persistence.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
