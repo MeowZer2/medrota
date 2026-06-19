@@ -76,6 +76,7 @@ async function generateSchedule(blockId) {
       settings: true,
       academicYear: { include: { holidays: true, program: true } },
       enrollments: { include: { resident: true } },
+      flags: true,
     },
   });
 
@@ -97,6 +98,11 @@ async function generateSchedule(blockId) {
 
   const holidaySet = new Set(
     block.academicYear.holidays.map(h => toISO(new Date(h.date)))
+  );
+  const academicDaySet = new Set(
+    (block.flags ?? [])
+      .filter(f => /academic/i.test(f.label ?? ''))
+      .map(f => toISO(new Date(f.date)))
   );
 
   // ── Build resident state ──────────────────────────────────────────────────────
@@ -355,6 +361,12 @@ async function generateSchedule(blockId) {
     if (isHoliday) {
       if (dayHasSenior || dayHasJunior) assignedCount++;
       console.log(`[scheduler] ${iso} HOLIDAY — skipping`);
+      continue;
+    }
+
+    if (cfg.avoidAcademicDays && academicDaySet.has(iso)) {
+      warnings.push({ date: iso, message: 'Skipped academic day' });
+      console.log(`[scheduler] ${iso} academic day - skipping`);
       continue;
     }
 
