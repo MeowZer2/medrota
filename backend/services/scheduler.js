@@ -523,6 +523,9 @@ async function generateSchedule(blockId) {
 
   // ── Summary ───────────────────────────────────────────────────────────────────
   const workDays    = days.filter(d => !holidaySet.has(toISO(d))).length;
+  const unassignedDates = [...dayMap.entries()]
+    .filter(([iso, info]) => !holidaySet.has(iso) && !info.hasSenior && !info.hasJunior)
+    .map(([iso]) => iso);
   const callSummary = residents
     .map(r => ({ name: r.name, role: r.role, isMedStudent: r.isMedStudent, calls: r.callCount }))
     .sort((a, b) => b.calls - a.calls);
@@ -553,7 +556,8 @@ async function generateSchedule(blockId) {
     totalDays:   days.length,
     workDays,
     assigned:    assignedCount,
-    unassigned:  workDays - assignedCount,
+    unassigned:  unassignedDates.length,
+    unassignedDates,
     warnings,
     callSummary,
     usedFallback,

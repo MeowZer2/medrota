@@ -650,6 +650,18 @@ function GenSummaryModal({ summary, onClose }) {
             </div>
           )}
 
+          {summary.unassignedDates?.length > 0 && (
+            <div className="mb-4 px-3 py-2 rounded-lg" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>
+                Unassigned Dates ({summary.unassignedDates.length})
+              </p>
+              <p style={{ fontSize: 11, color: '#92400E', lineHeight: 1.5 }}>
+                {summary.unassignedDates.slice(0, 12).join(', ')}
+                {summary.unassignedDates.length > 12 ? `, +${summary.unassignedDates.length - 12} more` : ''}
+              </p>
+            </div>
+          )}
+
           {summary.warnings?.length > 0 && (
             <div className="mb-4 max-h-32 overflow-y-auto">
               <p style={{ fontSize: 10, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
