@@ -6,7 +6,7 @@ import Layout from '../components/Layout';
 import PageWrapper from '../components/PageWrapper';
 import BlockSelector from '../components/BlockSelector';
 import api from '../api/axios';
-import { useApp } from '../context/AppContext';
+import { useBlock, useUser } from '../context/AppContext';
 import {
   getDaysFromDates, getDaysInBlock, isWeekend,
   toISODate, fmtShort, fmtDay, DAYS_OF_WEEK,
@@ -14,6 +14,7 @@ import {
 
 // Mon=0 … Sun=6
 function monBasedDow(date) { return (date.getDay() + 6) % 7; }
+function apiDateKey(value) { return String(value).slice(0, 10); }
 
 // ── shared styles ─────────────────────────────────────────────────────────────
 
@@ -365,7 +366,7 @@ function EntryRow({ entry, roster, dow, template, onSave, onDelete }) {
 
 // ── DayRow — one collapsible day in the day list ──────────────────────────────
 
-function DayRow({ day, iso, entries, roster, template, isExpanded, isLast, onToggle, onAddEntry, onSaveEntry, onDeleteEntry, onResetRow }) {
+function DayRow({ day, entries, roster, template, isExpanded, isLast, onToggle, onAddEntry, onSaveEntry, onDeleteEntry, onResetRow }) {
   const weekend  = isWeekend(day);
   const isOnCall = entries.some(e => e.isCallDay);
   const dow      = monBasedDow(day);
@@ -577,14 +578,25 @@ function OnCallSummary({ days, schedule }) {
 
 export default function AttendingSchedule() {
   const { blockNumber } = useParams();
-  const { currentBlock, setCurrentBlock, currentProgram, currentAcademicYear } = useApp();
+  const { currentProgram } = useUser();
+  const { currentBlock, setCurrentBlock, currentAcademicYear } = useBlock();
 
   const blockNum  = blockNumber ? parseInt(blockNumber, 10) : (currentBlock?.number ?? 1);
-  const blockId   = currentBlock?.id ?? null;
   const programId = currentProgram?.programId ?? null;
+  const routeBlock = blockNumber && currentAcademicYear?.blocks
+    ? currentAcademicYear.blocks.find(b => b.number === blockNum)
+    : null;
+  const shownBlock = routeBlock ?? currentBlock;
+  const blockId   = shownBlock?.id ?? null;
 
-  const days = (currentBlock?.startDate && currentBlock?.endDate)
-    ? getDaysFromDates(currentBlock.startDate, currentBlock.endDate)
+  useEffect(() => {
+    if (routeBlock && routeBlock.id !== currentBlock?.id) {
+      setCurrentBlock(routeBlock);
+    }
+  }, [routeBlock, currentBlock?.id, setCurrentBlock]);
+
+  const days = (shownBlock?.startDate && shownBlock?.endDate)
+    ? getDaysFromDates(shownBlock.startDate, shownBlock.endDate)
     : getDaysInBlock(blockNum);
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -604,6 +616,11 @@ export default function AttendingSchedule() {
   const [showResetModal, setShowResetModal] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const [resetting, setResetting]           = useState(false);
+  const latestBlockIdRef = useRef(blockId);
+
+  useEffect(() => {
+    latestBlockIdRef.current = blockId;
+  }, [blockId]);
 
   // ── Fetch helpers ──────────────────────────────────────────────────────────
 
@@ -613,26 +630,12 @@ export default function AttendingSchedule() {
     setRoster(data.map(r => ({ id: r.id, name: r.attendingName, activities: r.typicalActivities })));
   }, [programId]);
 
-  const fetchTemplate = useCallback(async () => {
-    if (!programId) return;
-    const { data } = await api.get(`/attending-template?programId=${programId}`);
-    // data: [{ attendingName, days: [{ id, dayOfWeek, activityLabel }] }]
-    const map = {};
-    for (const att of data) {
-      map[att.attendingName] = {};
-      for (const d of att.days) {
-        map[att.attendingName][d.dayOfWeek] = { id: d.id, activityLabel: d.activityLabel };
-      }
-    }
-    setTemplate(map);
-  }, [programId]);
-
   const fetchSchedule = useCallback(async () => {
     if (!blockId) return;
     const { data } = await api.get(`/attending?blockId=${blockId}`);
     const map = {};
     for (const e of data) {
-      const iso = toISODate(new Date(e.date));
+      const iso = apiDateKey(e.date);
       if (!map[iso]) map[iso] = [];
       map[iso].push({ id: e.id, attendingName: e.attendingName, activityLabel: e.activityLabel ?? '', isCallDay: e.isCallDay ?? false });
     }
@@ -640,11 +643,61 @@ export default function AttendingSchedule() {
   }, [blockId]);
 
   useEffect(() => {
+    if (!programId && !blockId) {
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const { signal } = controller;
+    const currentBlockId = blockId;
+    let cancelled = false;
+
     setLoading(true);
-    Promise.all([fetchRoster(), fetchTemplate(), fetchSchedule()])
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [fetchRoster, fetchTemplate, fetchSchedule]);
+
+    async function fetchAll() {
+      try {
+        const [rosterRes, templateRes, scheduleRes] = await Promise.all([
+          programId ? api.get(`/attending/roster?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
+          programId ? api.get(`/attending-template?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
+          currentBlockId ? api.get(`/attending?blockId=${currentBlockId}`, { signal }) : Promise.resolve({ data: [] }),
+        ]);
+
+        if (cancelled || latestBlockIdRef.current !== currentBlockId) return;
+
+        setRoster(rosterRes.data.map(r => ({ id: r.id, name: r.attendingName, activities: r.typicalActivities })));
+
+        const templateMap = {};
+        for (const att of templateRes.data) {
+          templateMap[att.attendingName] = {};
+          for (const d of att.days) {
+            templateMap[att.attendingName][d.dayOfWeek] = { id: d.id, activityLabel: d.activityLabel };
+          }
+        }
+        setTemplate(templateMap);
+
+        const scheduleMap = {};
+        for (const e of scheduleRes.data) {
+          const iso = apiDateKey(e.date);
+          if (!scheduleMap[iso]) scheduleMap[iso] = [];
+          scheduleMap[iso].push({ id: e.id, attendingName: e.attendingName, activityLabel: e.activityLabel ?? '', isCallDay: e.isCallDay ?? false });
+        }
+        setSchedule(scheduleMap);
+      } catch (err) {
+        if (!cancelled && err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') {
+          // Keep the existing silent failure behavior.
+        }
+      } finally {
+        if (!cancelled && latestBlockIdRef.current === currentBlockId) setLoading(false);
+      }
+    }
+
+    fetchAll();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [programId, blockId]);
 
   // ── Roster handlers ────────────────────────────────────────────────────────
 

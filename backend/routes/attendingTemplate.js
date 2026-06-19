@@ -112,9 +112,19 @@ router.post('/:programId/apply/:blockId', async (req, res) => {
     for (const day of days) {
       const monBasedDow = (day.getDay() + 6) % 7;
       const entries = template.filter(t => t.dayOfWeek === monBasedDow);
+      const startOfDay = new Date(day);
+      const nextDay = new Date(day);
+      nextDay.setDate(nextDay.getDate() + 1);
       for (const t of entries) {
         const existing = await prisma.attendingEntry.findFirst({
-          where: { blockId: bId, attendingName: t.attendingName, date: day },
+          where: {
+            blockId: bId,
+            attendingName: t.attendingName,
+            date: {
+              gte: startOfDay,
+              lt: nextDay,
+            },
+          },
         });
         if (existing) {
           await prisma.attendingEntry.update({

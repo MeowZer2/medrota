@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
@@ -6,10 +6,10 @@ import Layout from '../components/Layout';
 import PageWrapper from '../components/PageWrapper';
 import { Skeleton } from '../components/Skeleton';
 import api from '../api/axios';
-import { useApp } from '../context/AppContext';
+import { useBlock, useUser } from '../context/AppContext';
 import {
   getDaysFromDates, getDaysInBlock, isWeekend,
-  toISODate, fmtShort, fmtDay, fmtFull, DAYS_OF_WEEK, getFlagForDate,
+  toISODate, fmtShort, fmtDay, fmtFull, DAYS_OF_WEEK,
 } from '../lib/blockUtils';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -31,6 +31,8 @@ function buildAssignmentsMap(list) {
   }
   return map;
 }
+
+function apiDateKey(value) { return String(value).slice(0, 10); }
 
 // ── Chip ──────────────────────────────────────────────────────────────────────
 
@@ -56,7 +58,7 @@ const FLAG_PRESETS = [
 
 // ── DayCell (grid) ────────────────────────────────────────────────────────────
 
-function DayCell({ day, attendings, assignment, flag, onClick, isHoliday, animDelay = 0 }) {
+const DayCell = memo(function DayCell({ day, attendings, assignment, flag, onClick, isHoliday, animDelay = 0 }) {
   const weekend = isWeekend(day);
 
   // Split attendings: non-call go in top section, call-day go in bottom
@@ -92,7 +94,7 @@ function DayCell({ day, attendings, assignment, flag, onClick, isHoliday, animDe
       transition={{ duration: 0.2, delay: animDelay }}
       whileHover={{ y: -2, boxShadow: '0 6px 18px rgba(26,58,92,0.10)' }}
       whileTap={{ scale: 0.96 }}
-      onClick={onClick}
+      onClick={() => onClick(day)}
       className={`flex flex-col text-left w-full${isHoliday ? ' holiday-glow' : ''}`}
       style={{ background: bg, border, borderRadius: 8, padding: 8, minHeight: 90, cursor: 'pointer', position: 'relative' }}
     >
@@ -144,7 +146,15 @@ function DayCell({ day, attendings, assignment, flag, onClick, isHoliday, animDe
       )}
     </motion.button>
   );
-}
+}, (prevProps, nextProps) => (
+  prevProps.day === nextProps.day &&
+  prevProps.attendings === nextProps.attendings &&
+  prevProps.assignment === nextProps.assignment &&
+  prevProps.flag === nextProps.flag &&
+  prevProps.onClick === nextProps.onClick &&
+  prevProps.isHoliday === nextProps.isHoliday &&
+  prevProps.animDelay === nextProps.animDelay
+));
 
 // ── DayRow (mobile) ───────────────────────────────────────────────────────────
 
@@ -209,6 +219,8 @@ const miniInput = {
   border: '1px solid #E2E8F0', fontSize: 12, color: '#1A3A5C',
   background: '#fff', outline: 'none', boxSizing: 'border-box',
 };
+
+const modalSelectClass = 'w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500';
 
 function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
   const [entries, setEntries] = useState(initialEntries ?? []);
@@ -296,14 +308,14 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
         <div className="mt-2 space-y-2 p-3 rounded-lg" style={{ background: '#F0F5FF', border: '1px solid #D6E4F7' }}>
           {roster.length > 0 ? (
             <select
+              className={modalSelectClass}
               value={form.attendingName}
               onChange={e => {
                 const name = e.target.value;
                 const matched = roster.find(r => r.name === name);
                 const autoActivity = matched?.activities?.length === 1 ? matched.activities[0] : '';
                 setForm(p => ({ ...p, attendingName: name, activityLabel: autoActivity || p.activityLabel }));
-              }}
-              style={miniInput}>
+              }}>
               <option value="">— Select attending —</option>
               {roster.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
             </select>
@@ -317,9 +329,9 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
             const acts    = matched?.activities ?? [];
             return acts.length > 0 ? (
               <select
+                className={modalSelectClass}
                 value={form.activityLabel}
-                onChange={e => setForm(p => ({ ...p, activityLabel: e.target.value }))}
-                style={miniInput}>
+                onChange={e => setForm(p => ({ ...p, activityLabel: e.target.value }))}>
                 <option value="">— Select activity —</option>
                 {acts.map(a => <option key={a} value={a}>{a}</option>)}
                 {form.activityLabel && !acts.includes(form.activityLabel) && (
@@ -358,12 +370,6 @@ function FlagSection({ day, blockId, flag, onFlagChange }) {
   const [label, setLabel] = useState(flag?.label ?? '');
   const [color, setColor] = useState(flag?.color ?? FLAG_PRESETS[0].color);
   const [saving, setSaving] = useState(false);
-
-  // Sync if flag changes externally
-  useEffect(() => {
-    setLabel(flag?.label ?? '');
-    setColor(flag?.color ?? FLAG_PRESETS[0].color);
-  }, [flag]);
 
   const handleSaveFlag = async () => {
     if (!label.trim()) return;
@@ -458,32 +464,50 @@ function FlagSection({ day, blockId, flag, onFlagChange }) {
 
 // ── DayModal ──────────────────────────────────────────────────────────────────
 
-function DayModal({ day, attendings, residents, roster, assignment, blockId, flag, onSave, onClose, onAttendingChange, onFlagChange }) {
-  const [seniorId, setSeniorId] = useState(assignment?.seniorId ?? '');
-  const [juniorId, setJuniorId] = useState(assignment?.juniorId ?? '');
+function DayModal({ isOpen, day, attendings, residents, roster, assignment, blockId, flag, onSave, onClose, onAttendingChange, onFlagChange }) {
+  const [visible, setVisible] = useState(false);
+  const assignmentFormRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      const t = setTimeout(() => setVisible(true), 10);
+      return () => clearTimeout(t);
+    } else {
+      setVisible(false);
+    }
+  }, [isOpen]);
+
+  if (!day) {
+    return (
+      <div className={`modal-backdrop${visible ? ' open' : ''}`} onClick={onClose}>
+        <div className={`w-full max-w-sm rounded-t-2xl md:rounded-2xl overflow-hidden modal-panel${visible ? ' open' : ''}`} />
+      </div>
+    );
+  }
 
   const seniors = residents.filter(r => r.residentRole === 'senior' && !r.isMedStudent);
   const juniors = residents.filter(r => r.residentRole === 'junior' && !r.isMedStudent);
 
-  const seniorName = residents.find(r => r.id === seniorId)?.name ?? '';
-  const juniorName = residents.find(r => r.id === juniorId)?.name ?? '';
-  const warning = seniorId && juniorId && seniorId === juniorId ? 'Same resident assigned to both roles' : null;
+  const dayKey = toISODate(day);
+  const warning = null;
 
-  const selectStyle = { width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 13, color: '#1A3A5C', background: '#F8FAFC', outline: 'none' };
+  const handleSave = () => {
+    const formData = new FormData(assignmentFormRef.current);
+    const seniorId = formData.get('seniorId') || '';
+    const juniorId = formData.get('juniorId') || '';
+    const seniorName = residents.find(r => r.id === seniorId)?.name ?? '';
+    const juniorName = residents.find(r => r.id === juniorId)?.name ?? '';
+    const warning = seniorId && juniorId && seniorId === juniorId ? 'Same resident assigned to both roles' : null;
+    onSave({ senior: seniorName, junior: juniorName, seniorId, juniorId, warning });
+  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4"
-      style={{ background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(3px)' }}
+    <div
+      className={`modal-backdrop${visible ? ' open' : ''}`}
       onClick={onClose}
     >
-      <motion.div
-        initial={{ opacity: 0, y: 40, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 40, scale: 0.97 }}
-        transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="w-full max-w-sm rounded-t-2xl md:rounded-2xl overflow-hidden"
+      <div
+        className={`w-full max-w-sm rounded-t-2xl md:rounded-2xl overflow-hidden modal-panel${visible ? ' open' : ''}`}
         style={{ background: '#fff', boxShadow: '0 20px 60px rgba(26,58,92,0.18)', border: '1px solid #E8EFF6' }}
         onClick={e => e.stopPropagation()}
       >
@@ -508,17 +532,17 @@ function DayModal({ day, attendings, residents, roster, assignment, blockId, fla
           onChange={onAttendingChange}
         />
 
-        <div className="px-5 py-4 space-y-4">
+        <div ref={assignmentFormRef} className="px-5 py-4 space-y-4">
           <div>
             <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#64748B', marginBottom: 4 }}>Senior resident</label>
-            <select value={seniorId} onChange={e => setSeniorId(e.target.value)} style={selectStyle}>
+            <select key={`senior-${dayKey}`} name="seniorId" className={modalSelectClass} defaultValue={assignment?.seniorId ?? ''}>
               <option value="">— Unassigned —</option>
               {seniors.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#64748B', marginBottom: 4 }}>Junior resident</label>
-            <select value={juniorId} onChange={e => setJuniorId(e.target.value)} style={selectStyle}>
+            <select key={`junior-${dayKey}`} name="juniorId" className={modalSelectClass} defaultValue={assignment?.juniorId ?? ''}>
               <option value="">— Unassigned —</option>
               {juniors.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
@@ -543,14 +567,14 @@ function DayModal({ day, attendings, residents, roster, assignment, blockId, fla
             onMouseEnter={e => e.currentTarget.style.background = '#F0F5FF'}
             onMouseLeave={e => e.currentTarget.style.background = '#F8FAFC'}>Cancel</button>
           <button
-            onClick={() => onSave({ senior: seniorName, junior: juniorName, seniorId, juniorId, warning })}
+            onClick={handleSave}
             className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white"
             style={{ background: '#1A3A5C', cursor: 'pointer', border: 'none' }}
             onMouseEnter={e => e.currentTarget.style.background = '#2C5F8A'}
             onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}>Save</button>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
 
@@ -829,7 +853,7 @@ function Spinner() {
     style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />;
 }
 
-function CalendarTopBar({
+const CalendarTopBar = memo(function CalendarTopBar({
   blockNum, blockStart, blockEnd, days, assignmentMap,
   onAutoGenerate, generating,
   onClearSchedule, clearingSchedule,
@@ -978,13 +1002,14 @@ function CalendarTopBar({
       </div>
     </motion.div>
   );
-}
+});
 
 // ── main page ─────────────────────────────────────────────────────────────────
 
 export default function Calendar() {
   const { blockNumber } = useParams();
-  const { currentBlock, setCurrentBlock, currentProgram, currentAcademicYear, refreshContext } = useApp();
+  const { currentProgram, refreshContext } = useUser();
+  const { currentBlock, setCurrentBlock, currentAcademicYear } = useBlock();
 
   const blockNum  = parseInt(blockNumber ?? '1', 10);
   const programId = currentProgram?.programId ?? null;
@@ -1014,6 +1039,7 @@ export default function Calendar() {
   const [roster, setRoster]                     = useState([]);
   const [flags, setFlags]                       = useState([]);
   const [selectedDay, setSelectedDay]           = useState(null);
+  const [modalDay, setModalDay]                 = useState(null);
   const [loadingData, setLoadingData]           = useState(false);
   const [generating, setGenerating]             = useState(false);
   const [genSummary, setGenSummary]             = useState(null);
@@ -1024,37 +1050,60 @@ export default function Calendar() {
   const [exportingExcel, setExportingExcel]         = useState(false);
   const [showClearModal, setShowClearModal]         = useState(false);
   const [clearing, setClearing]                     = useState(false);
+  const latestBlockIdRef = useRef(blockId);
+
+  useEffect(() => {
+    latestBlockIdRef.current = blockId;
+  }, [blockId]);
 
   // Derived from context — persists across tab switches
   const isPublished = currentBlock?.isPublished ?? false;
   const publicToken = currentBlock?.publicToken ?? null;
 
-  const fetchBlockData = useCallback(async () => {
+  useEffect(() => {
     if (!blockId) return;
-    setLoadingData(true);
-    try {
-      const [att, asgn, res, ros, fl] = await Promise.all([
-        api.get(`/attending?blockId=${blockId}`),
-        api.get(`/assignments?blockId=${blockId}`),
-        programId ? api.get(`/residents?programId=${programId}`) : Promise.resolve({ data: [] }),
-        programId ? api.get(`/attending/roster?programId=${programId}`) : Promise.resolve({ data: [] }),
-        api.get(`/flags?blockId=${blockId}`),
-      ]);
-      setAttendingEntries(att.data);
-      setAssignmentsMap(buildAssignmentsMap(asgn.data));
-      setResidents(res.data);
-      setRoster(ros.data.map(r => ({ id: r.id, name: r.attendingName, activities: r.typicalActivities })));
-      setFlags(fl.data);
-    } catch { /* silent */ }
-    finally { setLoadingData(false); }
-  }, [blockId, programId]);
+    const controller = new AbortController();
+    const { signal } = controller;
+    const currentBlockId = blockId;
+    let cancelled = false;
 
-  useEffect(() => { fetchBlockData(); }, [fetchBlockData]);
+    async function fetchBlockData() {
+      setLoadingData(true);
+      try {
+        const [att, asgn, res, ros, fl] = await Promise.all([
+          api.get(`/attending?blockId=${currentBlockId}`, { signal }),
+          api.get(`/assignments?blockId=${currentBlockId}`, { signal }),
+          programId ? api.get(`/residents?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
+          programId ? api.get(`/attending/roster?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
+          api.get(`/flags?blockId=${currentBlockId}`, { signal }),
+        ]);
+
+        if (cancelled || latestBlockIdRef.current !== currentBlockId) return;
+        setAttendingEntries(att.data);
+        setAssignmentsMap(buildAssignmentsMap(asgn.data));
+        setResidents(res.data);
+        setRoster(ros.data.map(r => ({ id: r.id, name: r.attendingName, activities: r.typicalActivities })));
+        setFlags(fl.data);
+      } catch (err) {
+        if (!cancelled && err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') {
+          // Keep the existing silent failure behavior for transient API errors.
+        }
+      } finally {
+        if (!cancelled && latestBlockIdRef.current === currentBlockId) setLoadingData(false);
+      }
+    }
+
+    fetchBlockData();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [blockId, programId]);
 
   const attendingMap = useMemo(() => {
     const map = {};
     attendingEntries.forEach(e => {
-      const iso = toISODate(new Date(e.date));
+      const iso = apiDateKey(e.date);
       if (!map[iso]) map[iso] = [];
       map[iso].push(e);
     });
@@ -1067,21 +1116,31 @@ export default function Calendar() {
     return map;
   }, [flags]);
 
-  function handleAttendingChange(iso, updatedEntries) {
+  const handleDayClick = useCallback((day) => {
+    setModalDay(day);
+    setSelectedDay(day);
+  }, []);
+
+  const closeDayModal = useCallback(() => {
+    setSelectedDay(null);
+  }, []);
+
+  const handleAttendingChange = useCallback((iso, updatedEntries) => {
     setAttendingEntries(prev => [
-      ...prev.filter(e => toISODate(new Date(e.date)) !== iso),
+      ...prev.filter(e => apiDateKey(e.date) !== iso),
       ...updatedEntries,
     ]);
-  }
+  }, []);
 
-  function handleFlagChange(iso, flagOrNull) {
+  const handleFlagChange = useCallback((iso, flagOrNull) => {
     setFlags(prev => {
       const without = prev.filter(f => toISODate(new Date(f.date)) !== iso);
       return flagOrNull ? [...without, flagOrNull] : without;
     });
-  }
+  }, []);
 
-  const handleSaveAssignment = async ({ seniorId, juniorId, senior, junior }) => {
+  const handleSaveAssignment = useCallback(async ({ seniorId, juniorId, senior, junior }) => {
+    if (!selectedDay) return;
     const iso      = toISODate(selectedDay);
     const existing = assignmentsMap[iso] ?? {};
 
@@ -1138,9 +1197,9 @@ export default function Calendar() {
     } catch {
       toast.error('Failed to save assignment');
     }
-  };
+  }, [assignmentsMap, attendingMap, blockId, selectedDay]);
 
-  const handleAutoGenerate = async () => {
+  const handleAutoGenerate = useCallback(async () => {
     if (!blockId) { toast.error('No block selected'); return; }
     setGenerating(true);
     try {
@@ -1154,9 +1213,9 @@ export default function Calendar() {
     } finally {
       setGenerating(false);
     }
-  };
+  }, [blockId]);
 
-  const handleClearSchedule = async () => {
+  const handleClearSchedule = useCallback(async () => {
     if (!blockId) return;
     setClearing(true);
     try {
@@ -1170,14 +1229,14 @@ export default function Calendar() {
     } finally {
       setClearing(false);
     }
-  };
+  }, [blockId]);
 
-  const handlePublish = () => {
+  const handlePublish = useCallback(() => {
     if (!blockId) return;
     setShowPublishModal(true);
-  };
+  }, [blockId]);
 
-  const handleConfirmPublish = async () => {
+  const handleConfirmPublish = useCallback(async () => {
     setPublishing(true);
     try {
       const { data } = await api.post('/schedule/publish', { blockId });
@@ -1195,9 +1254,9 @@ export default function Calendar() {
     } finally {
       setPublishing(false);
     }
-  };
+  }, [blockId, refreshContext, setCurrentBlock]);
 
-  const handleCopyLink = () => {
+  const handleCopyLink = useCallback(() => {
     if (!publicToken) return;
     const link = `${window.location.origin}/schedule/${publicToken}`;
     navigator.clipboard.writeText(link).then(() => {
@@ -1205,9 +1264,9 @@ export default function Calendar() {
     }).catch(() => {
       toast.error('Failed to copy link');
     });
-  };
+  }, [publicToken]);
 
-  const handleExportExcel = async () => {
+  const handleExportExcel = useCallback(async () => {
     if (!blockId) return;
     setExportingExcel(true);
     try {
@@ -1231,19 +1290,31 @@ export default function Calendar() {
     } finally {
       setExportingExcel(false);
     }
-  };
+  }, [blockId, blockNum]);
+
+  const openClearModal = useCallback(() => {
+    setShowClearModal(true);
+  }, []);
+
+  const handleViewPublished = useCallback(() => {
+    if (publicToken) window.open(`${window.location.origin}/schedule/${publicToken}`, '_blank');
+  }, [publicToken]);
 
   const publicUrl = publicToken ? `${window.location.origin}/schedule/${publicToken}` : '';
 
   // Grid layout
-  const firstDay = days[0];
-  const paddingBefore = firstDay ? (firstDay.getDay() + 6) % 7 : 0;
-  const padded = [...Array(paddingBefore).fill(null), ...days];
-  while (padded.length % 7 !== 0) padded.push(null);
-  const weeks = [];
-  for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
+  const weeks = useMemo(() => {
+    const firstDay = days[0];
+    const paddingBefore = firstDay ? (firstDay.getDay() + 6) % 7 : 0;
+    const padded = [...Array(paddingBefore).fill(null), ...days];
+    while (padded.length % 7 !== 0) padded.push(null);
+    const rows = [];
+    for (let i = 0; i < padded.length; i += 7) rows.push(padded.slice(i, i + 7));
+    return rows;
+  }, [days]);
 
-  const selectedIso    = selectedDay ? toISODate(selectedDay) : null;
+  const modalIso       = modalDay ? toISODate(modalDay) : null;
+  const selectedIso    = selectedDay ? toISODate(selectedDay) : modalIso;
   const assignedToday  = selectedIso ? assignmentsMap[selectedIso] : null;
   const attendingToday = selectedIso ? (attendingMap[selectedIso] ?? []) : [];
   const flagToday      = selectedIso ? (flagsMap[selectedIso] ?? null) : null;
@@ -1259,7 +1330,7 @@ export default function Calendar() {
           assignmentMap={assignmentsMap}
           onAutoGenerate={handleAutoGenerate}
           generating={generating}
-          onClearSchedule={() => setShowClearModal(true)}
+          onClearSchedule={openClearModal}
           clearingSchedule={clearing}
           onPublish={handlePublish}
           publishPulsing={publishPulsing}
@@ -1268,7 +1339,7 @@ export default function Calendar() {
           onCopyLink={handleCopyLink}
           onExportExcel={handleExportExcel}
           exportingExcel={exportingExcel}
-          onViewPublished={() => { if (publicToken) window.open(`${window.location.origin}/schedule/${publicToken}`, '_blank'); }}
+          onViewPublished={handleViewPublished}
           blockId={blockId}
         />
 
@@ -1300,7 +1371,7 @@ export default function Calendar() {
                             assignment={assignmentsMap[toISODate(day)]}
                             flag={flagsMap[toISODate(day)] ?? null}
                             isHoliday={false}
-                            onClick={() => setSelectedDay(day)}
+                            onClick={handleDayClick}
                             animDelay={wi * 0.04 + di * 0.025}
                           />
                         ) : (
@@ -1328,7 +1399,7 @@ export default function Calendar() {
                   assignment={assignmentsMap[toISODate(day)]}
                   flag={flagsMap[toISODate(day)] ?? null}
                   isHoliday={false}
-                  onClick={() => setSelectedDay(day)}
+                  onClick={() => handleDayClick(day)}
                 />
               ))}
             </div>
@@ -1336,23 +1407,20 @@ export default function Calendar() {
         )}
 
         {/* Day edit modal */}
-        <AnimatePresence>
-          {selectedDay && (
-            <DayModal
-              day={selectedDay}
-              attendings={attendingToday}
-              residents={residents}
-              roster={roster}
-              assignment={assignedToday}
-              blockId={blockId}
-              flag={flagToday}
-              onSave={handleSaveAssignment}
-              onClose={() => setSelectedDay(null)}
-              onAttendingChange={handleAttendingChange}
-              onFlagChange={handleFlagChange}
-            />
-          )}
-        </AnimatePresence>
+        <DayModal
+          isOpen={selectedDay !== null}
+          day={modalDay}
+          attendings={attendingToday}
+          residents={residents}
+          roster={roster}
+          assignment={assignedToday}
+          blockId={blockId}
+          flag={flagToday}
+          onSave={handleSaveAssignment}
+          onClose={closeDayModal}
+          onAttendingChange={handleAttendingChange}
+          onFlagChange={handleFlagChange}
+        />
 
         {/* Generation summary modal */}
         <AnimatePresence>
