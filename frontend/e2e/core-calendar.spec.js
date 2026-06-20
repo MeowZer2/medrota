@@ -3,14 +3,16 @@ import { expect, test } from '@playwright/test';
 const PASSWORD = 'QA_only_password_123!';
 const MOJIBAKE_PATTERNS = ['Ã¢', 'Ãƒ', 'Ã‚', 'ï¿½', 'Â'];
 
-async function login(page, email) {
+async function login(page, email, targetPath = '/calendar') {
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
   await page.locator('#lg-password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.waitForURL(/\/dashboard|\/setup/, { timeout: 20_000 });
-  await page.goto('/calendar');
-  await expect(page.getByRole('heading', { name: /Block 1 Calendar/i })).toBeVisible();
+  await page.goto(targetPath);
+  if (targetPath === '/calendar') {
+    await expect(page.getByRole('heading', { name: /Block 1 Calendar/i })).toBeVisible();
+  }
 }
 
 async function expectNoMojibake(page) {
@@ -115,6 +117,39 @@ test('viewer can read published schedule but cannot edit calendar data', async (
     return response.status;
   });
   expect(mutationStatus).toBe(403);
+});
+
+test('program admin can persist program call-type settings', async ({ page }) => {
+  await login(page, 'qa-admin@medrota.local', '/settings');
+  await expect(page.getByRole('heading', { name: 'Program Settings' })).toBeVisible();
+
+  const juniorToggle = page.getByRole('checkbox', { name: /Junior in-house call/i });
+  const seniorToggle = page.getByRole('checkbox', { name: /Senior in-house call/i });
+  await expect(juniorToggle).toBeVisible();
+  await expect(seniorToggle).toBeVisible();
+
+  await juniorToggle.setChecked(false);
+  await seniorToggle.setChecked(true);
+  await page.getByRole('button', { name: /^Save$/ }).click();
+  await expect(juniorToggle).not.toBeChecked();
+  await expect(seniorToggle).toBeChecked();
+
+  await page.reload();
+  await expect(juniorToggle).not.toBeChecked();
+  await expect(seniorToggle).toBeChecked();
+
+  await juniorToggle.setChecked(true);
+  await seniorToggle.setChecked(false);
+  await page.getByRole('button', { name: /^Save$/ }).click();
+  await expect(juniorToggle).toBeChecked();
+  await expect(seniorToggle).not.toBeChecked();
+});
+
+test('viewer cannot edit program call-type settings', async ({ page }) => {
+  await login(page, 'qa-viewer@medrota.local', '/settings');
+  await expect(page.getByText('Program settings are available to Program Admins and Program Directors.')).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /Junior in-house call/i })).toHaveCount(0);
+  await expect(page.getByRole('checkbox', { name: /Senior in-house call/i })).toHaveCount(0);
 });
 
 test('login password eye stays fixed and toggles visibility', async ({ page }) => {
