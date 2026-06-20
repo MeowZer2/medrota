@@ -506,9 +506,8 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
   const warning = null;
 
   const handleSave = () => {
-    const formData = new FormData(assignmentFormRef.current);
-    const seniorId = formData.get('seniorId') || '';
-    const juniorId = formData.get('juniorId') || '';
+    const seniorId = assignmentFormRef.current?.querySelector('[name="seniorId"]')?.value || '';
+    const juniorId = assignmentFormRef.current?.querySelector('[name="juniorId"]')?.value || '';
     const seniorName = residents.find(r => r.id === seniorId)?.name ?? '';
     const juniorName = residents.find(r => r.id === juniorId)?.name ?? '';
     const warning = seniorId && juniorId && seniorId === juniorId ? 'Same resident assigned to both roles' : null;
