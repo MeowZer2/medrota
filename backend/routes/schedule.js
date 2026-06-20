@@ -4,6 +4,7 @@ const auth    = require('../middleware/auth');
 const prisma  = require('../lib/prisma');
 const { generateSchedule, clearSchedule } = require('../services/scheduler');
 const { createScheduleWorkbook, shapeProtectedSchedule } = require('../services/excelExport');
+const { createPrintableScheduleHtml, buildPrintableFilename } = require('../services/printableSchedule');
 
 const router = express.Router();
 router.use(auth);
@@ -213,7 +214,7 @@ router.get('/export/excel', async (req, res) => {
   }
 });
 
-// GET /api/schedule/export/pdf?blockId= — returns printable HTML (browser prints it)
+// GET /api/schedule/export/pdf?blockId= - printable HTML (browser saves as PDF)
 router.get('/export/pdf', async (req, res) => {
   const { blockId } = req.query;
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
@@ -224,106 +225,24 @@ router.get('/export/pdf', async (req, res) => {
       include: {
         academicYear: { include: { program: true, holidays: true } },
         attendingEntries: true,
-        callDays: { include: { assignments: { include: { resident: true } } } },
+        callDays: { include: { assignments: { include: { resident: { select: { name: true } } } } } },
+        flags: true,
       },
     });
     if (!block) return res.status(404).json({ error: 'Block not found' });
 
-    const programName = block.academicYear?.program?.name ?? 'Program';
-    const holidays    = block.academicYear?.holidays ?? [];
-    const holidayMap  = {};
-    for (const h of holidays) { holidayMap[new Date(h.date).toISOString().slice(0, 10)] = h.name; }
+    const schedule = shapeProtectedSchedule(block);
+    const html = createPrintableScheduleHtml(schedule, { includeNotes: true });
+    const filename = buildPrintableFilename(schedule);
 
-    const attendingMap = {};
-    for (const e of block.attendingEntries) {
-      const iso = new Date(e.date).toISOString().slice(0, 10);
-      if (!attendingMap[iso]) attendingMap[iso] = [];
-      attendingMap[iso].push(e);
-    }
-    const assignMap = {};
-    for (const cd of block.callDays) {
-      const iso = new Date(cd.date).toISOString().slice(0, 10);
-      assignMap[iso] = cd.assignments;
-    }
-
-    const start  = new Date(block.startDate);
-    const end    = new Date(block.endDate);
-    const allDays = [];
-    const cursor  = new Date(start);
-    while (cursor <= end) { allDays.push(new Date(cursor)); cursor.setDate(cursor.getDate() + 1); }
-
-    const fmtDate = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-
-    const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-    // Build grid with padding (Mon-Sun)
-    const padBefore = (allDays[0].getDay() + 6) % 7;
-    const padded = [...Array(padBefore).fill(null), ...allDays];
-    while (padded.length % 7 !== 0) padded.push(null);
-    const weeks = [];
-    for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
-
-    function chip(text, color, bg) {
-      return `<span style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:600;background:${bg};color:${color};white-space:nowrap;">${text}</span>`;
-    }
-
-    function cellHtml(day) {
-      if (!day) return '<td style="background:#F8FAFC;border:1px solid #F1F5F9;"></td>';
-      const iso     = day.toISOString().slice(0, 10);
-      const dow     = day.getDay();
-      const isWkend = dow === 0 || dow === 6;
-      const isHol   = !!holidayMap[iso];
-      const atts    = attendingMap[iso] ?? [];
-      const asgns   = assignMap[iso] ?? [];
-      const seniors = asgns.filter(a => a.roleOnDay === 'senior').map(a => a.resident.name);
-      const juniors = asgns.filter(a => a.roleOnDay === 'junior').map(a => a.resident.name);
-      const bg      = isHol ? '#FFF5F5' : isWkend ? '#F8FAFC' : '#fff';
-      const numColor = isHol ? '#DC2626' : isWkend ? '#94A3B8' : '#1A3A5C';
-      let chips = '';
-      for (const a of atts) {
-        if (a.activityLabel) chips += chip(a.activityLabel, '#6D28D9', '#F3F0FF') + ' ';
-        if (a.attendingName) chips += chip(a.attendingName, '#1D4ED8', '#EFF6FF') + ' ';
-        if (a.isCallDay) chips += chip('Call', '#1A3A5C', '#EEF4FF') + ' ';
-      }
-      for (const n of seniors) chips += chip(`S: ${n}`, '#15803D', '#F0FDF4') + ' ';
-      for (const n of juniors) chips += chip(`J: ${n}`, '#B45309', '#FFFBEB') + ' ';
-      return `<td style="border:1px solid #E8EFF6;background:${bg};vertical-align:top;padding:4px;min-width:80px;min-height:70px;">
-        <div style="font-size:11px;font-weight:700;color:${numColor};margin-bottom:2px;">${day.getDate()}${isHol ? ' <span style="font-size:8px;color:#DC2626;font-weight:600;">HOL</span>' : ''}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:2px;">${chips || '<span style="font-size:8px;color:#CBD5E1;font-style:italic;">Unassigned</span>'}</div>
-      </td>`;
-    }
-
-    const tableRows = weeks.map(week =>
-      `<tr>${week.map(cellHtml).join('')}</tr>`
-    ).join('');
-
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Block ${block.number} Schedule</title>
-<style>
-  @media print { body { margin: 0; } }
-  body { font-family: Inter, sans-serif; color: #1A3A5C; padding: 16px; }
-  h1 { font-size: 16px; font-weight: 700; margin: 0 0 2px; }
-  p { font-size: 11px; color: #94A3B8; margin: 0 0 12px; }
-  table { width: 100%; border-collapse: collapse; }
-  th { background: #EEF4FF; font-size: 10px; font-weight: 600; color: #4A6FA5; padding: 4px; text-align: center; border: 1px solid #D6E4F7; }
-  td { padding: 4px; font-size: 10px; }
-</style></head><body>
-<h1>MedRota — ${programName} — Block ${block.number}</h1>
-<p>${fmtDate(start)} to ${fmtDate(end)}</p>
-<table>
-  <thead><tr>${DAYS.map(d => `<th>${d}</th>`).join('')}</tr></thead>
-  <tbody>${tableRows}</tbody>
-</table>
-<p style="margin-top:12px;text-align:center;color:#CBD5E1;">Generated by MedRota · medrota.app</p>
-</body></html>`;
-
-    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     res.send(html);
   } catch (err) {
     console.error('[schedule/export/pdf] Error:', err.message);
-    res.status(500).json({ error: 'Failed to generate PDF view' });
+    res.status(500).json({ error: 'Failed to generate printable schedule' });
   }
 });
-
 // GET /api/schedule/history?blockId= — all published versions for a block
 router.get('/history', async (req, res) => {
   const { blockId } = req.query;

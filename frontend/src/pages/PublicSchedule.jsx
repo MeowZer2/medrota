@@ -318,6 +318,10 @@ export default function PublicSchedule() {
     }
   };
 
+  const handlePrintPdf = () => {
+    window.open(buildApiUrl(`/public/${token}/export/pdf`), '_blank', 'noopener,noreferrer');
+  };
+
   if (loading) {
     return (
       <StateShell title="Loading schedule" body="Fetching the published read-only schedule.">
@@ -367,12 +371,12 @@ export default function PublicSchedule() {
               {exporting ? 'Exporting...' : 'Excel'}
             </button>
             <button
-              onClick={() => window.print()}
+              onClick={handlePrintPdf}
               style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.22)', background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
               onMouseEnter={event => { event.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
               onMouseLeave={event => { event.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
             >
-              Print
+              Print / Save PDF
             </button>
           </div>
         </div>

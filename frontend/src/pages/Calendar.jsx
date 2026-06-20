@@ -981,6 +981,7 @@ const CalendarTopBar = memo(function CalendarTopBar({
   publicUrl,
   onCopyLink,
   onExportExcel, exportingExcel,
+  onPrintPdf, printingPdf,
   onViewPublished,
   blockId,
 }) {
@@ -1039,6 +1040,23 @@ const CalendarTopBar = memo(function CalendarTopBar({
               </svg>
             )}
             Excel
+          </motion.button>
+
+          {/* Printable PDF */}
+          <motion.button
+            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
+            onClick={onPrintPdf}
+            disabled={printingPdf || !blockId}
+            className="px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5"
+            style={{ background: '#EEF4FF', color: '#2C5F8A', border: '1px solid #C7D9EC', cursor: printingPdf ? 'not-allowed' : 'pointer' }}
+            onMouseEnter={e => { if (!printingPdf) e.currentTarget.style.background = '#DCE9F5'; }}
+            onMouseLeave={e => e.currentTarget.style.background = '#EEF4FF'}>
+            {printingPdf ? <Spinner /> : (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+              </svg>
+            )}
+            Print / PDF
           </motion.button>
 
           {/* View published (only when published) */}
@@ -1200,6 +1218,7 @@ export default function Calendar() {
   const [publishResult, setPublishResult]           = useState(null);
   const [publishing, setPublishing]                 = useState(false);
   const [exportingExcel, setExportingExcel]         = useState(false);
+  const [printingPdf, setPrintingPdf]               = useState(false);
   const [showClearModal, setShowClearModal]         = useState(false);
   const [clearing, setClearing]                     = useState(false);
   const [blockSettings, setBlockSettings]           = useState(DEFAULT_BLOCK_SETTINGS);
@@ -1501,6 +1520,33 @@ export default function Calendar() {
     }
   }, [blockId, blockNum]);
 
+  const handlePrintPdf = useCallback(async () => {
+    if (!blockId) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Popup blocked. Please allow popups for printable export.');
+      return;
+    }
+    printWindow.document.write('<!doctype html><title>Loading printable schedule...</title><p style="font-family: sans-serif; color: #1A3A5C;">Loading printable schedule...</p>');
+    printWindow.document.close();
+    setPrintingPdf(true);
+    try {
+      const { data: html } = await api.get('/schedule/export/pdf', {
+        params: { blockId },
+        responseType: 'text',
+      });
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      toast.success('Printable schedule opened');
+    } catch {
+      printWindow.close();
+      toast.error('Failed to open printable schedule');
+    } finally {
+      setPrintingPdf(false);
+    }
+  }, [blockId]);
+
   const openClearModal = useCallback(() => {
     setShowClearModal(true);
   }, []);
@@ -1549,6 +1595,8 @@ export default function Calendar() {
           onCopyLink={handleCopyLink}
           onExportExcel={handleExportExcel}
           exportingExcel={exportingExcel}
+          onPrintPdf={handlePrintPdf}
+          printingPdf={printingPdf}
           onViewPublished={handleViewPublished}
           blockId={blockId}
         />

@@ -2,6 +2,7 @@ const express = require('express');
 const prisma  = require('../lib/prisma');
 const { shapePublicSchedule } = require('../services/publicScheduleShape');
 const { createScheduleWorkbook } = require('../services/excelExport');
+const { createPrintableScheduleHtml, buildPrintableFilename } = require('../services/printableSchedule');
 
 const router = express.Router();
 // No auth middleware — fully public
@@ -42,6 +43,45 @@ router.get('/:token/export/excel', async (req, res) => {
   } catch (err) {
     console.error('[public/export/excel] Error:', err.message);
     res.status(500).json({ error: 'Export failed' });
+  }
+});
+
+// GET /api/public/:token/export/pdf - printable HTML from public-safe schedule shape
+router.get('/:token/export/pdf', async (req, res) => {
+  const { token } = req.params;
+  try {
+    const block = await prisma.block.findUnique({
+      where: { publicToken: token },
+      select: { id: true, isPublished: true },
+    });
+    if (!block || !block.isPublished) return res.status(404).json({ error: 'Not found' });
+
+    const latestVersion = await prisma.scheduleVersion.findFirst({
+      where: { blockId: block.id },
+      orderBy: { publishedAt: 'desc' },
+      select: { snapshotJson: true, publishedAt: true },
+    });
+    if (!latestVersion) return res.status(404).json({ error: 'No published version' });
+
+    const flags = await prisma.dayFlag.findMany({
+      where: { blockId: block.id },
+      select: { date: true, label: true, color: true },
+      orderBy: { date: 'asc' },
+    });
+    const publicSchedule = shapePublicSchedule({
+      snapshot: latestVersion.snapshotJson,
+      publishedAt: latestVersion.publishedAt,
+      flags,
+    });
+    const html = createPrintableScheduleHtml(publicSchedule, { includeNotes: false });
+    const filename = buildPrintableFilename(publicSchedule);
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.send(html);
+  } catch (err) {
+    console.error('[public/export/pdf] Error:', err.message);
+    res.status(500).json({ error: 'Printable export failed' });
   }
 });
 
