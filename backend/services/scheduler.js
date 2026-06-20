@@ -1,75 +1,185 @@
 /**
  * MedRota Auto-Scheduler
  *
- * Constraint-satisfaction scheduling engine.
- * Clears non-override assignments for a block, then fills every day
- * with the most-eligible senior + junior using round-robin fairness.
- *
- * Phase 1: assign seniors + regular juniors (med students excluded)
- * Phase 2: assign med students as observers to days with a senior present
+ * Generates non-override call assignments for a block while preserving manual
+ * overrides. PARO eligibility is treated as a hard constraint: if no eligible
+ * resident exists for a role/date, the date is left partially unassigned and a
+ * warning is returned.
  */
 
 const prisma = require('../lib/prisma');
-
-// ── helpers ────────────────────────────────────────────────────────────────────
-
-function toISO(date) {
-  const y = date.getUTCFullYear();
-  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const d = String(date.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-function addDays(date, n) {
-  const d = new Date(date);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d;
-}
+const {
+  normalizeDateKey,
+  dateFromDateKey,
+  addDaysToDateKey,
+  isFridaySaturdaySunday,
+  calculateDaysOnService,
+  getInHouseMax,
+  getHomeCallMax,
+  getAssignmentCallType,
+  calculateWeightedCallPoints,
+  isBlendedCallLoadAllowed,
+  calculateCompleteWeekendsOff,
+  hasConsecutiveCall,
+  hasConsecutiveHomeCallWeekend,
+  violatesVacation,
+  violatesPostCallBeforeVacation,
+  requiredCompleteWeekendsOff,
+} = require('./paroRules');
 
 function startOfLogicalDay(value) {
-  if (typeof value === 'string') {
-    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (match) return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  const dateKey = normalizeDateKey(value);
+  return dateFromDateKey(dateKey);
+}
+
+function buildDateKeys(startDate, endDate) {
+  const dateKeys = [];
+  const cursor = startOfLogicalDay(startDate);
+  const end = startOfLogicalDay(endDate);
+
+  while (cursor <= end) {
+    dateKeys.push(normalizeDateKey(cursor));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
-  const date = new Date(value);
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+
+  return dateKeys;
 }
 
-function isWeekday(dow) { return dow >= 1 && dow <= 5; }
-
-/**
- * Returns the weekend-group key for a date.
- * Friday/Saturday/Sunday of the same calendar weekend share the same key.
- * Sunday is grouped with the PREVIOUS Saturday to keep Fri+Sat+Sun together
- * (ISO week numbering can split Sun into the next week, so we correct for that).
- */
-function getWeekKey(date) {
-  const d = new Date(date);
-  d.setUTCHours(0, 0, 0, 0);
-  // If Sunday, shift to the previous day (Saturday) before computing the week key
-  if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() - 1);
-  // Standard ISO week number (Monday = start of week)
-  const dow = d.getUTCDay() || 7; // Mon=1 … Sun=7
-  d.setUTCDate(d.getUTCDate() + 4 - dow); // shift to Thursday (ISO week anchor)
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+function vacationKeysFromEnrollment(enrollment) {
+  return (enrollment.vacationDates ?? [])
+    .map(normalizeDateKey)
+    .filter(Boolean);
 }
 
-/** Build fresh weekend-state object for a resident (reset each scheduler run). */
-function makeWeekendState() {
+function makeResidentState(enrollment, blockDateKeys, cfg) {
+  const vacationDateKeys = vacationKeysFromEnrollment(enrollment);
+  const daysOnService = calculateDaysOnService(blockDateKeys, vacationDateKeys);
+  const isMedStudent = Boolean(enrollment.resident.isMedStudent);
+
   return {
-    weekendGroups: new Set(), // week group keys where resident has ANY weekend call
-    fridayWeeks:   new Set(), // week groups where resident has Friday
-    saturdayWeeks: new Set(), // week groups where resident has Saturday
-    sundayWeeks:   new Set(), // week groups where resident has Sunday
+    id: enrollment.resident.id,
+    name: enrollment.resident.name,
+    role: enrollment.resident.residentRole,
+    isMedStudent,
+    vacationDateKeys,
+    daysOnService,
+    inHouseMax: getInHouseMax(daysOnService),
+    homeMax: getHomeCallMax(daysOnService),
+    totalCallCap: enrollment.callCapOverride ?? null,
+    medStudentCallCap: isMedStudent ? cfg.maxCallsMedStudent : null,
+    assignedDateKeys: new Set(),
+    homeCallDateKeys: new Set(),
+    inHouseCallDateKeys: new Set(),
+    homeCalls: 0,
+    inHouseCalls: 0,
+    warnings: [],
+    sortOrder: 0,
   };
 }
 
-// ── core ───────────────────────────────────────────────────────────────────────
+function totalCalls(resident) {
+  return resident.homeCalls + resident.inHouseCalls;
+}
+
+function incrementResidentCall(resident, dateKey, roleOnDay, programSettings) {
+  const callType = getAssignmentCallType(roleOnDay, programSettings);
+  resident.assignedDateKeys.add(dateKey);
+
+  if (callType === 'in_house') {
+    resident.inHouseCalls += 1;
+    resident.inHouseCallDateKeys.add(dateKey);
+  } else {
+    resident.homeCalls += 1;
+    resident.homeCallDateKeys.add(dateKey);
+  }
+}
+
+function formatEligibilityReasons(reasons) {
+  const counts = reasons.reduce((acc, reason) => {
+    acc[reason] = (acc[reason] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return Object.entries(counts)
+    .map(([reason, count]) => `${reason}: ${count}`)
+    .join(', ');
+}
+
+function checkEligible(resident, dateKey, roleOnDay, programSettings, blockDateKeys) {
+  if (violatesVacation(dateKey, resident.vacationDateKeys)) return { ok: false, reason: 'vacation' };
+  if (violatesPostCallBeforeVacation(dateKey, resident.vacationDateKeys)) return { ok: false, reason: 'post-call-before-vacation' };
+  if (hasConsecutiveCall(dateKey, [...resident.assignedDateKeys])) return { ok: false, reason: 'consecutive-call' };
+
+  const callType = getAssignmentCallType(roleOnDay, programSettings);
+  const nextHomeCalls = resident.homeCalls + (callType === 'home' ? 1 : 0);
+  const nextInHouseCalls = resident.inHouseCalls + (callType === 'in_house' ? 1 : 0);
+  const nextTotalCalls = nextHomeCalls + nextInHouseCalls;
+
+  if (resident.totalCallCap !== null && nextTotalCalls > resident.totalCallCap) {
+    return { ok: false, reason: `block-call-cap(${totalCalls(resident)}/${resident.totalCallCap})` };
+  }
+
+  if (resident.medStudentCallCap !== null && nextTotalCalls > resident.medStudentCallCap) {
+    return { ok: false, reason: `med-student-cap(${totalCalls(resident)}/${resident.medStudentCallCap})` };
+  }
+
+  if (callType === 'in_house' && nextInHouseCalls > resident.inHouseMax) {
+    return { ok: false, reason: `in-house-cap(${resident.inHouseCalls}/${resident.inHouseMax})` };
+  }
+
+  if (callType === 'home' && nextHomeCalls > resident.homeMax) {
+    return { ok: false, reason: `home-call-cap(${resident.homeCalls}/${resident.homeMax})` };
+  }
+
+  if (callType === 'home' && hasConsecutiveHomeCallWeekend(dateKey, [...resident.homeCallDateKeys])) {
+    return { ok: false, reason: 'consecutive-home-call-weekends' };
+  }
+
+  if (!isBlendedCallLoadAllowed(nextHomeCalls, nextInHouseCalls)) {
+    return { ok: false, reason: 'blended-call-load' };
+  }
+
+  const requiredWeekendsOff = requiredCompleteWeekendsOff(blockDateKeys);
+  if (requiredWeekendsOff > 0 && isFridaySaturdaySunday(dateKey)) {
+    const weekendsOff = calculateCompleteWeekendsOff([...resident.assignedDateKeys, dateKey], blockDateKeys);
+    if (weekendsOff < requiredWeekendsOff) {
+      return { ok: false, reason: `complete-weekends-off(${weekendsOff}/${requiredWeekendsOff})` };
+    }
+  }
+
+  return { ok: true, callType };
+}
+
+function sortCandidates(candidates) {
+  return candidates.sort((a, b) => {
+    const callDelta = totalCalls(a) - totalCalls(b);
+    if (callDelta !== 0) return callDelta;
+
+    const weightDelta =
+      calculateWeightedCallPoints(a.homeCalls, a.inHouseCalls)
+      - calculateWeightedCallPoints(b.homeCalls, b.inHouseCalls);
+    if (weightDelta !== 0) return weightDelta;
+
+    return a.sortOrder - b.sortOrder;
+  });
+}
+
+function buildSummaryRow(resident) {
+  return {
+    name: resident.name,
+    role: resident.role,
+    isMedStudent: resident.isMedStudent,
+    calls: totalCalls(resident),
+    homeCalls: resident.homeCalls,
+    inHouseCalls: resident.inHouseCalls,
+    daysOnService: resident.daysOnService,
+    homeCallMax: resident.homeMax,
+    inHouseCallMax: resident.inHouseMax,
+    weightedCallPoints: calculateWeightedCallPoints(resident.homeCalls, resident.inHouseCalls),
+  };
+}
 
 async function generateSchedule(blockId) {
-  // ── Load block + settings + holidays + enrollments ───────────────────────────
   const block = await prisma.block.findUnique({
     where: { id: blockId },
     include: {
@@ -82,30 +192,33 @@ async function generateSchedule(blockId) {
 
   if (!block) throw new Error(`Block ${blockId} not found`);
 
-  console.log(`[scheduler] blockId=${blockId} number=${block.number}`);
-  console.log(`[scheduler] startDate=${toISO(new Date(block.startDate))} endDate=${toISO(new Date(block.endDate))}`);
-  console.log(`[scheduler] BlockEnrollment count: ${block.enrollments.length}`);
-
+  const blockDateKeys = buildDateKeys(block.startDate, block.endDate);
+  const programSettings = {
+    juniorInHouseCall: block.academicYear?.program?.juniorInHouseCall ?? true,
+    seniorInHouseCall: block.academicYear?.program?.seniorInHouseCall ?? false,
+  };
   const cfg = {
-    maxCallsPerResident:     block.settings?.maxCallsPerResident    ?? 9,
-    maxCallsMedStudent:      block.settings?.maxCallsMedStudent      ?? 5,
-    allowWeekendConsecutive: block.settings?.allowWeekendConsecutive ?? false,
-    avoidAcademicDays:       block.settings?.avoidAcademicDays       ?? true,
-    limitWeekendCalls:       block.settings?.limitWeekendCalls       ?? true,
+    allowAttendingOnlyDays: block.settings?.allowAttendingOnlyDays ?? false,
+    avoidAcademicDays: block.settings?.avoidAcademicDays ?? true,
+    maxCallsMedStudent: block.settings?.maxCallsMedStudent ?? 5,
   };
 
-  console.log(`[scheduler] block=${blockId} cfg=${JSON.stringify(cfg)}`);
+  console.log(`[scheduler] blockId=${blockId} number=${block.number}`);
+  console.log(`[scheduler] dates=${blockDateKeys[0]} to ${blockDateKeys[blockDateKeys.length - 1]}`);
+  console.log(`[scheduler] callTypes=${JSON.stringify(programSettings)} cfg=${JSON.stringify(cfg)}`);
 
   const holidaySet = new Set(
-    block.academicYear.holidays.map(h => toISO(new Date(h.date)))
+    block.academicYear.holidays
+      .map(h => normalizeDateKey(h.date))
+      .filter(Boolean)
   );
   const academicDaySet = new Set(
     (block.flags ?? [])
       .filter(f => /academic/i.test(f.label ?? ''))
-      .map(f => toISO(new Date(f.date)))
+      .map(f => normalizeDateKey(f.date))
+      .filter(Boolean)
   );
 
-  // ── Build resident state ──────────────────────────────────────────────────────
   const programId = block.academicYear?.program?.id;
   const activeServiceResidents = programId
     ? await prisma.residentProfile.findMany({
@@ -115,15 +228,9 @@ async function generateSchedule(blockId) {
     : [];
 
   const enrollmentByResidentId = new Map();
-
-  // Explicit enrollments carry block-specific data and include off-service
-  // residents and med students. If present, these values must win.
   for (const enrollment of block.enrollments) {
     enrollmentByResidentId.set(enrollment.resident.id, enrollment);
   }
-
-  // Service residents are program-level participants and often do not have
-  // BlockEnrollment rows unless they have vacations or overrides for this block.
   for (const resident of activeServiceResidents) {
     if (!enrollmentByResidentId.has(resident.id)) {
       enrollmentByResidentId.set(resident.id, {
@@ -137,171 +244,14 @@ async function generateSchedule(blockId) {
 
   const enrollmentSource = [...enrollmentByResidentId.values()];
   const usedFallback = enrollmentSource.length > block.enrollments.length;
+  const residents = enrollmentSource.map((enrollment, index) => ({
+    ...makeResidentState(enrollment, blockDateKeys, cfg),
+    sortOrder: index,
+  }));
 
-  console.log(`[scheduler] active service residents: ${activeServiceResidents.length}`);
-  console.log(`[scheduler] merged resident pool: ${enrollmentSource.length}`);
-
-  const residents = enrollmentSource.map(e => {
-    const defaultMax = e.resident.isMedStudent ? cfg.maxCallsMedStudent : cfg.maxCallsPerResident;
-    const maxCalls   = e.callCapOverride ?? defaultMax;
-
-    const vacationSet = new Set(
-      (e.vacationDates ?? []).map(d => toISO(new Date(d)))
-    );
-
-    return {
-      id:           e.resident.id,
-      name:         e.resident.name,
-      role:         e.resident.residentRole, // 'senior' | 'junior'
-      isMedStudent: e.resident.isMedStudent,
-      maxCalls,
-      vacationSet,
-      assigned:     new Set(), // ISO dates assigned
-      weekendState: makeWeekendState(),
-      callCount:    0,
-    };
-  });
-
-  console.log(`[scheduler] loaded ${residents.length} residents (fallback=${usedFallback}):`);
-  residents.forEach(r =>
-    console.log(`  ${r.name} role=${r.role} isMedStudent=${r.isMedStudent} maxCalls=${r.maxCalls} vacationDays=${r.vacationSet.size}`)
-  );
-
-  // Separate med students from regular residents for phase 1 vs phase 2
-  const regularResidents = residents.filter(r => !r.isMedStudent);
-  const medStudents       = residents.filter(r => r.isMedStudent);
-
-  // ── Weekend eligibility check ─────────────────────────────────────────────────
-
-  /**
-   * Returns true if a resident is allowed a weekend call on this day.
-   *
-   * Constraints:
-   *   Hard limit: max 2 different weekend groups per block (both modes)
-   *
-   *   Consecutive mode:
-   *     - May only use ONE weekend group (no second weekend allowed)
-   *     - Cannot have all 3 days of that weekend already
-   *
-   *   Default mode (Fri+Sun one weekend, Sat another):
-   *     - Max 1 Friday total
-   *     - Max 1 Saturday total
-   *     - Max 1 Sunday total
-   */
-  function isWeekendEligible(r, dow) {
-    const ws = r.weekendState;
-
-    // Hard limit: max 2 weekend groups per resident per block
-    // (enforced below per-day check; here it is context for comment only)
-
-    if (cfg.allowWeekendConsecutive) {
-      // Consecutive mode: only 1 weekend group allowed
-      if (ws.weekendGroups.size >= 1) {
-        // They have a weekend group — this day must be in the SAME group
-        // (the caller checks this via weekGroup; we reject if group differs)
-        // All-3-days check: if they already have Fri+Sat+Sun in their group
-        const [existingGroup] = ws.weekendGroups;
-        if (ws.fridayWeeks.has(existingGroup) && ws.saturdayWeeks.has(existingGroup) && ws.sundayWeeks.has(existingGroup)) {
-          return false; // complete weekend already
-        }
-      }
-      return true;
-    }
-
-    // Default mode: max 1 of each day-type
-    if (dow === 5 && ws.fridayWeeks.size  >= 1) return false;
-    if (dow === 6 && ws.saturdayWeeks.size >= 1) return false;
-    if (dow === 0 && ws.sundayWeeks.size  >= 1) return false;
-    return true;
-  }
-
-  /**
-   * Checks if a resident is eligible for a weekend day, respecting both
-   * the max-2-groups hard limit AND the per-day-type constraints.
-   * Returns { ok, reason }.
-   */
-  function checkWeekendState(r, day, dow) {
-    const ws = r.weekendState;
-    const wg = getWeekKey(day);
-
-    // Hard limit: max 2 weekend groups per block
-    if (ws.weekendGroups.size >= 2 && !ws.weekendGroups.has(wg)) {
-      return { ok: false, reason: 'weekend-group-limit' };
-    }
-
-    if (cfg.allowWeekendConsecutive) {
-      // Can only use one group; if they already have a different one, reject
-      if (ws.weekendGroups.size === 1 && !ws.weekendGroups.has(wg)) {
-        return { ok: false, reason: 'weekend-consecutive-different-group' };
-      }
-      if (!isWeekendEligible(r, dow)) {
-        return { ok: false, reason: 'weekend-consecutive-complete' };
-      }
-      return { ok: true };
-    }
-
-    if (!isWeekendEligible(r, dow)) {
-      const reasons = { 5: 'friday-taken', 6: 'saturday-taken', 0: 'sunday-taken' };
-      return { ok: false, reason: reasons[dow] ?? 'weekend-limit' };
-    }
-    return { ok: true };
-  }
-
-  /** Update weekend state after a successful assignment. */
-  function applyWeekendState(r, day, dow) {
-    const ws = r.weekendState;
-    const wg = getWeekKey(day);
-    ws.weekendGroups.add(wg);
-    if (dow === 5) ws.fridayWeeks.add(wg);
-    if (dow === 6) ws.saturdayWeeks.add(wg);
-    if (dow === 0) ws.sundayWeeks.add(wg);
-  }
-
-  // ── Full eligibility check ────────────────────────────────────────────────────
-
-  function isEligible(r, day, ignoreWeekendState = false) {
-    const iso = toISO(day);
-    const dow = day.getUTCDay();
-
-    if (r.vacationSet.has(iso))    return { ok: false, reason: 'vacation' };
-    if (r.callCount >= r.maxCalls) return { ok: false, reason: `cap(${r.callCount}/${r.maxCalls})` };
-
-    // No back-to-back weekday calls
-    const prevDay = addDays(day, -1);
-    const prevIso = toISO(prevDay);
-    const prevDow = prevDay.getUTCDay();
-    if (isWeekday(dow) && isWeekday(prevDow) && r.assigned.has(prevIso)) {
-      return { ok: false, reason: 'back-to-back-weekday' };
-    }
-
-    // Weekend back-to-back (only applies in non-consecutive mode)
-    if (!cfg.allowWeekendConsecutive) {
-      if ((dow === 6 || dow === 0) && r.assigned.has(prevIso)) {
-        return { ok: false, reason: 'weekend-consecutive' };
-      }
-    }
-
-    // Weekend group / fulfilled checks
-    if (cfg.limitWeekendCalls && (dow === 5 || dow === 6 || dow === 0)) {
-      if (!ignoreWeekendState) {
-        const wkCheck = checkWeekendState(r, day, dow);
-        if (!wkCheck.ok) return wkCheck;
-      }
-    }
-
-    return { ok: true };
-  }
-
-  // ── Generate day list ─────────────────────────────────────────────────────────
-  const days = [];
-  const cur = startOfLogicalDay(block.startDate);
-  const end = startOfLogicalDay(block.endDate);
-  while (cur <= end) {
-    days.push(new Date(cur));
-    cur.setUTCDate(cur.getUTCDate() + 1);
-  }
-
-  console.log(`[scheduler] block spans ${days.length} days (${toISO(days[0])} → ${toISO(days[days.length - 1])})`);
+  const residentById = new Map(residents.map(resident => [resident.id, resident]));
+  const regularResidents = residents.filter(resident => !resident.isMedStudent);
+  const medStudents = residents.filter(resident => resident.isMedStudent);
 
   const existingCallDays = await prisma.callDay.findMany({
     where: { blockId },
@@ -312,11 +262,12 @@ async function generateSchedule(blockId) {
       },
     },
   });
-  const overrideByIso = new Map();
-  const residentById = new Map(residents.map(r => [r.id, r]));
+
+  const overrideByDateKey = new Map();
+  const warnings = [];
 
   for (const callDay of existingCallDays) {
-    const iso = toISO(new Date(callDay.date));
+    const dateKey = normalizeDateKey(callDay.date);
     const info = { callDay, hasSenior: false, hasJunior: false, assignments: callDay.assignments };
 
     for (const assignment of callDay.assignments) {
@@ -324,259 +275,150 @@ async function generateSchedule(blockId) {
       if (assignment.roleOnDay === 'junior') info.hasJunior = true;
 
       const resident = residentById.get(assignment.residentId);
-      if (resident) {
-        resident.callCount++;
-        resident.assigned.add(iso);
-        const day = new Date(callDay.date);
-        const dow = day.getUTCDay();
-        if (dow === 5 || dow === 6 || dow === 0) applyWeekendState(resident, day, dow);
+      if (!resident) continue;
+
+      if (violatesVacation(dateKey, resident.vacationDateKeys)) {
+        warnings.push({ date: dateKey, message: `Manual override for ${resident.name} falls on vacation` });
       }
+      if (violatesPostCallBeforeVacation(dateKey, resident.vacationDateKeys)) {
+        warnings.push({ date: dateKey, message: `Manual override for ${resident.name} is post-call before vacation` });
+      }
+      if (hasConsecutiveCall(dateKey, [...resident.assignedDateKeys])) {
+        warnings.push({ date: dateKey, message: `Manual override for ${resident.name} creates consecutive call` });
+      }
+
+      incrementResidentCall(resident, dateKey, assignment.roleOnDay, programSettings);
     }
 
-    if (callDay.assignments.length > 0) overrideByIso.set(iso, info);
+    if (callDay.assignments.length > 0) overrideByDateKey.set(dateKey, info);
   }
 
-  // ── Phase 1: Assign seniors + regular juniors ─────────────────────────────────
-  let assignedCount = 0;
-  const warnings = [];
-
-  // dayMap: iso → { callDayId, day, hasSenior, hasJunior }
   const dayMap = new Map();
 
-  for (const day of days) {
-    const iso       = toISO(day);
-    const isHoliday = holidaySet.has(iso);
-    const dow       = day.getUTCDay();
-    const isWeekendDay = dow === 5 || dow === 6 || dow === 0;
-
-    const overrideInfo = overrideByIso.get(iso);
-    const callDay = overrideInfo?.callDay ?? await prisma.callDay.create({
-      data: { blockId, date: day, isHoliday },
+  async function assignResident({ callDayId, resident, dateKey, roleOnDay }) {
+    await prisma.callAssignment.create({
+      data: { callDayId, residentId: resident.id, roleOnDay },
     });
-
-    let dayHasSenior = overrideInfo?.hasSenior ?? false;
-    let dayHasJunior = overrideInfo?.hasJunior ?? false;
-    dayMap.set(iso, { callDayId: callDay.id, day, hasSenior: dayHasSenior, hasJunior: dayHasJunior });
-
-    if (isHoliday) {
-      if (dayHasSenior || dayHasJunior) assignedCount++;
-      console.log(`[scheduler] ${iso} HOLIDAY — skipping`);
-      continue;
-    }
-
-    if (cfg.avoidAcademicDays && academicDaySet.has(iso)) {
-      warnings.push({ date: iso, message: 'Skipped academic day' });
-      console.log(`[scheduler] ${iso} academic day - skipping`);
-      continue;
-    }
-
-    // Sort eligible regular residents by call count (round-robin fairness)
-    // For Saturdays: prefer residents who already have a Fri+Sun pair (they need their Sat)
-    const eligibleRegular = (role, ignoreWeekend = false) => {
-      const results = [];
-      for (const r of regularResidents) {
-        if (r.role !== role) continue;
-        const check = isEligible(r, day, ignoreWeekend);
-        if (check.ok) {
-          results.push(r);
-        } else {
-          console.log(`  [skip] ${r.name} (${role}) on ${iso}: ${check.reason}`);
-        }
-      }
-      return results.sort((a, b) => {
-        // Saturday: prefer residents who already have a Friday assigned
-        // (they pair Fri+Sun from one weekend, Sat from another)
-        if (!ignoreWeekend && dow === 6) {
-          const aPref = a.weekendState.fridayWeeks.size > 0 ? 0 : 1;
-          const bPref = b.weekendState.fridayWeeks.size > 0 ? 0 : 1;
-          if (aPref !== bPref) return aPref - bPref;
-        }
-        return a.callCount - b.callCount;
-      });
-    };
-
-    const seniors = eligibleRegular('senior');
-    const juniors = eligibleRegular('junior');
-
-    console.log(`[scheduler] ${iso} — eligible seniors: [${seniors.map(r => r.name).join(', ')}] juniors: [${juniors.map(r => r.name).join(', ')}]`);
-
-    // ── Assign senior ──────────────────────────────────────────────────────────
-    let seniorCandidates = dayHasSenior ? [] : seniors;
-
-    // Weekend fallback: if no eligible senior on a weekend due to weekend constraints,
-    // pick the resident with fewest calls who is not on vacation
-    if (!dayHasSenior && seniorCandidates.length === 0 && isWeekendDay) {
-      const relaxed = regularResidents
-        .filter(r => r.role === 'senior' && !r.vacationSet.has(iso) && r.callCount < r.maxCalls)
-        .sort((a, b) => a.callCount - b.callCount);
-      if (relaxed.length > 0) {
-        const r = relaxed[0];
-        await prisma.callAssignment.create({
-          data: {
-            callDayId:  callDay.id,
-            residentId: r.id,
-            roleOnDay:  'senior',
-          },
-        });
-        r.callCount++;
-        r.assigned.add(iso);
-        applyWeekendState(r, day, dow);
-        dayHasSenior = true;
-        const msg = `Weekend constraint relaxed for ${iso} — all residents have fulfilled weekend duty`;
-        warnings.push({ date: iso, message: msg });
-        console.warn(`  ⚠ ${msg}: assigned senior ${r.name}`);
-        seniorCandidates = []; // already assigned
-      }
-    }
-
-    if (seniorCandidates.length > 0) {
-      const s = seniorCandidates[0];
-      await prisma.callAssignment.create({
-        data: { callDayId: callDay.id, residentId: s.id, roleOnDay: 'senior' },
-      });
-      s.callCount++;
-      s.assigned.add(iso);
-      if (isWeekendDay) applyWeekendState(s, day, dow);
-      dayHasSenior = true;
-      console.log(`  → assigned senior: ${s.name} (calls now ${s.callCount})`);
-    } else if (!dayHasSenior) {
-      warnings.push({ date: iso, message: 'No eligible senior available' });
-      console.warn(`  ⚠ No eligible senior on ${iso}`);
-    }
-
-    // ── Assign junior ──────────────────────────────────────────────────────────
-    let juniorCandidates = dayHasJunior ? [] : juniors;
-
-    // Weekend fallback: if no eligible junior on a weekend due to weekend constraints,
-    // pick the resident with fewest calls who is not on vacation
-    if (!dayHasJunior && juniorCandidates.length === 0 && isWeekendDay) {
-      const relaxed = regularResidents
-        .filter(r => r.role === 'junior' && !r.vacationSet.has(iso) && r.callCount < r.maxCalls)
-        .sort((a, b) => a.callCount - b.callCount);
-      if (relaxed.length > 0) {
-        const r = relaxed[0];
-        await prisma.callAssignment.create({
-          data: {
-            callDayId:  callDay.id,
-            residentId: r.id,
-            roleOnDay:  'junior',
-          },
-        });
-        r.callCount++;
-        r.assigned.add(iso);
-        applyWeekendState(r, day, dow);
-        dayHasJunior = true;
-        const msg = `Weekend constraint relaxed for ${iso} — all residents have fulfilled weekend duty`;
-        warnings.push({ date: iso, message: msg });
-        console.warn(`  ⚠ ${msg}: assigned junior ${r.name}`);
-        juniorCandidates = []; // already assigned
-      }
-    }
-
-    if (juniorCandidates.length > 0) {
-      const j = juniorCandidates[0];
-      await prisma.callAssignment.create({
-        data: { callDayId: callDay.id, residentId: j.id, roleOnDay: 'junior' },
-      });
-      j.callCount++;
-      j.assigned.add(iso);
-      if (isWeekendDay) applyWeekendState(j, day, dow);
-      dayHasJunior = true;
-      console.log(`  → assigned junior: ${j.name} (calls now ${j.callCount})`);
-    } else if (!dayHasJunior) {
-      warnings.push({ date: iso, message: 'No eligible junior available' });
-      console.warn(`  ⚠ No eligible junior on ${iso}`);
-    }
-
-    if (dayHasSenior || dayHasJunior) assignedCount++;
-    dayMap.get(iso).hasSenior = dayHasSenior;
-    dayMap.get(iso).hasJunior = dayHasJunior;
+    incrementResidentCall(resident, dateKey, roleOnDay, programSettings);
   }
 
-  // ── Phase 2: Assign med students as observers ─────────────────────────────────
-  // Med students are assigned ONLY to days that have a senior present.
-  // They do not count as junior coverage and are assigned AFTER all regular assignments.
+  function eligibleResidents(pool, roleOnDay, dateKey) {
+    const eligible = [];
+    const rejectedReasons = [];
+
+    for (const resident of pool) {
+      if (resident.role !== roleOnDay) continue;
+      const check = checkEligible(resident, dateKey, roleOnDay, programSettings, blockDateKeys);
+      if (check.ok) {
+        eligible.push(resident);
+      } else {
+        rejectedReasons.push(check.reason);
+        console.log(`  [skip] ${resident.name} (${roleOnDay}) on ${dateKey}: ${check.reason}`);
+      }
+    }
+
+    return { eligible: sortCandidates(eligible), rejectedReasons };
+  }
+
+  for (const dateKey of blockDateKeys) {
+    const date = dateFromDateKey(dateKey);
+    const isHoliday = holidaySet.has(dateKey);
+    const isAcademicDay = cfg.avoidAcademicDays && academicDaySet.has(dateKey);
+    const overrideInfo = overrideByDateKey.get(dateKey);
+    const callDay = overrideInfo?.callDay ?? await prisma.callDay.create({
+      data: { blockId, date, isHoliday },
+    });
+
+    let hasSenior = overrideInfo?.hasSenior ?? false;
+    let hasJunior = overrideInfo?.hasJunior ?? false;
+    dayMap.set(dateKey, { callDayId: callDay.id, hasSenior, hasJunior, skipped: false });
+
+    if (isHoliday) {
+      console.log(`[scheduler] ${dateKey} holiday - skipping generated assignments`);
+      continue;
+    }
+
+    if (isAcademicDay) {
+      warnings.push({ date: dateKey, message: 'Skipped academic day' });
+      dayMap.get(dateKey).skipped = true;
+      console.log(`[scheduler] ${dateKey} academic day - skipping generated assignments`);
+      continue;
+    }
+
+    if (!hasSenior && !cfg.allowAttendingOnlyDays) {
+      const { eligible, rejectedReasons } = eligibleResidents(regularResidents, 'senior', dateKey);
+      if (eligible.length > 0) {
+        await assignResident({ callDayId: callDay.id, resident: eligible[0], dateKey, roleOnDay: 'senior' });
+        hasSenior = true;
+        console.log(`  -> assigned senior: ${eligible[0].name}`);
+      } else {
+        const suffix = rejectedReasons.length ? ` (${formatEligibilityReasons(rejectedReasons)})` : '';
+        warnings.push({ date: dateKey, message: `No PARO-eligible senior available${suffix}` });
+      }
+    }
+
+    if (!hasJunior) {
+      const { eligible, rejectedReasons } = eligibleResidents(regularResidents, 'junior', dateKey);
+      if (eligible.length > 0) {
+        await assignResident({ callDayId: callDay.id, resident: eligible[0], dateKey, roleOnDay: 'junior' });
+        hasJunior = true;
+        console.log(`  -> assigned junior: ${eligible[0].name}`);
+      } else {
+        const suffix = rejectedReasons.length ? ` (${formatEligibilityReasons(rejectedReasons)})` : '';
+        warnings.push({ date: dateKey, message: `No PARO-eligible junior available${suffix}` });
+      }
+    }
+
+    dayMap.get(dateKey).hasSenior = hasSenior;
+    dayMap.get(dateKey).hasJunior = hasJunior;
+  }
 
   if (medStudents.length > 0) {
-    console.log(`[scheduler] Phase 2: assigning ${medStudents.length} med student(s) as observers`);
+    console.log(`[scheduler] Phase 2: assigning ${medStudents.length} med student(s) when junior coverage is empty`);
 
-    for (const [iso, info] of dayMap) {
-      if (holidaySet.has(iso)) continue;
-      if (!info.hasSenior) continue; // no senior — med student cannot observe
+    for (const dateKey of blockDateKeys) {
+      const info = dayMap.get(dateKey);
+      if (!info || holidaySet.has(dateKey) || info.skipped) continue;
+      if (!info.hasSenior || info.hasJunior) continue;
 
-      if (info.hasJunior) continue;  // existing junior coverage, including overrides
-
-      const day    = info.day;
-      const prevIso = toISO(addDays(day, -1));
-
-      const eligible = medStudents
-        .filter(r => {
-          if (r.vacationSet.has(iso))    return false;
-          if (r.callCount >= r.maxCalls) return false;
-          if (r.assigned.has(prevIso))   return false; // no back-to-back
-          return true;
-        })
-        .sort((a, b) => a.callCount - b.callCount);
-
+      const { eligible, rejectedReasons } = eligibleResidents(medStudents, 'junior', dateKey);
       if (eligible.length === 0) {
-        console.log(`  [med-student] no eligible observer for ${iso}`);
+        const suffix = rejectedReasons.length ? ` (${formatEligibilityReasons(rejectedReasons)})` : '';
+        warnings.push({ date: dateKey, message: `No PARO-eligible med student available${suffix}` });
         continue;
       }
 
-      const ms = eligible[0];
-      await prisma.callAssignment.create({
-        data: { callDayId: info.callDayId, residentId: ms.id, roleOnDay: 'junior' },
-      });
-      ms.callCount++;
-      ms.assigned.add(iso);
-      console.log(`  [med-student] assigned observer ${ms.name} on ${iso} (calls now ${ms.callCount})`);
+      await assignResident({ callDayId: info.callDayId, resident: eligible[0], dateKey, roleOnDay: 'junior' });
+      info.hasJunior = true;
+      console.log(`  [med-student] assigned ${eligible[0].name} on ${dateKey}`);
     }
   }
 
-  // ── Summary ───────────────────────────────────────────────────────────────────
-  const workDays    = days.filter(d => !holidaySet.has(toISO(d))).length;
+  const workDays = blockDateKeys.filter(dateKey => !holidaySet.has(dateKey)).length;
+  const assignedCount = [...dayMap.values()]
+    .filter(info => info.hasSenior || info.hasJunior)
+    .length;
   const unassignedDates = [...dayMap.entries()]
-    .filter(([iso, info]) => !holidaySet.has(iso) && !info.hasSenior && !info.hasJunior)
-    .map(([iso]) => iso);
+    .filter(([dateKey, info]) => !holidaySet.has(dateKey) && (!info.hasSenior || !info.hasJunior))
+    .map(([dateKey]) => dateKey);
   const callSummary = residents
-    .map(r => ({ name: r.name, role: r.role, isMedStudent: r.isMedStudent, calls: r.callCount }))
-    .sort((a, b) => b.calls - a.calls);
+    .map(buildSummaryRow)
+    .sort((a, b) => b.calls - a.calls || a.name.localeCompare(b.name));
 
-  console.log(`[scheduler] done — assigned=${assignedCount}/${workDays} warnings=${warnings.length}`);
+  console.log(`[scheduler] done - assigned=${assignedCount}/${workDays} warnings=${warnings.length}`);
   console.log('[scheduler] call summary:', callSummary.map(r => `${r.name}(${r.calls})`).join(', '));
 
-  // ── Weekend call audit log ────────────────────────────────────────────────────
-  console.log('[scheduler] weekend audit:');
-  for (const r of regularResidents) {
-    const ws = r.weekendState;
-    const parts = [];
-    for (const wg of [...ws.weekendGroups].sort()) {
-      // Extract just the week number for a readable label
-      const wkNum = wg.split('-W')[1];
-      const days_ = [];
-      if (ws.fridayWeeks.has(wg))   days_.push(`Fri`);
-      if (ws.saturdayWeeks.has(wg)) days_.push(`Sat`);
-      if (ws.sundayWeeks.has(wg))   days_.push(`Sun`);
-      if (days_.length > 0) parts.push(`${days_.join('+')} wk${wkNum}`);
-    }
-    const weekCount = ws.weekendGroups.size;
-    const status    = weekCount <= 2 ? '✓' : '⚠ over limit';
-    console.log(`  ${r.name}: ${parts.join(', ') || '(no weekend calls)'} — ${weekCount} weekend${weekCount !== 1 ? 's' : ''} ${status}`);
-  }
-
   return {
-    totalDays:   days.length,
+    totalDays: blockDateKeys.length,
     workDays,
-    assigned:    assignedCount,
-    unassigned:  unassignedDates.length,
+    assigned: assignedCount,
+    unassigned: unassignedDates.length,
     unassignedDates,
     warnings,
     callSummary,
     usedFallback,
   };
 }
-
-// ── clear ──────────────────────────────────────────────────────────────────────
 
 async function clearSchedule(blockId) {
   const callDays = await prisma.callDay.findMany({ where: { blockId } });
