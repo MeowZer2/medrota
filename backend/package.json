@@ -13,6 +13,8 @@
     "phase6:printable": "node scripts/phase6-printable-check.js",
     "phase6:smoke": "node scripts/phase6-smoke.js",
     "roles:smoke": "node scripts/role-permission-smoke.js",
+    "roles:audit": "node scripts/role-audit.js",
+    "dev:seed-qa": "node scripts/dev-seed-qa.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
