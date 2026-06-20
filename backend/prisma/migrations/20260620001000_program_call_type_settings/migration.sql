@@ -1,0 +1,2 @@
+ALTER TABLE "Program" ADD COLUMN "juniorInHouseCall" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "Program" ADD COLUMN "seniorInHouseCall" BOOLEAN NOT NULL DEFAULT false;

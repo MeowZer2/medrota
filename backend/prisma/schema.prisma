@@ -21,6 +21,8 @@ model Program {
   name           String
   specialty      String
   orgId          String
+  juniorInHouseCall Boolean       @default(true)
+  seniorInHouseCall Boolean       @default(false)
   org            Organization     @relation(fields: [orgId], references: [id])
   createdAt      DateTime         @default(now())
   members        ProgramMember[]

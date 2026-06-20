@@ -23,6 +23,8 @@ export function AppProvider({ children }) {
         programId: data.programId,
         programName: data.programName,
         specialty: data.specialty,
+        juniorInHouseCall: data.juniorInHouseCall ?? true,
+        seniorInHouseCall: data.seniorInHouseCall ?? false,
         role: normalizeRole(data.role),
         roleLabel: roleLabel(data.role),
         blocks: data.blocks,

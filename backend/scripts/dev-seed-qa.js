@@ -63,11 +63,21 @@ async function findOrCreateProgram(orgId) {
   if (existing) {
     return prisma.program.update({
       where: { id: existing.id },
-      data: { specialty: 'Vascular Surgery' },
+      data: {
+        specialty: 'Vascular Surgery',
+        juniorInHouseCall: true,
+        seniorInHouseCall: false,
+      },
     });
   }
   return prisma.program.create({
-    data: { name: PROGRAM_NAME, specialty: 'Vascular Surgery', orgId },
+    data: {
+      name: PROGRAM_NAME,
+      specialty: 'Vascular Surgery',
+      orgId,
+      juniorInHouseCall: true,
+      seniorInHouseCall: false,
+    },
   });
 }
 

@@ -65,6 +65,8 @@ router.get('/mine', async (req, res) => {
       programId: program.id,
       programName: program.name,
       specialty: program.specialty,
+      juniorInHouseCall: program.juniorInHouseCall,
+      seniorInHouseCall: program.seniorInHouseCall,
       role,
       academicYears: program.academicYears,
       blocks: allBlocks,
@@ -261,9 +263,15 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, specialty } = req.body;
+  const { name, specialty, juniorInHouseCall, seniorInHouseCall } = req.body;
   if (specialty !== undefined && !isAllowedSpecialty(specialty)) {
     return res.status(400).json({ error: 'Invalid specialty' });
+  }
+  if (juniorInHouseCall !== undefined && typeof juniorInHouseCall !== 'boolean') {
+    return res.status(400).json({ error: 'juniorInHouseCall must be a boolean' });
+  }
+  if (seniorInHouseCall !== undefined && typeof seniorInHouseCall !== 'boolean') {
+    return res.status(400).json({ error: 'seniorInHouseCall must be a boolean' });
   }
   try {
     const membership = await requireProgramPermission(req, res, id, 'edit_program_settings');
@@ -274,8 +282,16 @@ router.put('/:id', async (req, res) => {
       data: {
         ...(name      !== undefined && { name }),
         ...(specialty !== undefined && { specialty }),
+        ...(juniorInHouseCall !== undefined && { juniorInHouseCall }),
+        ...(seniorInHouseCall !== undefined && { seniorInHouseCall }),
       },
-      select: { id: true, name: true, specialty: true },
+      select: {
+        id: true,
+        name: true,
+        specialty: true,
+        juniorInHouseCall: true,
+        seniorInHouseCall: true,
+      },
     });
     res.json(program);
   } catch (err) {

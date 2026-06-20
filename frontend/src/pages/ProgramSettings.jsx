@@ -35,6 +35,24 @@ function Label({ children }) {
 
 // â”€â”€ main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+function CallTypeToggle({ id, label, description, checked, onChange }) {
+  return (
+    <label htmlFor={id} style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '12px 0', cursor: 'pointer' }}>
+      <input
+        id={id}
+        type="checkbox"
+        checked={checked}
+        onChange={e => onChange(e.target.checked)}
+        style={{ width: 18, height: 18, marginTop: 1, accentColor: '#1A3A5C' }}
+      />
+      <span>
+        <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#1A3A5C' }}>{label}</span>
+        <span style={{ display: 'block', fontSize: 12, color: '#64748B', marginTop: 2 }}>{description}</span>
+      </span>
+    </label>
+  );
+}
+
 export default function ProgramSettings() {
   const { currentUser, currentProgram, refreshContext, can } = useUser();
   const { currentBlock } = useBlock();
@@ -46,18 +64,27 @@ export default function ProgramSettings() {
   // â”€â”€ Section 1: Program info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [name,      setName]      = useState(currentProgram?.programName ?? '');
   const [specialty, setSpecialty] = useState(currentProgram?.specialty   ?? '');
+  const [juniorInHouseCall, setJuniorInHouseCall] = useState(currentProgram?.juniorInHouseCall ?? true);
+  const [seniorInHouseCall, setSeniorInHouseCall] = useState(currentProgram?.seniorInHouseCall ?? false);
   const [savingInfo, setSavingInfo] = useState(false);
 
   useEffect(() => {
     setName(currentProgram?.programName ?? '');
     setSpecialty(currentProgram?.specialty ?? '');
+    setJuniorInHouseCall(currentProgram?.juniorInHouseCall ?? true);
+    setSeniorInHouseCall(currentProgram?.seniorInHouseCall ?? false);
   }, [currentProgram]);
 
   const handleSaveInfo = async () => {
     if (!programId) return;
     setSavingInfo(true);
     try {
-      await api.put(`/programs/${programId}`, { name, specialty });
+      await api.put(`/programs/${programId}`, {
+        name,
+        specialty,
+        juniorInHouseCall,
+        seniorInHouseCall,
+      });
       await refreshContext();
       toast.success('Program info updated!');
     } catch {
@@ -200,6 +227,22 @@ export default function ProgramSettings() {
                   {MEDICAL_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
                   {specialty && !MEDICAL_SPECIALTIES.includes(specialty) && <option value={specialty}>{specialty}</option>}
                 </select>
+              </div>
+              <div style={{ borderTop: '1px solid #E8EFF6', paddingTop: 4 }}>
+                <CallTypeToggle
+                  id="junior-in-house-call"
+                  label="Junior in-house call"
+                  description="Junior resident call assignments count as in-house call for PARO maximums."
+                  checked={juniorInHouseCall}
+                  onChange={setJuniorInHouseCall}
+                />
+                <CallTypeToggle
+                  id="senior-in-house-call"
+                  label="Senior in-house call"
+                  description="Senior resident call assignments count as in-house call for PARO maximums."
+                  checked={seniorInHouseCall}
+                  onChange={setSeniorInHouseCall}
+                />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <motion.button
