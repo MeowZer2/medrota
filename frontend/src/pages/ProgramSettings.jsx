@@ -214,7 +214,7 @@ export default function ProgramSettings() {
                   onMouseEnter={e => { if (!savingInfo) e.currentTarget.style.background = '#2C5F8A'; }}
                   onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}
                 >
-                  {savingInfo ? 'Savingâ€¦' : 'Save'}
+                  {savingInfo ? 'Saving...' : 'Save'}
                 </motion.button>
               </div>
             </div>
@@ -223,7 +223,7 @@ export default function ProgramSettings() {
           {/* â”€â”€ Team members â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Card title="Team Members" subtitle="View and manage who has access to this program.">
             {loadingMembers ? (
-              <p style={{ fontSize: 13, color: '#94A3B8' }}>Loadingâ€¦</p>
+              <p style={{ fontSize: 13, color: '#94A3B8' }}>Loading...</p>
             ) : members.length === 0 ? (
               <p style={{ fontSize: 13, color: '#CBD5E1', fontStyle: 'italic' }}>No members yet.</p>
             ) : (
@@ -241,10 +241,10 @@ export default function ProgramSettings() {
                     return (
                       <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: 12, alignItems: 'center', padding: '10px 12px', borderRadius: 8, border: isSelf ? '1px solid #C7D9EC' : '1px solid #F1F5F9', background: isSelf ? '#F8FCFF' : '#fff' }}>
                         <span style={{ fontSize: 13, fontWeight: 500, color: '#1A3A5C' }}>
-                          {m.user?.name ?? 'â€”'}
+                          {m.user?.name ?? '-'}
                           {isSelf && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#2C5F8A', background: '#EEF4FF', padding: '1px 6px', borderRadius: 99 }}>You</span>}
                         </span>
-                        <span style={{ fontSize: 13, color: '#64748B' }}>{m.user?.email ?? 'â€”'}</span>
+                        <span style={{ fontSize: 13, color: '#64748B' }}>{m.user?.email ?? '-'}</span>
                         <select
                           value={m.role}
                           onChange={e => handleRoleChange(m.userId, e.target.value)}
@@ -324,7 +324,7 @@ export default function ProgramSettings() {
                   onMouseEnter={e => { if (!generatingInvite) e.currentTarget.style.background = '#2C5F8A'; }}
                   onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}
                 >
-                  {generatingInvite ? 'Generatingâ€¦' : inviteLink ? 'Regenerate' : 'Generate invite link'}
+                  {generatingInvite ? 'Generating...' : inviteLink ? 'Regenerate' : 'Generate invite link'}
                 </motion.button>
               </div>
             </div>
@@ -359,7 +359,7 @@ export default function ProgramSettings() {
                         )}
                       </p>
                       <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
-                        {v.publishedBy ? `By ${v.publishedBy}` : 'Unknown user'} Â· {v.assignedDays} assigned days
+                        {v.publishedBy ? `By ${v.publishedBy}` : 'Unknown user'} - {v.assignedDays} assigned days
                       </p>
                     </div>
                     <button
@@ -402,10 +402,10 @@ export default function ProgramSettings() {
                 <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
                   <div>
                     <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1A3A5C', margin: 0 }}>
-                      Snapshot â€” {fmtVersionDate(snapshotModal.publishedAt)}
+                      Snapshot - {fmtVersionDate(snapshotModal.publishedAt)}
                     </h2>
                     <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>
-                      {snapshotModal.publishedBy ? `Published by ${snapshotModal.publishedBy}` : ''} Â· {snapshotModal.assignedDays} assigned days
+                      {snapshotModal.publishedBy ? `Published by ${snapshotModal.publishedBy}` : ''} - {snapshotModal.assignedDays} assigned days
                     </p>
                   </div>
                   <button
@@ -444,10 +444,10 @@ export default function ProgramSettings() {
                                 {dayLabel} {isHol && '(H)'}
                               </span>
                               <span style={{ color: seniors ? '#15803D' : '#CBD5E1' }}>
-                                {seniors || 'â€”'}
+                                {seniors || '-'}
                               </span>
                               <span style={{ color: juniors ? '#B45309' : '#CBD5E1' }}>
-                                {juniors || 'â€”'}
+                                {juniors || '-'}
                               </span>
                             </div>
                           );

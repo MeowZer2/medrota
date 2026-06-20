@@ -15,7 +15,7 @@ function getInitials(name) {
 function yearLabel(ay) {
   const start = new Date(ay.startDate);
   const end   = new Date(ay.endDate);
-  return `${start.getFullYear()}â€“${end.getFullYear()}`;
+  return `${start.getFullYear()}-${end.getFullYear()}`;
 }
 
 function isBlockCurrent(block) {
@@ -27,7 +27,7 @@ function fmtBlockDateRange(block) {
   const opts = { month: 'short', day: 'numeric' };
   const s = new Date(block.startDate).toLocaleDateString('en-GB', opts);
   const e = new Date(block.endDate).toLocaleDateString('en-GB', opts);
-  return `${s} â€“ ${e}`;
+  return `${s} - ${e}`;
 }
 
 // â”€â”€ icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -189,7 +189,7 @@ function YearSwitcher({ years, current, onChange, onAddYear, addingYear }) {
         onMouseEnter={e => e.currentTarget.style.background = '#E4EDFF'}
         onMouseLeave={e => e.currentTarget.style.background = '#F0F5FF'}
       >
-        <span>{current ? yearLabel(current) : 'â€”'}</span>
+        <span>{current ? yearLabel(current) : '-'}</span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
           <ChevronDown />
         </motion.span>
@@ -224,7 +224,7 @@ function YearSwitcher({ years, current, onChange, onAddYear, addingYear }) {
                 onMouseLeave={e => { if (ay.id !== current?.id) e.currentTarget.style.background = 'transparent'; }}
               >
                 {yearLabel(ay)}
-                {ay.id === current?.id && <span style={{ marginLeft: 6, fontSize: 10, color: '#2C5F8A' }}>â—</span>}
+                {ay.id === current?.id && <span style={{ marginLeft: 6, fontSize: 10, color: '#2C5F8A' }}>*</span>}
               </button>
             ))}
             {onAddYear && (
@@ -242,7 +242,7 @@ function YearSwitcher({ years, current, onChange, onAddYear, addingYear }) {
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
               >
                 <PlusSmIcon />
-                {addingYear ? 'Addingâ€¦' : '+ Add year'}
+                {addingYear ? 'Adding...' : '+ Add year'}
               </button>
             </div>
             )}

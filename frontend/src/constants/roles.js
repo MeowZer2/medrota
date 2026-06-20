@@ -13,7 +13,7 @@ export const ROLE_LABELS = Object.freeze({
 });
 
 const LEGACY_ROLE_MAP = Object.freeze({
-  coordinator: PROGRAM_ROLES.PROGRAM_ADMIN,
+  coordinator: PROGRAM_ROLES.PROGRAM_DIRECTOR,
   admin: PROGRAM_ROLES.PROGRAM_ADMIN,
   builder: PROGRAM_ROLES.CHIEF_RESIDENT,
   editor: PROGRAM_ROLES.CHIEF_RESIDENT,

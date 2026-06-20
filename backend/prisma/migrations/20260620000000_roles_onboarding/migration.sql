@@ -5,7 +5,7 @@ ALTER TABLE "User" ADD COLUMN "homeSpecialty" TEXT;
 
 UPDATE "ProgramMember"
 SET "role" = CASE
-  WHEN lower("role") = 'coordinator' THEN 'program_admin'
+  WHEN lower("role") = 'coordinator' THEN 'program_director'
   WHEN lower("role") = 'admin' THEN 'program_admin'
   WHEN lower("role") = 'builder' THEN 'chief_resident'
   WHEN lower("role") = 'editor' THEN 'chief_resident'
@@ -16,7 +16,7 @@ END;
 
 UPDATE "Invite"
 SET "role" = CASE
-  WHEN lower("role") = 'coordinator' THEN 'program_admin'
+  WHEN lower("role") = 'coordinator' THEN 'program_director'
   WHEN lower("role") = 'admin' THEN 'program_admin'
   WHEN lower("role") = 'builder' THEN 'chief_resident'
   WHEN lower("role") = 'editor' THEN 'chief_resident'

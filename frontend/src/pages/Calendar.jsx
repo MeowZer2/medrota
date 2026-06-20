@@ -94,7 +94,7 @@ const FLAG_PRESETS = [
 
 // â”€â”€ DayCell (grid) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-const DayCell = memo(function DayCell({ dayData, onClick }) {
+const DayCell = memo(function DayCell({ dayData, onClick, canEdit }) {
   const { day, attendings, assignment, flag, isHoliday } = dayData;
   const weekend = isWeekend(day);
 
@@ -126,7 +126,7 @@ const DayCell = memo(function DayCell({ dayData, onClick }) {
 
   return (
     <button
-      onClick={() => onClick(dayData)}
+      onClick={() => { if (canEdit) onClick(dayData); }}
       className={`flex flex-col text-left w-full${isHoliday ? ' holiday-glow' : ''}`}
       style={{
         background: bg,
@@ -134,12 +134,12 @@ const DayCell = memo(function DayCell({ dayData, onClick }) {
         borderRadius: 8,
         padding: 8,
         minHeight: 90,
-        cursor: 'pointer',
+        cursor: canEdit ? 'pointer' : 'default',
         position: 'relative',
         transition: 'transform 90ms ease, border-color 90ms ease, background-color 90ms ease',
         willChange: 'transform',
       }}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
+      onMouseEnter={e => { if (canEdit) e.currentTarget.style.transform = 'translateY(-1px)'; }}
       onMouseLeave={e => { e.currentTarget.style.transform = ''; }}
     >
       {/* Date header row */}
@@ -147,7 +147,7 @@ const DayCell = memo(function DayCell({ dayData, onClick }) {
         <span style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', lineHeight: 1 }}>{dayNum}</span>
         <span style={{ fontSize: 10, color: '#94A3B8', lineHeight: 1 }}>{monthAbbr}</span>
         {flag && (
-          <span style={{ fontSize: 9, fontWeight: 600, color: flag.color, lineHeight: 1 }}>Â· {flag.label}</span>
+          <span style={{ fontSize: 9, fontWeight: 600, color: flag.color, lineHeight: 1 }}>&middot; {flag.label}</span>
         )}
         {isHoliday && !flag && (
           <span style={{ fontSize: 9, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', lineHeight: 1, marginLeft: 'auto' }}>Holiday</span>
@@ -158,7 +158,7 @@ const DayCell = memo(function DayCell({ dayData, onClick }) {
       {nonCallAtts.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {nonCallAtts.map((a, i) => {
-            const text = a.activityLabel ? `${a.attendingName} Â· ${a.activityLabel}` : a.attendingName;
+            const text = a.activityLabel ? `${a.attendingName} - ${a.activityLabel}` : a.attendingName;
             return <span key={i} style={{ ...chipBase, background: '#F1F5F9', color: '#334155' }}>{text}</span>;
           })}
         </div>
@@ -192,12 +192,13 @@ const DayCell = memo(function DayCell({ dayData, onClick }) {
   );
 }, (prevProps, nextProps) => (
   prevProps.dayData === nextProps.dayData &&
-  prevProps.onClick === nextProps.onClick
+  prevProps.onClick === nextProps.onClick &&
+  prevProps.canEdit === nextProps.canEdit
 ));
 
 // â”€â”€ DayRow (mobile) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-function DayRow({ dayData, onClick }) {
+function DayRow({ dayData, onClick, canEdit }) {
   const { day, attendings, assignment, flag, isHoliday } = dayData;
   const weekend = isWeekend(day);
   const nonCallAtts = (attendings ?? []).filter(a => !a.isCallDay);
@@ -212,9 +213,9 @@ function DayRow({ dayData, onClick }) {
     : isHoliday ? '#FCA5A5' : weekend ? '#E2E8F0' : 'transparent';
 
   return (
-    <button onClick={() => onClick(dayData)} className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors duration-100"
-      style={{ background: rowBg, borderLeft: `3px solid ${accentColor}`, borderBottom: '1px solid #F1F5F9' }}
-      onMouseEnter={e => { e.currentTarget.style.background = '#F0F5FF'; }}
+    <button onClick={() => { if (canEdit) onClick(dayData); }} className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors duration-100"
+      style={{ background: rowBg, borderLeft: `3px solid ${accentColor}`, borderBottom: '1px solid #F1F5F9', cursor: canEdit ? 'pointer' : 'default' }}
+      onMouseEnter={e => { if (canEdit) e.currentTarget.style.background = '#F0F5FF'; }}
       onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}
     >
       <div className="shrink-0 w-12">
@@ -232,7 +233,7 @@ function DayRow({ dayData, onClick }) {
         {isHoliday && <span style={{ fontSize: 11, fontWeight: 600, color: '#DC2626' }}>Holiday</span>}
         {/* Non-call attendings â€” plain text */}
         {nonCallAtts.map((a, i) => {
-          const text = [a.attendingName, a.activityLabel].filter(Boolean).join(' Â· ');
+          const text = [a.attendingName, a.activityLabel].filter(Boolean).join(' - ');
           return text ? <span key={i} style={{ fontSize: 11, color: '#475569' }}>{text}</span> : null;
         })}
         {/* Call attendings â€” navy bold */}
@@ -335,18 +336,18 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
         {entries.map(e => (
           <div key={e.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: '#F8FAFC', border: '1px solid #E8EFF6' }}>
             <div className="flex flex-wrap gap-1 flex-1">
-              {e.attendingName && <Chip label={`ðŸ‘¤ ${e.attendingName}`} color="#1D4ED8" bg="#EFF6FF" />}
+              {e.attendingName && <Chip label={e.attendingName} color="#1D4ED8" bg="#EFF6FF" />}
               {e.activityLabel && <Chip label={e.activityLabel} color="#6D28D9" bg="#F3F0FF" />}
               {e.isCallDay && <Chip label="Call" color="#1A3A5C" bg="#EEF4FF" />}
             </div>
             <button onClick={() => openEdit(e)} title="Edit"
               style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: '2px 4px', borderRadius: 4, lineHeight: 1 }}
               onMouseEnter={e => e.currentTarget.style.background = '#F0F5FF'}
-              onMouseLeave={e => e.currentTarget.style.background = 'none'}>âœï¸</button>
+              onMouseLeave={e => e.currentTarget.style.background = 'none'}>Edit</button>
             <button onClick={() => handleDelete(e.id)} title="Delete"
               style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626', padding: '2px 4px', borderRadius: 4, lineHeight: 1 }}
               onMouseEnter={ev => ev.currentTarget.style.background = '#FEF2F2'}
-              onMouseLeave={ev => ev.currentTarget.style.background = 'none'}>âœ•</button>
+              onMouseLeave={ev => ev.currentTarget.style.background = 'none'}>Delete</button>
           </div>
         ))}
       </div>
@@ -363,7 +364,7 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
                 const autoActivity = matched?.activities?.length === 1 ? matched.activities[0] : '';
                 setForm(p => ({ ...p, attendingName: name, activityLabel: autoActivity || p.activityLabel }));
               }}>
-              <option value="">â€” Select attending â€”</option>
+              <option value="">Select attending</option>
               {roster.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
             </select>
           ) : (
@@ -379,7 +380,7 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
                 className={modalSelectClass}
                 value={form.activityLabel}
                 onChange={e => setForm(p => ({ ...p, activityLabel: e.target.value }))}>
-                <option value="">â€” Select activity â€”</option>
+                <option value="">Select activity</option>
                 {acts.map(a => <option key={a} value={a}>{a}</option>)}
                 {form.activityLabel && !acts.includes(form.activityLabel) && (
                   <option value={form.activityLabel}>{form.activityLabel}</option>
@@ -401,7 +402,7 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
             </button>
             <button onClick={handleSave} disabled={saving}
               style={{ flex: 1, padding: '6px', borderRadius: 6, border: 'none', background: '#1A3A5C', color: '#fff', fontSize: 12, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              {saving ? 'â€¦' : editId ? 'Update' : 'Add'}
+              {saving ? '...' : editId ? 'Update' : 'Add'}
             </button>
           </div>
         </div>
@@ -489,7 +490,7 @@ function FlagSection({ day, blockId, flag, onFlagChange }) {
       {/* Preview */}
       {label.trim() && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, padding: '4px 10px', borderRadius: 6, background: color + '26', border: `1px solid ${color}55` }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color }}>Â· {label.trim()}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color }}>&middot; {label.trim()}</span>
         </div>
       )}
       <div style={{ display: 'flex', gap: 8 }}>
@@ -507,7 +508,7 @@ function FlagSection({ day, blockId, flag, onFlagChange }) {
           disabled={saving || !label.trim()}
           style={{ flex: 1, padding: '6px', borderRadius: 6, border: 'none', background: color, color: '#fff', fontSize: 12, fontWeight: 600, cursor: (saving || !label.trim()) ? 'not-allowed' : 'pointer', opacity: (saving || !label.trim()) ? 0.5 : 1 }}
         >
-          {saving ? 'â€¦' : 'Save flag'}
+          {saving ? '...' : 'Save flag'}
         </button>
       </div>
     </div>
@@ -539,6 +540,8 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
 
   const seniors = residents.filter(r => r.residentRole === 'senior' && !r.isMedStudent);
   const juniors = residents.filter(r => r.residentRole === 'junior' && !r.isMedStudent);
+  const assignedSeniorMissing = assignment?.seniorId && !seniors.some(r => r.id === assignment.seniorId);
+  const assignedJuniorMissing = assignment?.juniorId && !juniors.some(r => r.id === assignment.juniorId);
 
   const dayKey = toISODate(day);
   const warning = null;
@@ -588,14 +591,20 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
           <div>
             <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#64748B', marginBottom: 4 }}>Senior resident</label>
             <select key={`senior-${dayKey}`} name="seniorId" className={modalSelectClass} defaultValue={assignment?.seniorId ?? ''}>
-              <option value="">â€” Unassigned â€”</option>
+              <option value="">Unassigned</option>
+              {assignedSeniorMissing && (
+                <option value={assignment.seniorId}>{assignment.senior ?? 'Assigned senior'}</option>
+              )}
               {seniors.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#64748B', marginBottom: 4 }}>Junior resident</label>
             <select key={`junior-${dayKey}`} name="juniorId" className={modalSelectClass} defaultValue={assignment?.juniorId ?? ''}>
-              <option value="">â€” Unassigned â€”</option>
+              <option value="">Unassigned</option>
+              {assignedJuniorMissing && (
+                <option value={assignment.juniorId}>{assignment.junior ?? 'Assigned junior'}</option>
+              )}
               {juniors.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
           </div>
@@ -765,7 +774,7 @@ function PublishConfirmModal({ onConfirm, onClose, publishing }) {
               style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#16A34A', color: '#fff', fontSize: 13, fontWeight: 600, cursor: publishing ? 'not-allowed' : 'pointer', opacity: publishing ? 0.7 : 1 }}
               onMouseEnter={e => { if (!publishing) e.currentTarget.style.background = '#15803D'; }}
               onMouseLeave={e => e.currentTarget.style.background = '#16A34A'}>
-              {publishing ? 'Publishingâ€¦' : 'Publish'}
+              {publishing ? 'Publishing...' : 'Publish'}
             </button>
           </div>
         </div>
@@ -810,7 +819,7 @@ function ClearConfirmModal({ blockNum, onConfirm, onClose, clearing }) {
               style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#DC2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: clearing ? 'not-allowed' : 'pointer', opacity: clearing ? 0.7 : 1 }}
               onMouseEnter={e => { if (!clearing) e.currentTarget.style.background = '#B91C1C'; }}
               onMouseLeave={e => e.currentTarget.style.background = '#DC2626'}>
-              {clearing ? 'Clearingâ€¦' : 'Clear all assignments'}
+              {clearing ? 'Clearing...' : 'Clear all assignments'}
             </button>
           </div>
         </div>
@@ -1050,7 +1059,7 @@ const CalendarTopBar = memo(function CalendarTopBar({
             <h1 style={{ fontSize: 18, fontWeight: 700, color: '#1A3A5C' }}>Block {blockNum} Calendar</h1>
             {blockStart && blockEnd && (
               <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>
-                {fmtRange(blockStart)} â€“ {fmtRange(blockEnd)}
+                {fmtRange(blockStart)} - {fmtRange(blockEnd)}
               </p>
             )}
           </div>
@@ -1144,7 +1153,7 @@ const CalendarTopBar = memo(function CalendarTopBar({
             style={{ background: '#fff', color: '#DC2626', border: '1px solid #FCA5A5', cursor: clearingSchedule ? 'not-allowed' : 'pointer' }}
             onMouseEnter={e => { if (!clearingSchedule) { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.borderColor = '#EF4444'; } }}
             onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#FCA5A5'; }}>
-            {clearingSchedule ? <><Spinner /><span style={{ color: '#DC2626' }}>Clearingâ€¦</span></> : 'Clear schedule'}
+            {clearingSchedule ? <><Spinner /><span style={{ color: '#DC2626' }}>Clearing...</span></> : 'Clear schedule'}
           </motion.button>
 
           {/* Auto-generate */}
@@ -1156,7 +1165,7 @@ const CalendarTopBar = memo(function CalendarTopBar({
             style={{ background: '#EEF4FF', color: '#2C5F8A', border: '1px solid #C7D9EC', cursor: generating ? 'not-allowed' : 'pointer' }}
             onMouseEnter={e => { if (!generating) e.currentTarget.style.background = '#DCE9F5'; }}
             onMouseLeave={e => e.currentTarget.style.background = '#EEF4FF'}>
-            {generating ? <><Spinner /><span style={{ color: '#2C5F8A' }}>Generatingâ€¦</span></> : 'Auto-generate'}
+            {generating ? <><Spinner /><span style={{ color: '#2C5F8A' }}>Generating...</span></> : 'Auto-generate'}
           </motion.button>
 
           {/* Publish */}
@@ -1268,6 +1277,7 @@ export default function Calendar() {
   const latestBlockIdRef = useRef(blockId);
   const canEditResidents = can('edit_residents');
   const canEditAttending = can('edit_attendings');
+  const canEditSchedule = can('manual_assign_calls') || canEditAttending;
 
   useEffect(() => {
     latestBlockIdRef.current = blockId;
@@ -1377,8 +1387,9 @@ export default function Calendar() {
   );
 
   const handleDayClick = useCallback((dayData) => {
+    if (!canEditSchedule) return;
     setSelectedDateKey(dayData.dateKey);
-  }, []);
+  }, [canEditSchedule]);
 
   const closeDayModal = useCallback(() => {
     setSelectedDateKey(null);
@@ -1704,6 +1715,7 @@ export default function Calendar() {
                           <DayCell
                             dayData={dayDataMap[normalizeDateKey(day)]}
                             onClick={handleDayClick}
+                            canEdit={canEditSchedule}
                           />
                         ) : (
                           <div className="h-full rounded-xl" style={{ background: '#F8FAFC', border: '1px solid #F1F5F9', minHeight: 100 }} />
@@ -1719,7 +1731,7 @@ export default function Calendar() {
             <div className="md:hidden rounded-xl overflow-hidden" style={{ border: '1px solid #E8EFF6', boxShadow: '0 1px 3px rgba(26,58,92,0.05)' }}>
               <div className="px-4 py-3" style={{ background: '#F8FAFC', borderBottom: '1px solid #E8EFF6' }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: '#94A3B8' }}>
-                  {days.length} days Â· Tap a day to assign residents
+                  {days.length} days - {canEditSchedule ? 'Tap a day to assign residents' : 'Read-only schedule'}
                 </span>
               </div>
               {dayDataList.map((dayData, i) => (
@@ -1727,6 +1739,7 @@ export default function Calendar() {
                   key={i}
                   dayData={dayData}
                   onClick={handleDayClick}
+                  canEdit={canEditSchedule}
                 />
               ))}
             </div>
@@ -1735,7 +1748,7 @@ export default function Calendar() {
 
         {/* Day edit modal */}
         <DayModal
-          isOpen={selectedDateKey !== null}
+          isOpen={canEditSchedule && selectedDateKey !== null}
           day={selectedDayData?.day ?? null}
           attendings={selectedDayData?.attendings ?? []}
           residents={residents}
