@@ -205,7 +205,7 @@ export default function Login() {
                   name="password"
                   type={showPwd ? 'text' : 'password'}
                   className="lg-input has-toggle"
-                  placeholder="••••••••••"
+                  placeholder="Password"
                   autoComplete="current-password"
                   value={form.password}
                   onChange={handleChange}
@@ -224,7 +224,7 @@ export default function Login() {
             </div>
 
             <button type="submit" className="lg-submit" disabled={loading}>
-              {loading ? <><span className="lg-spinner" /> Signing in…</> : <>Sign in <Arrow /></>}
+              {loading ? <><span className="lg-spinner" /> Signing in...</> : <>Sign in <Arrow /></>}
             </button>
           </form>
 
@@ -260,10 +260,10 @@ export default function Login() {
         </div>
 
         <div className="lg-legal">
-          <span>© 2026 MedRota · v1.0</span>
+          <span>(c) 2026 MedRota - v1.0</span>
           <span>
             <a href="#" onClick={(e) => e.preventDefault()}>Privacy</a>
-            {' · '}
+            {' - '}
             <a href="#" onClick={(e) => e.preventDefault()}>Terms</a>
           </span>
         </div>
@@ -290,8 +290,8 @@ export default function Login() {
 
         <div className="lg-preview">
           <div className="lg-preview-head">
-            <div className="name">Block 3 · June 2026</div>
-            <div className="meta">28 days · 9 residents</div>
+            <div className="name">Block 3 - June 2026</div>
+            <div className="meta">28 days - 9 residents</div>
           </div>
 
           <div className="lg-mini-grid">
@@ -312,7 +312,7 @@ export default function Login() {
           </div>
 
           <div className="lg-preview-foot">
-            <span>● 25 assigned · 3 unassigned</span>
+            <span>25 assigned - 3 unassigned</span>
             <span>Published 12m ago</span>
           </div>
         </div>

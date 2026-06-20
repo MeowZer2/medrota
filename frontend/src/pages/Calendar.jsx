@@ -147,7 +147,7 @@ const DayCell = memo(function DayCell({ dayData, onClick, canEdit }) {
         <span style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', lineHeight: 1 }}>{dayNum}</span>
         <span style={{ fontSize: 10, color: '#94A3B8', lineHeight: 1 }}>{monthAbbr}</span>
         {flag && (
-          <span style={{ fontSize: 9, fontWeight: 600, color: flag.color, lineHeight: 1 }}>&middot; {flag.label}</span>
+          <span style={{ fontSize: 9, fontWeight: 600, color: flag.color, lineHeight: 1 }}>- {flag.label}</span>
         )}
         {isHoliday && !flag && (
           <span style={{ fontSize: 9, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', lineHeight: 1, marginLeft: 'auto' }}>Holiday</span>
@@ -490,7 +490,7 @@ function FlagSection({ day, blockId, flag, onFlagChange }) {
       {/* Preview */}
       {label.trim() && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, padding: '4px 10px', borderRadius: 6, background: color + '26', border: `1px solid ${color}55` }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color }}>&middot; {label.trim()}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color }}>- {label.trim()}</span>
         </div>
       )}
       <div style={{ display: 'flex', gap: 8 }}>
