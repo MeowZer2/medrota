@@ -8,13 +8,41 @@ import { Skeleton } from '../components/Skeleton';
 import api from '../api/axios';
 import { useBlock, useUser } from '../context/AppContext';
 import {
-  getDaysFromDates, getDaysInBlock, isWeekend,
+  getDaysInBlock, isWeekend,
   toISODate, fmtShort, fmtDay, fmtFull, DAYS_OF_WEEK,
 } from '../lib/blockUtils';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-function apiDateKey(value) { return String(value).slice(0, 10); }
+function normalizeDateKey(value) {
+  if (!value) return '';
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+  if (value instanceof Date) return toISODate(value);
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : toISODate(date);
+}
+
+function dateFromDateKey(dateKey) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function getDaysFromDateKeys(startDate, endDate) {
+  const startKey = normalizeDateKey(startDate);
+  const endKey = normalizeDateKey(endDate);
+  if (!startKey || !endKey) return [];
+  const current = dateFromDateKey(startKey);
+  const end = dateFromDateKey(endKey);
+  const days = [];
+  while (current <= end) {
+    days.push(new Date(current));
+    current.setDate(current.getDate() + 1);
+  }
+  return days;
+}
 
 const DEFAULT_BLOCK_SETTINGS = {
   maxCallsPerResident: 9,
@@ -27,7 +55,7 @@ const DEFAULT_BLOCK_SETTINGS = {
 function buildAssignmentsMap(list) {
   const map = {};
   for (const a of list) {
-    const iso = apiDateKey(a.callDay.date);
+    const iso = normalizeDateKey(a.callDay.date);
     if (!map[iso]) map[iso] = { callDayId: a.callDay.id };
     if (a.roleOnDay === 'senior') {
       map[iso].seniorId = a.residentId;
@@ -66,7 +94,8 @@ const FLAG_PRESETS = [
 
 // ── DayCell (grid) ────────────────────────────────────────────────────────────
 
-const DayCell = memo(function DayCell({ day, attendings, assignment, flag, onClick, isHoliday }) {
+const DayCell = memo(function DayCell({ dayData, onClick }) {
+  const { day, attendings, assignment, flag, isHoliday } = dayData;
   const weekend = isWeekend(day);
 
   // Split attendings: non-call go in top section, call-day go in bottom
@@ -97,7 +126,7 @@ const DayCell = memo(function DayCell({ day, attendings, assignment, flag, onCli
 
   return (
     <button
-      onClick={() => onClick(day)}
+      onClick={() => onClick(dayData)}
       className={`flex flex-col text-left w-full${isHoliday ? ' holiday-glow' : ''}`}
       style={{
         background: bg,
@@ -162,17 +191,14 @@ const DayCell = memo(function DayCell({ day, attendings, assignment, flag, onCli
     </button>
   );
 }, (prevProps, nextProps) => (
-  prevProps.day === nextProps.day &&
-  prevProps.attendings === nextProps.attendings &&
-  prevProps.assignment === nextProps.assignment &&
-  prevProps.flag === nextProps.flag &&
-  prevProps.onClick === nextProps.onClick &&
-  prevProps.isHoliday === nextProps.isHoliday
+  prevProps.dayData === nextProps.dayData &&
+  prevProps.onClick === nextProps.onClick
 ));
 
 // ── DayRow (mobile) ───────────────────────────────────────────────────────────
 
-function DayRow({ day, attendings, assignment, flag, onClick, isHoliday }) {
+function DayRow({ dayData, onClick }) {
+  const { day, attendings, assignment, flag, isHoliday } = dayData;
   const weekend = isWeekend(day);
   const nonCallAtts = (attendings ?? []).filter(a => !a.isCallDay);
   const callAtts    = (attendings ?? []).filter(a => a.isCallDay);
@@ -186,7 +212,7 @@ function DayRow({ day, attendings, assignment, flag, onClick, isHoliday }) {
     : isHoliday ? '#FCA5A5' : weekend ? '#E2E8F0' : 'transparent';
 
   return (
-    <button onClick={onClick} className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors duration-100"
+    <button onClick={() => onClick(dayData)} className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors duration-100"
       style={{ background: rowBg, borderLeft: `3px solid ${accentColor}`, borderBottom: '1px solid #F1F5F9' }}
       onMouseEnter={e => { e.currentTarget.style.background = '#F0F5FF'; }}
       onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}
@@ -244,6 +270,13 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
   const [saving, setSaving]   = useState(false);
 
   const iso = toISODate(day);
+
+  useEffect(() => {
+    setEntries(initialEntries ?? []);
+    setShowForm(false);
+    setEditId(null);
+    setForm(BLANK_FORM);
+  }, [iso, initialEntries]);
 
   function openAdd() { setForm(BLANK_FORM); setEditId(null); setShowForm(true); }
   function openEdit(e) { setForm({ attendingName: e.attendingName, activityLabel: e.activityLabel, isCallDay: e.isCallDay }); setEditId(e.id); setShowForm(true); }
@@ -384,6 +417,11 @@ function FlagSection({ day, blockId, flag, onFlagChange }) {
   const [label, setLabel] = useState(flag?.label ?? '');
   const [color, setColor] = useState(flag?.color ?? FLAG_PRESETS[0].color);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setLabel(flag?.label ?? '');
+    setColor(flag?.color ?? FLAG_PRESETS[0].color);
+  }, [flag?.id, flag?.label, flag?.color, iso]);
 
   const handleSaveFlag = async () => {
     if (!label.trim()) return;
@@ -1196,7 +1234,7 @@ export default function Calendar() {
 
   const days = useMemo(() => {
     if (shownBlock?.startDate && shownBlock?.endDate) {
-      return getDaysFromDates(shownBlock.startDate, shownBlock.endDate);
+      return getDaysFromDateKeys(shownBlock.startDate, shownBlock.endDate);
     }
     return getDaysInBlock(blockNum);
   }, [shownBlock, blockNum]);
@@ -1206,8 +1244,7 @@ export default function Calendar() {
   const [residents, setResidents]               = useState([]);
   const [roster, setRoster]                     = useState([]);
   const [flags, setFlags]                       = useState([]);
-  const [selectedDay, setSelectedDay]           = useState(null);
-  const [modalDay, setModalDay]                 = useState(null);
+  const [selectedDateKey, setSelectedDateKey]   = useState(null);
   const [loadingData, setLoadingData]           = useState(false);
   const [generating, setGenerating]             = useState(false);
   const [genSummary, setGenSummary]             = useState(null);
@@ -1298,7 +1335,7 @@ export default function Calendar() {
   const attendingMap = useMemo(() => {
     const map = {};
     attendingEntries.forEach(e => {
-      const iso = apiDateKey(e.date);
+      const iso = normalizeDateKey(e.date);
       if (!map[iso]) map[iso] = [];
       map[iso].push(e);
     });
@@ -1307,36 +1344,56 @@ export default function Calendar() {
 
   const flagsMap = useMemo(() => {
     const map = {};
-    flags.forEach(f => { map[toISODate(new Date(f.date))] = f; });
+    flags.forEach(f => { map[normalizeDateKey(f.date)] = f; });
     return map;
   }, [flags]);
 
-  const handleDayClick = useCallback((day) => {
-    setModalDay(day);
-    setSelectedDay(day);
+  const dayDataMap = useMemo(() => {
+    const map = {};
+    days.forEach(day => {
+      const dateKey = normalizeDateKey(day);
+      map[dateKey] = {
+        dateKey,
+        day,
+        attendings: attendingMap[dateKey] ?? [],
+        assignment: assignmentsMap[dateKey] ?? null,
+        flag: flagsMap[dateKey] ?? null,
+        isHoliday: false,
+      };
+    });
+    return map;
+  }, [assignmentsMap, attendingMap, days, flagsMap]);
+
+  const dayDataList = useMemo(
+    () => days.map(day => dayDataMap[normalizeDateKey(day)]),
+    [dayDataMap, days]
+  );
+
+  const handleDayClick = useCallback((dayData) => {
+    setSelectedDateKey(dayData.dateKey);
   }, []);
 
   const closeDayModal = useCallback(() => {
-    setSelectedDay(null);
+    setSelectedDateKey(null);
   }, []);
 
   const handleAttendingChange = useCallback((iso, updatedEntries) => {
     setAttendingEntries(prev => [
-      ...prev.filter(e => apiDateKey(e.date) !== iso),
+      ...prev.filter(e => normalizeDateKey(e.date) !== iso),
       ...updatedEntries,
     ]);
   }, []);
 
   const handleFlagChange = useCallback((iso, flagOrNull) => {
     setFlags(prev => {
-      const without = prev.filter(f => toISODate(new Date(f.date)) !== iso);
+      const without = prev.filter(f => normalizeDateKey(f.date) !== iso);
       return flagOrNull ? [...without, flagOrNull] : without;
     });
   }, []);
 
   const handleSaveAssignment = useCallback(async ({ seniorId, juniorId, senior, junior }) => {
-    if (!selectedDay) return;
-    const iso      = toISODate(selectedDay);
+    if (!selectedDateKey) return;
+    const iso      = selectedDateKey;
     const existing = assignmentsMap[iso] ?? {};
 
     setAssignmentsMap(prev => ({
@@ -1351,7 +1408,7 @@ export default function Calendar() {
         juniorAssignmentId: juniorId === existing.juniorId ? existing.juniorAssignmentId : undefined,
       },
     }));
-    setSelectedDay(null);
+    setSelectedDateKey(null);
 
     try {
       const dayEntries       = attendingMap[iso] ?? [];
@@ -1388,11 +1445,11 @@ export default function Calendar() {
           juniorId: juniorId || undefined, junior: junior || undefined, juniorAssignmentId: newJuniorAid,
         },
       }));
-      toast.success(`${fmtShort(selectedDay ?? new Date(iso))} saved`);
+      toast.success(`${fmtShort(dateFromDateKey(iso))} saved`);
     } catch {
       toast.error('Failed to save assignment');
     }
-  }, [assignmentsMap, attendingMap, blockId, selectedDay]);
+  }, [assignmentsMap, attendingMap, blockId, selectedDateKey]);
 
   const handleAutoGenerate = useCallback(async () => {
     if (!blockId) { toast.error('No block selected'); return; }
@@ -1567,11 +1624,7 @@ export default function Calendar() {
     return rows;
   }, [days]);
 
-  const modalIso       = modalDay ? toISODate(modalDay) : null;
-  const selectedIso    = selectedDay ? toISODate(selectedDay) : modalIso;
-  const assignedToday  = selectedIso ? assignmentsMap[selectedIso] : null;
-  const attendingToday = selectedIso ? (attendingMap[selectedIso] ?? []) : [];
-  const flagToday      = selectedIso ? (flagsMap[selectedIso] ?? null) : null;
+  const selectedDayData = selectedDateKey ? dayDataMap[selectedDateKey] : null;
 
   return (
     <PageWrapper>
@@ -1631,11 +1684,7 @@ export default function Calendar() {
                       <div key={di} style={{ minHeight: 100 }}>
                         {day ? (
                           <DayCell
-                            day={day}
-                            attendings={attendingMap[toISODate(day)]}
-                            assignment={assignmentsMap[toISODate(day)]}
-                            flag={flagsMap[toISODate(day)] ?? null}
-                            isHoliday={false}
+                            dayData={dayDataMap[normalizeDateKey(day)]}
                             onClick={handleDayClick}
                           />
                         ) : (
@@ -1655,15 +1704,11 @@ export default function Calendar() {
                   {days.length} days · Tap a day to assign residents
                 </span>
               </div>
-              {days.map((day, i) => (
+              {dayDataList.map((dayData, i) => (
                 <DayRow
                   key={i}
-                  day={day}
-                  attendings={attendingMap[toISODate(day)]}
-                  assignment={assignmentsMap[toISODate(day)]}
-                  flag={flagsMap[toISODate(day)] ?? null}
-                  isHoliday={false}
-                  onClick={() => handleDayClick(day)}
+                  dayData={dayData}
+                  onClick={handleDayClick}
                 />
               ))}
             </div>
@@ -1672,14 +1717,14 @@ export default function Calendar() {
 
         {/* Day edit modal */}
         <DayModal
-          isOpen={selectedDay !== null}
-          day={modalDay}
-          attendings={attendingToday}
+          isOpen={selectedDateKey !== null}
+          day={selectedDayData?.day ?? null}
+          attendings={selectedDayData?.attendings ?? []}
           residents={residents}
           roster={roster}
-          assignment={assignedToday}
+          assignment={selectedDayData?.assignment ?? null}
           blockId={blockId}
-          flag={flagToday}
+          flag={selectedDayData?.flag ?? null}
           onSave={handleSaveAssignment}
           onClose={closeDayModal}
           onAttendingChange={handleAttendingChange}

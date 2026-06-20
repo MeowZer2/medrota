@@ -53,3 +53,8 @@ Frontend motion performance note:
 - Primary fix: `383e353 Improve frontend motion performance`.
 - Follow-up pass: remaining dashboard/resident page motion was shortened, repeated resident row mount animations were removed, and modal backdrops/shadows were lightened.
 - Remaining risk: some low-frequency admin/setup/public pages still use decorative Framer Motion transitions, but the main scheduling interactions now avoid the heavy repeated animation patterns.
+
+Calendar day data note:
+
+- Calendar cells and the day edit modal must derive assignments, attending entries, and flags from the same normalized `YYYY-MM-DD` day data object.
+- Backend date strings should be normalized by preserving their leading date key instead of round-tripping through local `Date` parsing, which can shift UTC-midnight values by one day in non-UTC time zones.
