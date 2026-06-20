@@ -11,6 +11,8 @@
 
 Status: closed after backend privacy/export checks, frontend build checks, and DB-backed Phase 5 regression checks.
 
+Current milestone closeout status: Phase 5 is closed, Phase 6 is implemented, roles/onboarding are implemented, local QA users are available, and Playwright E2E is now required after calendar, roles, permissions, or login changes.
+
 Phase 6 implemented:
 
 - Public schedule API privacy shaping via `backend/services/publicScheduleShape.js`.
@@ -51,15 +53,19 @@ These checks validate:
 
 Regression checks run during closeout:
 
+- `cd backend && npm run dev:seed-qa`: passed.
+- `cd backend && npm run roles:audit`: passed with no legacy or unknown roles in local QA data.
+- `cd backend && npm run roles:smoke`: passed.
 - `cd backend && npm run phase6:public-privacy`: passed.
 - `cd backend && npm run phase6:excel`: passed.
 - `cd backend && npm run phase6:printable`: passed.
 - `cd backend && npm run phase6:smoke`: passed.
 - `cd backend && npm run phase5:smoke`: passed.
-- `cd backend && npm run phase5:db`: passed.
+- `cd backend && npx prisma validate --schema prisma/schema.prisma`: passed.
 - `cd frontend && npm run perf:guard`: passed with known warning.
 - `cd frontend && npm run lint`: passed.
 - `cd frontend && npm run build`: passed with known warning.
+- `cd frontend && npm run e2e`: passed.
 
 Syntax checks run during closeout:
 
@@ -88,6 +94,12 @@ Known remaining warnings:
 - `frontend && npm run perf:guard` warns about an animated box-shadow in `src/pages/Calendar.jsx`; the guard passes and this is an existing low-frequency warning.
 - `frontend && npm run build` warns that the main Vite chunk is larger than 500 kB after minification.
 
+Known remaining risks:
+
+- New machines need Playwright Chromium installed once with `cd frontend && npx playwright install chromium`.
+- Browser E2E is focused core coverage, not full app coverage.
+- Manual visual QA is still useful before release.
+
 Recommendation:
 
-Phase 6 is closed. The core public schedule, public link, privacy shaping, Excel export, printable export, and validation coverage are in place. Remaining work should be treated as post-Phase-6 polish or release hardening, not a blocker for Phase 6 closure.
+Phase 6 is closed. The core public schedule, public link, privacy shaping, Excel export, printable export, local QA seed, role audit, and browser E2E coverage are in place. Remaining work should be treated as post-Phase-6 polish or release hardening, not a blocker for Phase 6 closure.

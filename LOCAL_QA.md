@@ -76,6 +76,24 @@ If browsers have not been installed on the machine yet, run once from `frontend`
 npx playwright install chromium
 ```
 
+Current E2E coverage includes Chief Resident login, calendar day modal resident preselects, attending visibility, assignment Save persistence, reload persistence, Viewer read-only restrictions, Viewer direct mutation API rejection, login password eye stability/toggle, and visible mojibake checks.
+
+After running E2E manually, run the seed again if you want to restore the default QA assignment state:
+
+```bash
+cd backend
+npm run dev:seed-qa
+```
+
+## Current Milestone Status
+
+- Phase 5 scheduling smoke coverage is closed and passing.
+- Phase 6 public link, public schedule page, Excel export, and printable/PDF export are implemented.
+- Roles/onboarding are implemented with canonical roles.
+- Performance guardrails are available through `frontend && npm run perf:guard`.
+- Known warnings: Vite chunk-size warning above 500 kB and the Calendar animated box-shadow perf-guard warning.
+- Manual visual QA on real local browsers remains recommended before release.
+
 ## Role Audit
 
 Run from `backend`:
