@@ -60,6 +60,22 @@ QA block: Block 1, `2026-06-15` to `2026-06-28`
 14. Confirm clicking a day does not open the editable modal.
 15. Confirm viewer cannot see or use Save/Add/Generate/Clear/Publish controls.
 
+## Automated Browser E2E
+
+Run from `frontend`:
+
+```bash
+npm run e2e
+```
+
+The Playwright config seeds QA data with `backend/npm run dev:seed-qa`, starts the backend, starts Vite, and runs Chromium headless. This is the required browser check after future UI, roles, permissions, login, or calendar modal changes.
+
+If browsers have not been installed on the machine yet, run once from `frontend`:
+
+```bash
+npx playwright install chromium
+```
+
 ## Role Audit
 
 Run from `backend`:
