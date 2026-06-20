@@ -77,6 +77,7 @@ npx playwright install chromium
 ```
 
 Current E2E coverage includes Chief Resident login, calendar day modal resident preselects, attending visibility, assignment Save persistence, reload persistence, Viewer read-only restrictions, Viewer direct mutation API rejection, login password eye stability/toggle, and visible mojibake checks.
+It also covers Program Admin editing of the PARO call-type settings and confirms Viewers cannot edit those settings.
 
 After running E2E manually, run the seed again if you want to restore the default QA assignment state:
 
@@ -88,6 +89,7 @@ npm run dev:seed-qa
 ## Current Milestone Status
 
 - Phase 5 scheduling smoke coverage is closed and passing.
+- PARO scheduler rules are implemented with program-level junior/senior in-house call settings.
 - Phase 6 public link, public schedule page, Excel export, and printable/PDF export are implemented.
 - Roles/onboarding are implemented with canonical roles.
 - Performance guardrails are available through `frontend && npm run perf:guard`.
@@ -103,3 +105,13 @@ npm run roles:audit
 ```
 
 The audit prints counts only. It does not print user names, emails, password hashes, or tokens, and it does not mutate data.
+
+## PARO Scheduler Checks
+
+Run from `backend`:
+
+```bash
+npm run paro:smoke
+```
+
+This checks PARO maximum tables, blended weighted-call calculation, vacation and post-call-before-vacation rules, consecutive-call rules, complete-weekend-off helpers, and the scheduler warning/summary contract.

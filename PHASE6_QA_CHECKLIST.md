@@ -13,6 +13,14 @@ Status: closed after backend privacy/export checks, frontend build checks, and D
 
 Current milestone closeout status: Phase 5 is closed, Phase 6 is implemented, roles/onboarding are implemented, local QA users are available, and Playwright E2E is now required after calendar, roles, permissions, or login changes.
 
+PARO scheduling update:
+
+- Program Settings now stores whether junior and senior call count as in-house call.
+- Auto-generation applies PARO home-call, in-house-call, blended-call, vacation, post-call-before-vacation, consecutive-call, consecutive-home-weekend, and complete-weekend-off checks.
+- If constraints conflict, auto-generation returns warnings and leaves dates/roles unassigned instead of forcing fallback assignments.
+- Manual overrides are preserved and counted in call summaries.
+- `backend && npm run paro:smoke` is required after scheduler changes.
+
 Phase 6 implemented:
 
 - Public schedule API privacy shaping via `backend/services/publicScheduleShape.js`.
@@ -61,6 +69,7 @@ Regression checks run during closeout:
 - `cd backend && npm run phase6:printable`: passed.
 - `cd backend && npm run phase6:smoke`: passed.
 - `cd backend && npm run phase5:smoke`: passed.
+- `cd backend && npm run paro:smoke`: passed.
 - `cd backend && npx prisma validate --schema prisma/schema.prisma`: passed.
 - `cd frontend && npm run perf:guard`: passed with known warning.
 - `cd frontend && npm run lint`: passed.

@@ -7,6 +7,7 @@ This milestone is stabilized after the roles/onboarding work, Phase 5 scheduling
 ## What Works Now
 
 - Phase 5 scheduling smoke coverage is closed and passing.
+- PARO scheduler rules are implemented with program-level junior/senior in-house call settings.
 - Phase 6 is implemented:
   - Public schedule link and read-only public schedule page.
   - Public-safe schedule shaping.
@@ -26,6 +27,7 @@ This milestone is stabilized after the roles/onboarding work, Phase 5 scheduling
 - Backend role mapping and permissions: `npm run roles:smoke`.
 - Local role distribution audit: `npm run roles:audit`.
 - Phase 5 scheduling regression smoke: `npm run phase5:smoke`.
+- PARO scheduler helper and contract smoke: `npm run paro:smoke`.
 - Phase 6 public privacy, Excel, printable, and aggregate smoke checks.
 - Prisma schema validation.
 - Frontend performance guard, lint, and production build.
@@ -62,12 +64,13 @@ npx playwright install chromium
 - Whether viewer surfaces should move to a dedicated published schedule landing path inside the authenticated app.
 - Whether registration/onboarding needs more product copy, approval flow, or request-access workflow polish.
 - Whether large frontend chunks should be split now or deferred until measured performance requires it.
+- Final product policy for rare manual overrides that intentionally violate PARO constraints.
 
 ## Suggested Next Priorities
 
 1. Finish browser QA on a real local machine using the QA users.
 2. Keep running `frontend && npm run e2e` after calendar, roles, permissions, or login changes.
 3. Resolve the Vite chunk-size warning later if it becomes a measured performance issue.
-4. Decide final scheduling rules before rebuilding assignment logic.
+4. Validate the PARO auto-generator against real program scenarios before further assignment-engine work.
 5. Continue registration/onboarding polish only after current bugs remain stable.
 6. Prepare Phase 7 launch/polish after the current milestone stays green.
