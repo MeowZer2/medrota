@@ -821,7 +821,7 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
             </svg>
           </div>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1A3A5C', margin: '0 0 6px' }}>Schedule published!</h2>
-          <p style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>Share this link with your team.</p>
+          <p style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>Share this read-only public link with your team.</p>
 
           {(publishedLabel || versionId) && (
             <div className="rounded-lg px-3 py-2 mb-4" style={{ background: '#F8FAFC', border: '1px solid #E8EFF6' }}>
@@ -978,6 +978,7 @@ const CalendarTopBar = memo(function CalendarTopBar({
   onClearSchedule, clearingSchedule,
   onPublish, publishPulsing,
   isPublished, publicToken,
+  publicUrl,
   onCopyLink,
   onExportExcel, exportingExcel,
   onViewPublished,
@@ -1113,6 +1114,36 @@ const CalendarTopBar = memo(function CalendarTopBar({
           </motion.button>
         </div>
       </div>
+      {isPublished && publicToken && (
+        <div className="flex flex-wrap items-center gap-3 px-5 py-3" style={{ background: '#F8FAFC', borderBottom: '1px solid #E8EFF6' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#2C5F8A', whiteSpace: 'nowrap' }}>Public link</span>
+          <input
+            readOnly
+            value={publicUrl}
+            className="min-w-0 flex-1"
+            style={{
+              padding: '8px 10px',
+              borderRadius: 8,
+              border: '1px solid #D6E4F7',
+              background: '#fff',
+              color: '#1A3A5C',
+              fontSize: 12,
+              fontFamily: 'monospace',
+              outline: 'none',
+            }}
+            onFocus={event => event.currentTarget.select()}
+          />
+          <button
+            onClick={onCopyLink}
+            className="px-3 py-2 rounded-lg text-sm font-semibold"
+            style={{ background: '#EEF4FF', color: '#2C5F8A', border: '1px solid #C7D9EC', cursor: 'pointer' }}
+            onMouseEnter={event => { event.currentTarget.style.background = '#DCE9F5'; }}
+            onMouseLeave={event => { event.currentTarget.style.background = '#EEF4FF'; }}
+          >
+            Copy public link
+          </button>
+        </div>
+      )}
       <div className="flex flex-wrap gap-6 px-6 py-3">
         {stat('Total days', days.length, '#1A3A5C')}
         {stat('Assigned', assigned, '#16A34A')}
@@ -1449,12 +1480,11 @@ export default function Calendar() {
     if (!blockId) return;
     setExportingExcel(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:3000/api/schedule/export/excel?blockId=${blockId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await api.get('/schedule/export/excel', {
+        params: { blockId },
+        responseType: 'blob',
       });
-      if (!res.ok) throw new Error('Export failed');
-      const blob = await res.blob();
+      const blob = res.data;
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
       a.href     = url;
@@ -1515,6 +1545,7 @@ export default function Calendar() {
           publishPulsing={publishPulsing}
           isPublished={isPublished}
           publicToken={publicToken}
+          publicUrl={publicUrl}
           onCopyLink={handleCopyLink}
           onExportExcel={handleExportExcel}
           exportingExcel={exportingExcel}

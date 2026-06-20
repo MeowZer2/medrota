@@ -1,253 +1,343 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { getApiBase } from '../api/base';
 
-const API_BASE = 'http://localhost:3000/api';
+const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const API_BASE = getApiBase();
 
-// ── helpers ───────────────────────────────────────────────────────────────────
-
-function toISODate(d) {
-  return d.toISOString().slice(0, 10);
+function dateKey(value) {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
 }
 
-function isWeekend(d) {
-  const dow = d.getDay();
+function dateFromKey(key) {
+  if (!key) return null;
+  const [year, month, day] = key.split('-').map(Number);
+  return new Date(year, month - 1, day, 12);
+}
+
+function addDays(date, count) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + count);
+  return next;
+}
+
+function toISODate(date) {
+  return dateKey(date);
+}
+
+function fmtDate(value) {
+  const key = dateKey(value);
+  const date = dateFromKey(key);
+  return date ? date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+}
+
+function fmtDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? ''
+    : date.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function isWeekend(date) {
+  const dow = date.getDay();
   return dow === 0 || dow === 6;
 }
 
-function fmtDate(iso) {
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+function buildApiUrl(path) {
+  return `${API_BASE}${path}`;
 }
 
-const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+function mapByDate(items, getValue) {
+  const map = {};
+  for (const item of items ?? []) {
+    const key = item.dateKey ?? dateKey(item.date);
+    if (!key) continue;
+    const value = getValue ? getValue(item) : item;
+    if (Array.isArray(value)) map[key] = value;
+    else {
+      if (!map[key]) map[key] = [];
+      map[key].push(value);
+    }
+  }
+  return map;
+}
 
-// ── Chip ──────────────────────────────────────────────────────────────────────
-
-function Chip({ label, color, bg }) {
+function Chip({ label, color, bg, strong = false }) {
   return (
-    <span style={{
-      display: 'inline-block', padding: '1px 6px', borderRadius: 4,
-      fontSize: 10, fontWeight: 600, background: bg, color,
-      whiteSpace: 'nowrap', lineHeight: '16px',
-    }}>
+    <span
+      style={{
+        display: 'inline-flex',
+        maxWidth: '100%',
+        padding: '2px 7px',
+        borderRadius: 4,
+        fontSize: 11,
+        fontWeight: strong ? 700 : 600,
+        background: bg,
+        color,
+        lineHeight: '16px',
+        overflowWrap: 'anywhere',
+      }}
+    >
       {label}
     </span>
   );
 }
 
-// ── DayCell ───────────────────────────────────────────────────────────────────
+function StateShell({ title, body, children }) {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8FAFC', fontFamily: 'Inter, sans-serif', padding: 24 }}>
+      <div style={{ maxWidth: 420, width: '100%', textAlign: 'center', background: '#fff', border: '1px solid #E8EFF6', borderRadius: 14, padding: '28px 24px', boxShadow: '0 1px 3px rgba(26,58,92,0.05)' }}>
+        <div style={{ width: 42, height: 42, borderRadius: '50%', background: '#EEF4FF', margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2C5F8A', fontWeight: 800 }}>
+          MR
+        </div>
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: '#1A3A5C', margin: '0 0 8px' }}>{title}</h1>
+        <p style={{ color: '#64748B', fontSize: 14, lineHeight: 1.55, margin: 0 }}>{body}</p>
+        {children}
+        <p style={{ color: '#CBD5E1', fontSize: 12, marginTop: 18 }}>Powered by MedRota</p>
+      </div>
+    </div>
+  );
+}
 
-function DayCell({ day, attendings, assignments, isHoliday, holidayName, flag }) {
-  const weekend = isWeekend(day);
+function DayCell({ day, attendings, assignments, holidayName, flag }) {
   const seniors = assignments.filter(a => a.roleOnDay === 'senior');
   const juniors = assignments.filter(a => a.roleOnDay === 'junior');
+  const nonCallAtts = attendings.filter(a => !a.isCallDay);
+  const callAtts = attendings.filter(a => a.isCallDay);
+  const weekend = isWeekend(day);
+  const hasTop = nonCallAtts.length > 0;
+  const hasCall = callAtts.length > 0 || seniors.length > 0 || juniors.length > 0;
+  const hasContent = hasTop || hasCall;
 
-  // Split attendings: non-call top, call-day bottom
-  const nonCallAtts = (attendings ?? []).filter(a => !a.isCallDay);
-  const callAtts    = (attendings ?? []).filter(a => a.isCallDay);
-
-  const hasTopSection    = nonCallAtts.length > 0;
-  const hasBottomSection = callAtts.length > 0 || seniors.length > 0 || juniors.length > 0;
-  const showDivider      = hasTopSection && hasBottomSection;
-
-  const dayNum    = day.getDate();
-  const monthAbbr = day.toLocaleDateString('en-GB', { month: 'short' });
-
-  // Background: flag tint (12%) > holiday > weekend > white
-  let bg     = '#fff';
+  let bg = '#fff';
   let border = '1px solid #E2E8F0';
   if (flag) {
-    bg     = flag.color + '1F'; // 12% opacity
+    bg = `${flag.color}1A`;
     border = `1px solid ${flag.color}55`;
-  } else if (isHoliday) {
-    bg     = '#FFF5F5';
+  } else if (holidayName) {
+    bg = '#FFF5F5';
     border = '1px solid #FCA5A5';
   } else if (weekend) {
     bg = '#F8FAFC';
   }
 
-  const chipBase = { display: 'block', padding: '2px 6px', borderRadius: 4, fontSize: 11, lineHeight: '16px' };
-
   return (
-    <div className="flex flex-col" style={{ background: bg, border, borderRadius: 8, padding: 8, minHeight: 90 }}>
-      {/* Date header */}
-      <div className="flex items-baseline gap-1 mb-1 flex-wrap">
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', lineHeight: 1 }}>{dayNum}</span>
-        <span style={{ fontSize: 10, color: '#94A3B8', lineHeight: 1 }}>{monthAbbr}</span>
-        {flag && (
-          <span style={{ fontSize: 9, fontWeight: 600, color: flag.color, lineHeight: 1 }}>· {flag.label}</span>
-        )}
-        {isHoliday && !flag && (
-          <span style={{ fontSize: 8, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', lineHeight: 1 }}>
-            {holidayName ?? 'Holiday'}
-          </span>
-        )}
+    <div style={{ background: bg, border, borderRadius: 8, padding: 8, minHeight: 96, display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 13, fontWeight: 800, color: holidayName ? '#DC2626' : '#1E293B', lineHeight: 1 }}>{day.getDate()}</span>
+        <span style={{ fontSize: 10, color: '#94A3B8', lineHeight: 1 }}>{day.toLocaleDateString('en-GB', { month: 'short' })}</span>
+        {flag && <span style={{ fontSize: 9, fontWeight: 700, color: flag.color, lineHeight: 1 }}>{flag.label}</span>}
+        {holidayName && !flag && <span style={{ fontSize: 9, fontWeight: 800, color: '#DC2626', textTransform: 'uppercase', lineHeight: 1 }}>{holidayName}</span>}
       </div>
 
-      {/* TOP — non-call attendings as subtle gray chips */}
-      {nonCallAtts.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {nonCallAtts.map((a, i) => {
-            const text = a.activityLabel ? `${a.attendingName} · ${a.activityLabel}` : a.attendingName;
-            return <span key={i} style={{ ...chipBase, background: '#F1F5F9', color: '#334155' }}>{text}</span>;
+      {hasTop && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {nonCallAtts.map((a, index) => {
+            const label = [a.attendingName, a.activityLabel].filter(Boolean).join(' - ');
+            return label ? <Chip key={index} label={label} color="#334155" bg="#F1F5F9" /> : null;
           })}
         </div>
       )}
 
-      {/* Divider — only when both sections have content */}
-      {showDivider && (
-        <div style={{ borderTop: '1px solid #E2E8F0', margin: '4px 0' }} />
-      )}
+      {hasTop && hasCall && <div style={{ borderTop: '1px solid #E2E8F0' }} />}
 
-      {/* BOTTOM — call-day attendings (red chip) + resident chips */}
-      {hasBottomSection && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {callAtts.map((a, i) => (
-            <span key={`c${i}`} style={{ ...chipBase, background: '#FEF2F2', color: '#991B1B' }}>{a.attendingName}</span>
+      {hasCall && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {callAtts.map((a, index) => (
+            <Chip key={`call-${index}`} label={a.attendingName} color="#991B1B" bg="#FEF2F2" strong />
           ))}
-          {seniors.map((a, i) => (
-            <span key={`s${i}`} style={{ ...chipBase, background: '#F0FDF4', color: '#166534' }}>S: {a.resident.name}</span>
+          {seniors.map((a, index) => (
+            <Chip key={`senior-${index}`} label={`S: ${a.resident?.name ?? 'Assigned'}`} color="#166534" bg="#F0FDF4" />
           ))}
-          {juniors.map((a, i) => (
-            <span key={`j${i}`} style={{ ...chipBase, background: '#FFFBEB', color: '#92400E' }}>J: {a.resident.name}</span>
+          {juniors.map((a, index) => (
+            <Chip key={`junior-${index}`} label={`J: ${a.resident?.name ?? 'Assigned'}`} color="#92400E" bg="#FFFBEB" />
           ))}
         </div>
       )}
 
-      {!hasTopSection && !hasBottomSection && (
-        <span style={{ fontSize: 9, color: '#CBD5E1', fontStyle: 'italic' }}>Unassigned</span>
-      )}
+      {!hasContent && <span style={{ fontSize: 10, color: '#94A3B8', fontStyle: 'italic' }}>No call assignment</span>}
     </div>
   );
 }
 
-// ── main page ─────────────────────────────────────────────────────────────────
+function MobileDayRow({ day, attendings, assignments, holidayName, flag }) {
+  const seniors = assignments.filter(a => a.roleOnDay === 'senior');
+  const juniors = assignments.filter(a => a.roleOnDay === 'junior');
+  const nonCallAtts = attendings.filter(a => !a.isCallDay);
+  const callAtts = attendings.filter(a => a.isCallDay);
+  const weekend = isWeekend(day);
+  const hasContent = attendings.length > 0 || seniors.length > 0 || juniors.length > 0;
+
+  let bg = '#fff';
+  let accent = 'transparent';
+  if (flag) {
+    bg = `${flag.color}14`;
+    accent = flag.color;
+  } else if (holidayName) {
+    bg = '#FFF5F5';
+    accent = '#FCA5A5';
+  } else if (weekend) {
+    bg = '#F8FAFC';
+    accent = '#E2E8F0';
+  }
+
+  return (
+    <div style={{ background: bg, border: '1px solid #E8EFF6', borderLeft: `3px solid ${accent}`, borderRadius: 10, padding: '10px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: hasContent ? 8 : 0 }}>
+        <span style={{ fontSize: 14, fontWeight: 800, color: holidayName ? '#DC2626' : '#1A3A5C' }}>
+          {day.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+        </span>
+        {flag && <span style={{ fontSize: 11, color: flag.color, fontWeight: 700 }}>{flag.label}</span>}
+        {holidayName && !flag && <span style={{ fontSize: 10, color: '#DC2626', fontWeight: 800, textTransform: 'uppercase' }}>{holidayName}</span>}
+        {weekend && !holidayName && !flag && <span style={{ fontSize: 10, color: '#94A3B8' }}>Weekend</span>}
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+        {nonCallAtts.map((a, index) => {
+          const label = [a.attendingName, a.activityLabel].filter(Boolean).join(' - ');
+          return label ? <Chip key={index} label={label} color="#334155" bg="#F1F5F9" /> : null;
+        })}
+        {callAtts.map((a, index) => <Chip key={`call-${index}`} label={a.attendingName} color="#991B1B" bg="#FEF2F2" strong />)}
+        {seniors.map((a, index) => <Chip key={`senior-${index}`} label={`S: ${a.resident?.name ?? 'Assigned'}`} color="#166534" bg="#F0FDF4" />)}
+        {juniors.map((a, index) => <Chip key={`junior-${index}`} label={`J: ${a.resident?.name ?? 'Assigned'}`} color="#92400E" bg="#FFFBEB" />)}
+        {!hasContent && <span style={{ fontSize: 11, color: '#94A3B8', fontStyle: 'italic' }}>No call assignment</span>}
+      </div>
+    </div>
+  );
+}
 
 export default function PublicSchedule() {
   const { token } = useParams();
-  const [data, setData]       = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(null);
+  const [error, setError] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
   );
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 767px)');
-    const handler = (e) => setIsMobile(e.matches);
+    const handler = event => setIsMobile(event.matches);
     mq.addEventListener('change', handler);
     setIsMobile(mq.matches);
     return () => mq.removeEventListener('change', handler);
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
     setLoading(true);
-    fetch(`${API_BASE}/public/${token}`)
-      .then(r => {
-        if (!r.ok) throw new Error('Schedule not found or not published');
-        return r.json();
+    setError(null);
+
+    fetch(buildApiUrl(`/public/${token}`), { signal: controller.signal })
+      .then(response => {
+        if (!response.ok) throw new Error('This schedule link is unavailable or has not been published yet.');
+        return response.json();
       })
-      .then(d => { setData(d); setLoading(false); })
-      .catch(e => { setError(e.message); setLoading(false); });
+      .then(schedule => setData(schedule))
+      .catch(err => {
+        if (err.name !== 'AbortError') setError(err.message || 'This schedule is unavailable.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
   }, [token]);
 
-  const { holidayMap, attendingMap, assignMap, flagMap, allDays, weeks } = useMemo(() => {
-    if (!data) return { holidayMap: {}, attendingMap: {}, assignMap: {}, flagMap: {}, allDays: [], weeks: [] };
+  const schedule = useMemo(() => {
+    if (!data?.block) return null;
+    const block = data.block;
+    const startKey = block.startDateKey ?? dateKey(block.startDate);
+    const endKey = block.endDateKey ?? dateKey(block.endDate);
+    const start = dateFromKey(startKey);
+    const end = dateFromKey(endKey);
+    const days = [];
+    if (start && end) {
+      for (let cursor = start; cursor <= end; cursor = addDays(cursor, 1)) {
+        days.push(new Date(cursor));
+      }
+    }
 
     const holidayMap = {};
-    for (const h of data.block.holidays ?? []) {
-      holidayMap[new Date(h.date).toISOString().slice(0, 10)] = h.name;
+    for (const holiday of block.holidays ?? []) {
+      const key = holiday.dateKey ?? dateKey(holiday.date);
+      if (key) holidayMap[key] = holiday.name || 'Holiday';
     }
 
-    const attendingMap = {};
-    for (const e of data.attendingEntries ?? []) {
-      const iso = new Date(e.date).toISOString().slice(0, 10);
-      if (!attendingMap[iso]) attendingMap[iso] = [];
-      attendingMap[iso].push(e);
-    }
-
-    const assignMap = {};
-    for (const cd of data.callDays ?? []) {
-      const iso = new Date(cd.date).toISOString().slice(0, 10);
-      assignMap[iso] = cd.assignments;
-    }
-
+    const attendingMap = mapByDate(data.attendingEntries);
     const flagMap = {};
-    for (const f of data.flags ?? []) {
-      flagMap[new Date(f.date).toISOString().slice(0, 10)] = f;
+    for (const flag of data.flags ?? []) {
+      const key = flag.dateKey ?? dateKey(flag.date);
+      if (key) flagMap[key] = flag;
     }
 
-    const start  = new Date(data.block.startDate);
-    const end    = new Date(data.block.endDate);
-    const allDays = [];
-    const cursor  = new Date(start);
-    while (cursor <= end) { allDays.push(new Date(cursor)); cursor.setDate(cursor.getDate() + 1); }
+    const assignmentMap = {};
+    for (const callDay of data.callDays ?? []) {
+      const key = callDay.dateKey ?? dateKey(callDay.date);
+      if (!key) continue;
+      assignmentMap[key] = callDay.assignments ?? [];
+      if (callDay.holidayName && !holidayMap[key]) holidayMap[key] = callDay.holidayName;
+    }
 
-    const padBefore = allDays[0] ? (allDays[0].getDay() + 6) % 7 : 0;
-    const padded = [...Array(padBefore).fill(null), ...allDays];
+    const padBefore = days[0] ? (days[0].getDay() + 6) % 7 : 0;
+    const padded = [...Array(padBefore).fill(null), ...days];
     while (padded.length % 7 !== 0) padded.push(null);
     const weeks = [];
     for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
 
-    return { holidayMap, attendingMap, assignMap, flagMap, allDays, weeks };
+    return { block, days, weeks, holidayMap, attendingMap, assignmentMap, flagMap };
   }, [data]);
 
   const handleExportExcel = async () => {
     setExporting(true);
     try {
-      const res = await fetch(`${API_BASE}/public/${token}/export/excel`);
-      if (!res.ok) throw new Error('Export failed');
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = `block-${data.block.number}-schedule.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const response = await fetch(buildApiUrl(`/public/${token}/export/excel`));
+      if (!response.ok) throw new Error('Export failed');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `block-${data?.block?.number ?? 'schedule'}-schedule.xlsx`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
     } catch {
-      alert('Export failed. Please try again.');
+      window.alert('Export failed. Please try again.');
     } finally {
       setExporting(false);
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  // ── Loading ───────────────────────────────────────────────────────────────
-
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8FAFC', fontFamily: 'Inter, sans-serif' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #E8EFF6', borderTopColor: '#1A3A5C', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-          <p style={{ color: '#94A3B8', fontSize: 14 }}>Loading schedule…</p>
-        </div>
+      <StateShell title="Loading schedule" body="Fetching the published read-only schedule.">
+        <div style={{ width: 34, height: 34, borderRadius: '50%', border: '3px solid #E8EFF6', borderTopColor: '#2C5F8A', animation: 'spin 0.8s linear infinite', margin: '18px auto 0' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
+      </StateShell>
     );
   }
 
-  if (error) {
+  if (error || !schedule) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8FAFC', fontFamily: 'Inter, sans-serif' }}>
-        <div style={{ textAlign: 'center', maxWidth: 380, padding: '0 24px' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: '#1A3A5C', marginBottom: 8 }}>Schedule Not Available</h1>
-          <p style={{ color: '#94A3B8', fontSize: 14, lineHeight: 1.6 }}>{error}</p>
-          <p style={{ color: '#CBD5E1', fontSize: 12, marginTop: 16 }}>Powered by MedRota</p>
-        </div>
-      </div>
+      <StateShell
+        title="Schedule not available"
+        body={error || 'This public schedule link could not be loaded. It may be unpublished or no longer available.'}
+      />
     );
   }
 
-  const { block } = data;
-
-  // ── Render ────────────────────────────────────────────────────────────────
+  const { block, days, weeks, holidayMap, attendingMap, assignmentMap, flagMap } = schedule;
+  const publishedLabel = fmtDateTime(data.publishedAt);
 
   return (
     <div style={{ minHeight: '100vh', background: '#F8FAFC', fontFamily: 'Inter, sans-serif' }}>
@@ -260,204 +350,127 @@ export default function PublicSchedule() {
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
-      {/* Header */}
       <div className="no-print" style={{ background: '#1A3A5C', padding: '16px 24px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ maxWidth: 1120, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <p style={{ fontSize: 20, fontWeight: 700, color: '#fff', margin: 0 }}>MedRota</p>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '2px 0 0' }}>Read-only schedule view</p>
+            <p style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: 0 }}>MedRota</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', margin: '2px 0 0' }}>Read-only published schedule</p>
           </div>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button
               onClick={handleExportExcel}
               disabled={exporting}
-              style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: exporting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: exporting ? 0.7 : 1 }}
-              onMouseEnter={e => { if (!exporting) e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+              style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.22)', background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: exporting ? 'not-allowed' : 'pointer', opacity: exporting ? 0.7 : 1 }}
+              onMouseEnter={event => { if (!exporting) event.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
+              onMouseLeave={event => { event.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-              {exporting ? 'Exporting…' : 'Excel'}
+              {exporting ? 'Exporting...' : 'Excel'}
             </button>
             <button
-              onClick={handlePrint}
-              style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+              onClick={() => window.print()}
+              style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.22)', background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+              onMouseEnter={event => { event.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
+              onMouseLeave={event => { event.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                <rect x="6" y="14" width="12" height="8"/>
-              </svg>
-              Print / PDF
+              Print
             </button>
           </div>
         </div>
       </div>
 
-      {/* Block info card */}
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 16px 0' }} className="print-page">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
+      <main className="print-page" style={{ maxWidth: 1120, margin: '0 auto', padding: '24px 16px 28px' }}>
+        <motion.section
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          style={{ background: '#fff', borderRadius: 16, border: '1px solid #E8EFF6', padding: '20px 24px', marginBottom: 20, boxShadow: '0 1px 3px rgba(26,58,92,0.05)' }}
+          transition={{ duration: 0.22 }}
+          style={{ background: '#fff', border: '1px solid #E8EFF6', borderRadius: 12, padding: '20px 22px', marginBottom: 18, boxShadow: '0 1px 3px rgba(26,58,92,0.05)' }}
         >
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
             <div>
-              <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1A3A5C', margin: '0 0 4px' }}>
-                Block {block.number} — {block.programName}
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1A3A5C', margin: '0 0 5px' }}>
+                Block {block.number} - {block.programName}
               </h1>
-              <p style={{ fontSize: 13, color: '#94A3B8', margin: 0 }}>
-                {block.specialty} · {fmtDate(block.startDate)} to {fmtDate(block.endDate)}
+              <p style={{ fontSize: 13, color: '#64748B', margin: 0 }}>
+                {[block.specialty, `${fmtDate(block.startDateKey ?? block.startDate)} to ${fmtDate(block.endDateKey ?? block.endDate)}`].filter(Boolean).join(' - ')}
               </p>
+              {publishedLabel && (
+                <p style={{ fontSize: 12, color: '#94A3B8', margin: '6px 0 0' }}>Published {publishedLabel}</p>
+              )}
             </div>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px',
-              borderRadius: 99, background: '#DCFCE7', color: '#15803D', fontSize: 12, fontWeight: 700,
-            }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#16A34A', display: 'inline-block' }} />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 99, background: '#DCFCE7', color: '#15803D', fontSize: 12, fontWeight: 800 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#16A34A' }} />
               Published
             </span>
           </div>
 
-          {/* Legend */}
-          <div className="no-print" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 16, paddingTop: 16, borderTop: '1px solid #F1F5F9' }}>
-            <span style={{ fontSize: 11, color: '#64748B', fontWeight: 500 }}>Legend:</span>
-            <Chip label="Activity" color="#6D28D9" bg="#F3F0FF" />
-            <Chip label="Attending" color="#1D4ED8" bg="#EFF6FF" />
-            <Chip label="Call" color="#1A3A5C" bg="#EEF4FF" />
-            <Chip label="S: Senior" color="#15803D" bg="#F0FDF4" />
-            <Chip label="J: Junior" color="#B45309" bg="#FFFBEB" />
-            <span style={{ padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: '#DBEAFE', color: '#1D4ED8' }}>Weekend</span>
-            <span style={{ padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: '#FEE2E2', color: '#DC2626' }}>Holiday</span>
+          <div className="no-print" style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 16, paddingTop: 16, borderTop: '1px solid #F1F5F9' }}>
+            <span style={{ fontSize: 11, color: '#64748B', fontWeight: 700 }}>Legend:</span>
+            <Chip label="Activity" color="#334155" bg="#F1F5F9" />
+            <Chip label="Attending call" color="#991B1B" bg="#FEF2F2" />
+            <Chip label="S: Senior" color="#166534" bg="#F0FDF4" />
+            <Chip label="J: Junior / med student" color="#92400E" bg="#FFFBEB" />
+            <Chip label="Holiday" color="#DC2626" bg="#FEE2E2" />
           </div>
-        </motion.div>
+        </motion.section>
 
-        {/* Calendar — mobile list or desktop grid */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-        >
-          {isMobile ? (
-            /* ── Mobile: vertical day-card list ── */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {allDays.map(day => {
-                const iso      = toISODate(day);
-                const dow      = day.getDay();
-                const isHol    = !!holidayMap[iso];
-                const weekend  = dow === 0 || dow === 6;
-                const atts     = attendingMap[iso] ?? [];
-                const asgns    = assignMap[iso] ?? [];
-                const flag     = flagMap[iso] ?? null;
-                const seniors  = asgns.filter(a => a.roleOnDay === 'senior');
-                const juniors  = asgns.filter(a => a.roleOnDay === 'junior');
-                const nonCallAtts = atts.filter(a => !a.isCallDay);
-                const callAtts    = atts.filter(a => a.isCallDay);
-                const hasBottom   = callAtts.length > 0 || seniors.length > 0 || juniors.length > 0;
-                const hasTop      = nonCallAtts.length > 0;
-                const chipBase    = { display: 'inline-block', padding: '2px 7px', borderRadius: 4, fontSize: 11, lineHeight: '18px', fontWeight: 500 };
-
-                let bg     = '#fff';
-                let accent = 'transparent';
-                if (flag)    { bg = flag.color + '15'; accent = flag.color; }
-                else if (isHol)  { bg = '#FFF5F5'; accent = '#FCA5A5'; }
-                else if (weekend){ bg = '#F8FAFC'; accent = '#E2E8F0'; }
-
-                const dayName = day.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-
-                return (
-                  <div key={iso} style={{ background: bg, borderRadius: 10, border: '1px solid #E8EFF6', borderLeft: `3px solid ${accent}`, overflow: 'hidden' }}>
-                    {/* Header */}
-                    <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: (hasTop || hasBottom) ? '1px solid #F1F5F9' : 'none' }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: isHol ? '#DC2626' : '#1A3A5C' }}>{dayName}</span>
-                      {flag && <span style={{ fontSize: 10, fontWeight: 600, color: flag.color }}>· {flag.label}</span>}
-                      {isHol && !flag && <span style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase' }}>Holiday</span>}
-                      {weekend && !isHol && !flag && <span style={{ fontSize: 10, color: '#94A3B8' }}>Weekend</span>}
-                    </div>
-
-                    {/* Attending (non-call) */}
-                    {hasTop && (
-                      <div style={{ padding: '6px 12px', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                        {nonCallAtts.map((a, i) => {
-                          const text = a.activityLabel ? `${a.attendingName} · ${a.activityLabel}` : a.attendingName;
-                          return <span key={i} style={{ ...chipBase, background: '#F1F5F9', color: '#334155' }}>{text}</span>;
-                        })}
-                      </div>
-                    )}
-
-                    {/* Divider before call section */}
-                    {hasTop && hasBottom && <div style={{ margin: '0 12px', borderTop: '1px solid #E8EFF6' }} />}
-
-                    {/* Call attendings + residents */}
-                    {hasBottom && (
-                      <div style={{ padding: '6px 12px', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                        {callAtts.map((a, i) => (
-                          <span key={`c${i}`} style={{ ...chipBase, background: '#FEF2F2', color: '#991B1B', fontWeight: 600 }}>{a.attendingName}</span>
-                        ))}
-                        {seniors.map((a, i) => (
-                          <span key={`s${i}`} style={{ ...chipBase, background: '#F0FDF4', color: '#166534' }}>S: {a.resident.name}</span>
-                        ))}
-                        {juniors.map((a, i) => (
-                          <span key={`j${i}`} style={{ ...chipBase, background: '#FFFBEB', color: '#92400E' }}>J: {a.resident.name}</span>
-                        ))}
-                      </div>
-                    )}
-
-                    {!hasTop && !hasBottom && (
-                      <div style={{ padding: '6px 12px' }}>
-                        <span style={{ fontSize: 11, color: '#CBD5E1', fontStyle: 'italic' }}>Unassigned</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+        {days.length === 0 ? (
+          <div style={{ background: '#fff', border: '1px solid #E8EFF6', borderRadius: 12, padding: 24, color: '#64748B', textAlign: 'center' }}>
+            No schedule dates are available for this published block.
+          </div>
+        ) : isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {days.map(day => {
+              const key = toISODate(day);
+              return (
+                <MobileDayRow
+                  key={key}
+                  day={day}
+                  attendings={attendingMap[key] ?? []}
+                  assignments={assignmentMap[key] ?? []}
+                  holidayName={holidayMap[key]}
+                  flag={flagMap[key] ?? null}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 5, marginBottom: 5 }}>
+              {DAYS_OF_WEEK.map(day => (
+                <div key={day} style={{ textAlign: 'center', padding: '6px 0', fontSize: 10, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{day}</div>
+              ))}
             </div>
-          ) : (
-            /* ── Desktop: 7-column grid ── */
-            <>
-              {/* Day headers */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
-                {DAYS_OF_WEEK.map(d => (
-                  <div key={d} style={{ textAlign: 'center', padding: '6px 0', fontSize: 10, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    {d}
-                  </div>
-                ))}
-              </div>
-              {/* Weeks */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {weeks.map((week, wi) => (
-                  <div key={wi} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
-                    {week.map((day, di) => (
-                      <div key={di} style={{ minHeight: 90 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {weeks.map((week, weekIndex) => (
+                <div key={weekIndex} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 5 }}>
+                  {week.map((day, dayIndex) => {
+                    const key = day ? toISODate(day) : `blank-${weekIndex}-${dayIndex}`;
+                    return (
+                      <div key={key} style={{ minHeight: 96 }}>
                         {day ? (
                           <DayCell
                             day={day}
-                            attendings={attendingMap[toISODate(day)] ?? []}
-                            assignments={assignMap[toISODate(day)] ?? []}
-                            isHoliday={!!holidayMap[toISODate(day)]}
-                            holidayName={holidayMap[toISODate(day)]}
-                            flag={flagMap[toISODate(day)] ?? null}
+                            attendings={attendingMap[key] ?? []}
+                            assignments={assignmentMap[key] ?? []}
+                            holidayName={holidayMap[key]}
+                            flag={flagMap[key] ?? null}
                           />
                         ) : (
-                          <div style={{ height: '100%', minHeight: 90, borderRadius: 12, background: '#F8FAFC', border: '1px solid #F1F5F9' }} />
+                          <div style={{ height: '100%', minHeight: 96, borderRadius: 8, background: '#F8FAFC', border: '1px solid #F1F5F9' }} />
                         )}
                       </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </motion.div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
-        {/* Footer */}
-        <div style={{ textAlign: 'center', padding: '24px 0', color: '#CBD5E1', fontSize: 12 }}>
-          Generated by MedRota · medrota.app
+        <div style={{ textAlign: 'center', padding: '24px 0 0', color: '#CBD5E1', fontSize: 12 }}>
+          Generated by MedRota
         </div>
-      </div>
+      </main>
     </div>
   );
 }
