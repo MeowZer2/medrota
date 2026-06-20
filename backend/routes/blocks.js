@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma  = require('../lib/prisma');
 const auth    = require('../middleware/auth');
+const { requireBlockPermission } = require('../lib/roles');
 
 const router = express.Router();
 router.use(auth);
@@ -9,6 +10,8 @@ router.use(auth);
 router.get('/:id/settings', async (req, res) => {
   const { id } = req.params;
   try {
+    const membership = await requireBlockPermission(req, res, id, 'edit_block_settings');
+    if (!membership) return;
     const settings = await prisma.blockSettings.findUnique({ where: { blockId: id } });
     // Return defaults if no settings record yet
     res.json(settings ?? {
@@ -39,6 +42,8 @@ router.put('/:id/settings', async (req, res) => {
   } = req.body;
 
   try {
+    const membership = await requireBlockPermission(req, res, id, 'edit_block_settings');
+    if (!membership) return;
     const settings = await prisma.blockSettings.upsert({
       where:  { blockId: id },
       update: {

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../api/axios';
+import { hasPermission, normalizeRole, roleLabel } from '../constants/roles';
 
 const AppContext = createContext(null);
 const UserContext = createContext(null);
@@ -22,7 +23,8 @@ export function AppProvider({ children }) {
         programId: data.programId,
         programName: data.programName,
         specialty: data.specialty,
-        role: data.role,
+        role: normalizeRole(data.role),
+        roleLabel: roleLabel(data.role),
         blocks: data.blocks,
       });
 
@@ -111,6 +113,9 @@ export function AppProvider({ children }) {
   const userValue = useMemo(() => ({
     currentUser,
     currentProgram,
+    currentRole: currentProgram?.role ?? null,
+    currentRoleLabel: currentProgram?.roleLabel ?? null,
+    can: (permission) => hasPermission(currentProgram?.role, permission),
     hasProgram,
     loading,
     refreshContext,

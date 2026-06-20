@@ -2,15 +2,41 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
+const { normalizeRole, isValidRole } = require('../lib/roles');
+const { isAllowedSpecialty } = require('../lib/medicalSpecialties');
 
 const router = express.Router();
 
+const USER_CATEGORIES = new Set(['admin_leadership', 'physician_trainee', 'other']);
+const CLINICAL_IDENTITIES = new Set(['resident', 'medical_student', 'attending', 'other']);
+
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
-  const { name, email, password, inviteToken } = req.body;
+  const {
+    name,
+    email,
+    password,
+    inviteToken,
+    category,
+    clinicalIdentity,
+    desiredRole,
+    homeSpecialty,
+  } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'name, email, and password are required' });
+  }
+  if (category && !USER_CATEGORIES.has(category)) {
+    return res.status(400).json({ error: 'Invalid user category' });
+  }
+  if (clinicalIdentity && !CLINICAL_IDENTITIES.has(clinicalIdentity)) {
+    return res.status(400).json({ error: 'Invalid clinical identity' });
+  }
+  if (desiredRole && !isValidRole(desiredRole)) {
+    return res.status(400).json({ error: 'Invalid desired role' });
+  }
+  if (homeSpecialty && !isAllowedSpecialty(homeSpecialty)) {
+    return res.status(400).json({ error: 'Invalid home specialty' });
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -20,7 +46,15 @@ router.post('/register', async (req, res) => {
 
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
-    data: { name, email, passwordHash },
+    data: {
+      name,
+      email,
+      passwordHash,
+      category: category ?? null,
+      clinicalIdentity: clinicalIdentity ?? null,
+      desiredRole: desiredRole ?? null,
+      homeSpecialty: homeSpecialty ?? null,
+    },
     select: { id: true, name: true, email: true, createdAt: true },
   });
 
@@ -30,7 +64,7 @@ router.post('/register', async (req, res) => {
       const invite = await prisma.invite.findUnique({ where: { token: inviteToken } });
       if (invite && !invite.usedAt) {
         await prisma.programMember.create({
-          data: { programId: invite.programId, userId: user.id, role: invite.role },
+          data: { programId: invite.programId, userId: user.id, role: normalizeRole(invite.role) },
         });
         await prisma.invite.update({
           where: { token: inviteToken },
@@ -39,22 +73,6 @@ router.post('/register', async (req, res) => {
       }
     } catch (inviteErr) {
       console.error('[register] Failed to apply invite token:', inviteErr);
-    }
-  } else {
-    // Auto-link new user to the first existing Program, if any
-    try {
-      const firstProgram = await prisma.program.findFirst({ select: { id: true } });
-      if (firstProgram) {
-        const existingMemberCount = await prisma.programMember.count({
-          where: { programId: firstProgram.id },
-        });
-        const role = existingMemberCount === 0 ? 'admin' : 'viewer';
-        await prisma.programMember.create({
-          data: { programId: firstProgram.id, userId: user.id, role },
-        });
-      }
-    } catch (linkErr) {
-      console.error('[register] Failed to auto-link ProgramMember:', linkErr);
     }
   }
 

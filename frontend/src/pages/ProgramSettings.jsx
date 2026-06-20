@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
@@ -6,8 +6,10 @@ import Layout from '../components/Layout';
 import PageWrapper from '../components/PageWrapper';
 import api from '../api/axios';
 import { useBlock, useUser } from '../context/AppContext';
+import { ROLE_OPTIONS } from '../constants/roles';
+import { MEDICAL_SPECIALTIES } from '../constants/medicalSpecialties';
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+// â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function Card({ title, subtitle, children }) {
   return (
@@ -31,15 +33,17 @@ function Label({ children }) {
   return <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#64748B', marginBottom: 5 }}>{children}</label>;
 }
 
-// ── main ──────────────────────────────────────────────────────────────────────
+// â”€â”€ main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function ProgramSettings() {
-  const { currentUser, currentProgram, refreshContext } = useUser();
+  const { currentUser, currentProgram, refreshContext, can } = useUser();
   const { currentBlock } = useBlock();
   const navigate = useNavigate();
   const programId = currentProgram?.programId;
+  const canEditProgramSettings = can('edit_program_settings');
+  const canManageUsers = can('manage_users');
 
-  // ── Section 1: Program info ───────────────────────────────────────────────
+  // â”€â”€ Section 1: Program info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [name,      setName]      = useState(currentProgram?.programName ?? '');
   const [specialty, setSpecialty] = useState(currentProgram?.specialty   ?? '');
   const [savingInfo, setSavingInfo] = useState(false);
@@ -63,7 +67,7 @@ export default function ProgramSettings() {
     }
   };
 
-  // ── Section 2: Team members ───────────────────────────────────────────────
+  // â”€â”€ Section 2: Team members â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [members, setMembers]       = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
 
@@ -111,15 +115,16 @@ export default function ProgramSettings() {
     }
   };
 
-  // ── Section 3: Invite link ────────────────────────────────────────────────
+  // â”€â”€ Section 3: Invite link â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [inviteLink,       setInviteLink]       = useState('');
   const [generatingInvite, setGeneratingInvite] = useState(false);
+  const [inviteRole,       setInviteRole]       = useState('viewer');
 
   const handleGenerateInvite = async () => {
     if (!programId) return;
     setGeneratingInvite(true);
     try {
-      const { data } = await api.post(`/programs/${programId}/invite`, { role: 'viewer' });
+      const { data } = await api.post(`/programs/${programId}/invite`, { role: inviteRole });
       setInviteLink(data.inviteLink);
       toast.success('Invite link generated!');
     } catch {
@@ -136,7 +141,7 @@ export default function ProgramSettings() {
     }).catch(() => toast.error('Failed to copy'));
   };
 
-  // ── Section 4: Published versions ──────────────────────────────────────
+  // â”€â”€ Section 4: Published versions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [versions, setVersions]       = useState([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
   const [snapshotModal, setSnapshotModal]     = useState(null);
@@ -155,7 +160,19 @@ export default function ProgramSettings() {
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  // ── render ────────────────────────────────────────────────────────────────
+  // â”€â”€ render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  if (!canEditProgramSettings) {
+    return (
+      <PageWrapper>
+        <Layout>
+          <div style={{ background: '#fff', border: '1px solid #E8EFF6', borderRadius: 12, padding: 24, color: '#64748B' }}>
+            Program settings are available to Program Admins and Program Directors.
+          </div>
+        </Layout>
+      </PageWrapper>
+    );
+  }
 
   return (
     <PageWrapper>
@@ -170,7 +187,7 @@ export default function ProgramSettings() {
             <p style={{ fontSize: 13, color: '#94A3B8', marginTop: 4 }}>Manage your program details, team, and invitations.</p>
           </div>
 
-          {/* ── Program info ────────────────────────────────────────────── */}
+          {/* â”€â”€ Program info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Card title="Program Info" subtitle="Update the program name and specialty.">
             <div className="space-y-4">
               <div>
@@ -179,7 +196,10 @@ export default function ProgramSettings() {
               </div>
               <div>
                 <Label>Specialty</Label>
-                <input value={specialty} onChange={e => setSpecialty(e.target.value)} style={inputStyle} placeholder="e.g. Internal Medicine" />
+                <select value={specialty} onChange={e => setSpecialty(e.target.value)} style={inputStyle}>
+                  {MEDICAL_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
+                  {specialty && !MEDICAL_SPECIALTIES.includes(specialty) && <option value={specialty}>{specialty}</option>}
+                </select>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <motion.button
@@ -194,16 +214,16 @@ export default function ProgramSettings() {
                   onMouseEnter={e => { if (!savingInfo) e.currentTarget.style.background = '#2C5F8A'; }}
                   onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}
                 >
-                  {savingInfo ? 'Saving…' : 'Save'}
+                  {savingInfo ? 'Savingâ€¦' : 'Save'}
                 </motion.button>
               </div>
             </div>
           </Card>
 
-          {/* ── Team members ─────────────────────────────────────────────── */}
+          {/* â”€â”€ Team members â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Card title="Team Members" subtitle="View and manage who has access to this program.">
             {loadingMembers ? (
-              <p style={{ fontSize: 13, color: '#94A3B8' }}>Loading…</p>
+              <p style={{ fontSize: 13, color: '#94A3B8' }}>Loadingâ€¦</p>
             ) : members.length === 0 ? (
               <p style={{ fontSize: 13, color: '#CBD5E1', fontStyle: 'italic' }}>No members yet.</p>
             ) : (
@@ -221,18 +241,19 @@ export default function ProgramSettings() {
                     return (
                       <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: 12, alignItems: 'center', padding: '10px 12px', borderRadius: 8, border: isSelf ? '1px solid #C7D9EC' : '1px solid #F1F5F9', background: isSelf ? '#F8FCFF' : '#fff' }}>
                         <span style={{ fontSize: 13, fontWeight: 500, color: '#1A3A5C' }}>
-                          {m.user?.name ?? '—'}
+                          {m.user?.name ?? 'â€”'}
                           {isSelf && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#2C5F8A', background: '#EEF4FF', padding: '1px 6px', borderRadius: 99 }}>You</span>}
                         </span>
-                        <span style={{ fontSize: 13, color: '#64748B' }}>{m.user?.email ?? '—'}</span>
+                        <span style={{ fontSize: 13, color: '#64748B' }}>{m.user?.email ?? 'â€”'}</span>
                         <select
                           value={m.role}
                           onChange={e => handleRoleChange(m.userId, e.target.value)}
+                          disabled={!canManageUsers}
                           style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #E2E8F0', fontSize: 12, color: '#1A3A5C', background: '#F8FAFC', outline: 'none', cursor: 'pointer' }}
                         >
-                          <option value="admin">Admin</option>
-                          <option value="editor">Editor</option>
-                          <option value="viewer">Viewer</option>
+                          {ROLE_OPTIONS.map(role => (
+                            <option key={role.value} value={role.value}>{role.label}</option>
+                          ))}
                         </select>
                         {isSelf ? (
                           <button
@@ -246,6 +267,7 @@ export default function ProgramSettings() {
                         ) : (
                           <button
                             onClick={() => handleRemoveMember(m.userId)}
+                            disabled={!canManageUsers}
                             style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#DC2626', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
                             onMouseEnter={e => e.currentTarget.style.background = '#FEE2E2'}
                             onMouseLeave={e => e.currentTarget.style.background = '#FEF2F2'}
@@ -261,9 +283,15 @@ export default function ProgramSettings() {
             )}
           </Card>
 
-          {/* ── Invite link ──────────────────────────────────────────────── */}
-          <Card title="Invite Link" subtitle="Share a link so others can join this program as a viewer.">
+          {/* â”€â”€ Invite link â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          <Card title="Invite Link" subtitle="Share a link so others can join this program with a defined role.">
             <div className="space-y-3">
+              <div>
+                <Label>Invite role</Label>
+                <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} style={inputStyle} disabled={!canManageUsers}>
+                  {ROLE_OPTIONS.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
+                </select>
+              </div>
               {inviteLink ? (
                 <div style={{ display: 'flex', gap: 8 }}>
                   <input
@@ -296,13 +324,13 @@ export default function ProgramSettings() {
                   onMouseEnter={e => { if (!generatingInvite) e.currentTarget.style.background = '#2C5F8A'; }}
                   onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}
                 >
-                  {generatingInvite ? 'Generating…' : inviteLink ? 'Regenerate' : 'Generate invite link'}
+                  {generatingInvite ? 'Generatingâ€¦' : inviteLink ? 'Regenerate' : 'Generate invite link'}
                 </motion.button>
               </div>
             </div>
           </Card>
 
-          {/* ── Published versions ─────────────────────────────────────── */}
+          {/* â”€â”€ Published versions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Card
             title="Published Versions"
             subtitle={currentBlock ? `Version history for Block ${currentBlock.number}` : 'Select a block to see published versions.'}
@@ -331,7 +359,7 @@ export default function ProgramSettings() {
                         )}
                       </p>
                       <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
-                        {v.publishedBy ? `By ${v.publishedBy}` : 'Unknown user'} · {v.assignedDays} assigned days
+                        {v.publishedBy ? `By ${v.publishedBy}` : 'Unknown user'} Â· {v.assignedDays} assigned days
                       </p>
                     </div>
                     <button
@@ -374,10 +402,10 @@ export default function ProgramSettings() {
                 <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
                   <div>
                     <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1A3A5C', margin: 0 }}>
-                      Snapshot — {fmtVersionDate(snapshotModal.publishedAt)}
+                      Snapshot â€” {fmtVersionDate(snapshotModal.publishedAt)}
                     </h2>
                     <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>
-                      {snapshotModal.publishedBy ? `Published by ${snapshotModal.publishedBy}` : ''} · {snapshotModal.assignedDays} assigned days
+                      {snapshotModal.publishedBy ? `Published by ${snapshotModal.publishedBy}` : ''} Â· {snapshotModal.assignedDays} assigned days
                     </p>
                   </div>
                   <button
@@ -416,10 +444,10 @@ export default function ProgramSettings() {
                                 {dayLabel} {isHol && '(H)'}
                               </span>
                               <span style={{ color: seniors ? '#15803D' : '#CBD5E1' }}>
-                                {seniors || '—'}
+                                {seniors || 'â€”'}
                               </span>
                               <span style={{ color: juniors ? '#B45309' : '#CBD5E1' }}>
-                                {juniors || '—'}
+                                {juniors || 'â€”'}
                               </span>
                             </div>
                           );

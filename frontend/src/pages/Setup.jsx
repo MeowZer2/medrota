@@ -4,18 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import api from '../api/axios';
 import { useUser } from '../context/AppContext';
+import { MEDICAL_SPECIALTIES } from '../constants/medicalSpecialties';
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
-
-const SPECIALTIES = [
-  'Internal Medicine', 'Surgery', 'Pediatrics', 'Emergency Medicine',
-  'Obstetrics & Gynecology', 'Psychiatry', 'Family Medicine', 'Anesthesiology',
-  'Radiology', 'Neurology', 'Orthopedics', 'Cardiology', 'Other',
-];
 
 // ── Spinner ────────────────────────────────────────────────────────────────────
 
@@ -326,7 +321,7 @@ export default function Setup() {
                       onBlur={e => { e.target.style.border = '1.5px solid #E2E8F0'; e.target.style.boxShadow = 'none'; }}
                     >
                       <option value="">Select specialty…</option>
-                      {SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
+                      {MEDICAL_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                   <div>

@@ -1,11 +1,13 @@
-const express = require('express');
+﻿const express = require('express');
 const prisma = require('../lib/prisma');
 const auth = require('../middleware/auth');
+const { ROLES, normalizeRole, isValidRole, requireProgramPermission } = require('../lib/roles');
+const { isAllowedSpecialty } = require('../lib/medicalSpecialties');
 
 const router = express.Router();
 router.use(auth);
 
-// ── helpers ────────────────────────────────────────────────────────────────────
+// â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function buildBlocks(yearStart, count = 13) {
   const blockDefs = [];
@@ -22,7 +24,7 @@ function buildBlocks(yearStart, count = 13) {
   return { blockDefs, yearEnd };
 }
 
-// ── GET /api/programs/mine ─────────────────────────────────────────────────────
+// â”€â”€ GET /api/programs/mine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 router.get('/mine', async (req, res) => {
   try {
@@ -48,6 +50,10 @@ router.get('/mine', async (req, res) => {
     }
 
     const program = membership.program;
+    const role = normalizeRole(membership.role);
+    if (role !== membership.role) {
+      await prisma.programMember.update({ where: { id: membership.id }, data: { role } });
+    }
     const allBlocks = program.academicYears.flatMap(ay => ay.blocks);
     const today = new Date();
     const currentBlock =
@@ -59,7 +65,7 @@ router.get('/mine', async (req, res) => {
       programId: program.id,
       programName: program.name,
       specialty: program.specialty,
-      role: membership.role,
+      role,
       academicYears: program.academicYears,
       blocks: allBlocks,
       currentBlock,
@@ -70,7 +76,7 @@ router.get('/mine', async (req, res) => {
   }
 });
 
-// ── GET /api/programs/stats?blockId= ──────────────────────────────────────────
+// â”€â”€ GET /api/programs/stats?blockId= â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 router.get('/stats', async (req, res) => {
   const { blockId } = req.query;
@@ -117,7 +123,7 @@ router.get('/stats', async (req, res) => {
     }
     const callDistribution = Object.values(countMap).sort((a, b) => b.callCount - a.callCount);
 
-    // Recent activity — last 5 real events across the program
+    // Recent activity â€” last 5 real events across the program
     const programId = block.academicYear
       ? block.academicYear.programId
       : null;
@@ -143,7 +149,7 @@ router.get('/stats', async (req, res) => {
       ...recentEnrollments.map(e => ({
         type: 'resident_added',
         description: `${e.resident.name} enrolled in Block ${block.number}`,
-        icon: '👤',
+        icon: 'ðŸ‘¤',
         color: '#16A34A',
         timestamp: e.id, // use id as proxy since BlockEnrollment has no createdAt
         _sort: e.id,
@@ -151,7 +157,7 @@ router.get('/stats', async (req, res) => {
       ...recentAssignments.map(a => ({
         type: 'call_assigned',
         description: `Call assigned to ${a.resident.name}`,
-        icon: '📋',
+        icon: 'ðŸ“‹',
         color: '#2C5F8A',
         timestamp: a.createdAt,
         _sort: a.createdAt,
@@ -183,12 +189,15 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-// ── POST /api/programs ─────────────────────────────────────────────────────────
+// â”€â”€ POST /api/programs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 router.post('/', async (req, res) => {
   const { name, specialty, orgId, startDate, createNextYear } = req.body;
   if (!name || !specialty || !orgId) {
     return res.status(400).json({ error: 'name, specialty, and orgId are required' });
+  }
+  if (!isAllowedSpecialty(specialty)) {
+    return res.status(400).json({ error: 'Invalid specialty' });
   }
 
   try {
@@ -231,7 +240,7 @@ router.post('/', async (req, res) => {
     });
 
     await prisma.programMember.create({
-      data: { programId: program.id, userId: req.user.userId, role: 'admin' },
+      data: { programId: program.id, userId: req.user.userId, role: ROLES.PROGRAM_ADMIN },
     });
 
     const allBlocks = program.academicYears.flatMap(ay => ay.blocks);
@@ -248,16 +257,17 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ── PUT /api/programs/:id — update name/specialty ─────────────────────────────
+// â”€â”€ PUT /api/programs/:id â€” update name/specialty â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const { name, specialty } = req.body;
+  if (specialty !== undefined && !isAllowedSpecialty(specialty)) {
+    return res.status(400).json({ error: 'Invalid specialty' });
+  }
   try {
-    const membership = await prisma.programMember.findFirst({
-      where: { programId: id, userId: req.user.userId },
-    });
-    if (!membership) return res.status(403).json({ error: 'Not a member of this program' });
+    const membership = await requireProgramPermission(req, res, id, 'edit_program_settings');
+    if (!membership) return;
 
     const program = await prisma.program.update({
       where: { id },
@@ -274,15 +284,13 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// ── GET /api/programs/:id/members ─────────────────────────────────────────────
+// â”€â”€ GET /api/programs/:id/members â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 router.get('/:id/members', async (req, res) => {
   const { id } = req.params;
   try {
-    const membership = await prisma.programMember.findFirst({
-      where: { programId: id, userId: req.user.userId },
-    });
-    if (!membership) return res.status(403).json({ error: 'Not a member of this program' });
+    const membership = await requireProgramPermission(req, res, id, 'edit_program_settings');
+    if (!membership) return;
 
     const members = await prisma.programMember.findMany({
       where: { programId: id },
@@ -296,23 +304,25 @@ router.get('/:id/members', async (req, res) => {
   }
 });
 
-// ── PUT /api/programs/:id/members/:userId — update role ───────────────────────
+// â”€â”€ PUT /api/programs/:id/members/:userId â€” update role â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 router.put('/:id/members/:userId', async (req, res) => {
   const { id, userId } = req.params;
   const { role } = req.body;
+  const nextRole = normalizeRole(role);
+  if (!isValidRole(nextRole)) {
+    return res.status(400).json({ error: 'Invalid role' });
+  }
   try {
-    const requester = await prisma.programMember.findFirst({
-      where: { programId: id, userId: req.user.userId, role: 'admin' },
-    });
-    if (!requester) return res.status(403).json({ error: 'Only admins can change roles' });
+    const requester = await requireProgramPermission(req, res, id, 'manage_users');
+    if (!requester) return;
 
     const member = await prisma.programMember.findFirst({ where: { programId: id, userId } });
     if (!member) return res.status(404).json({ error: 'Member not found' });
 
     const updated = await prisma.programMember.update({
       where: { id: member.id },
-      data:  { role },
+      data:  { role: nextRole },
     });
     res.json(updated);
   } catch (err) {
@@ -321,7 +331,7 @@ router.put('/:id/members/:userId', async (req, res) => {
   }
 });
 
-// ── DELETE /api/programs/:id/members/:userId — remove member (or self-leave) ──
+// â”€â”€ DELETE /api/programs/:id/members/:userId â€” remove member (or self-leave) â”€â”€
 
 router.delete('/:id/members/:userId', async (req, res) => {
   const { id, userId } = req.params;
@@ -329,22 +339,20 @@ router.delete('/:id/members/:userId', async (req, res) => {
   try {
     // Non-self removal requires admin privileges
     if (!isSelfLeave) {
-      const requester = await prisma.programMember.findFirst({
-        where: { programId: id, userId: req.user.userId, role: 'admin' },
-      });
-      if (!requester) return res.status(403).json({ error: 'Only admins can remove members' });
+      const requester = await requireProgramPermission(req, res, id, 'manage_users');
+      if (!requester) return;
     }
 
     const member = await prisma.programMember.findFirst({ where: { programId: id, userId } });
     if (!member) return res.status(404).json({ error: 'Member not found' });
 
-    // A coordinator (admin) cannot leave if they are the only admin
-    if (isSelfLeave && member.role === 'admin') {
+    // A program admin cannot leave if they are the only admin.
+    if (isSelfLeave && normalizeRole(member.role) === ROLES.PROGRAM_ADMIN) {
       const otherAdmins = await prisma.programMember.count({
-        where: { programId: id, role: 'admin', userId: { not: userId } },
+        where: { programId: id, role: ROLES.PROGRAM_ADMIN, userId: { not: userId } },
       });
       if (otherAdmins === 0) {
-        return res.status(400).json({ error: 'You must transfer the Coordinator role before leaving' });
+        return res.status(400).json({ error: 'You must transfer the Program Admin role before leaving' });
       }
     }
 
@@ -356,19 +364,19 @@ router.delete('/:id/members/:userId', async (req, res) => {
   }
 });
 
-// ── POST /api/programs/:id/invite — generate invite link ─────────────────────
+// â”€â”€ POST /api/programs/:id/invite â€” generate invite link â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 router.post('/:id/invite', async (req, res) => {
   const { id } = req.params;
   const { role = 'viewer' } = req.body;
+  const inviteRole = normalizeRole(role);
+  if (!isValidRole(inviteRole)) return res.status(400).json({ error: 'Invalid role' });
   try {
-    const membership = await prisma.programMember.findFirst({
-      where: { programId: id, userId: req.user.userId },
-    });
-    if (!membership) return res.status(403).json({ error: 'Not a member of this program' });
+    const membership = await requireProgramPermission(req, res, id, 'manage_users');
+    if (!membership) return;
 
     const invite = await prisma.invite.create({
-      data: { programId: id, role },
+      data: { programId: id, role: inviteRole },
     });
     res.json({ inviteLink: `http://localhost:5173/join/${invite.token}`, token: invite.token });
   } catch (err) {
@@ -377,7 +385,7 @@ router.post('/:id/invite', async (req, res) => {
   }
 });
 
-// ── GET /api/programs/join/:token — look up invite (public, no auth needed) ───
+// â”€â”€ GET /api/programs/join/:token â€” look up invite (public, no auth needed) â”€â”€â”€
 // NOTE: this must be defined BEFORE the generic /:id routes to avoid conflict.
 // It is mounted via the main router which already called router.use(auth), so
 // we duplicate the logic inside a non-auth version in index.js via the publicRoutes.
@@ -391,14 +399,43 @@ router.get('/join/:token', async (req, res) => {
       include: { program: { select: { id: true, name: true, specialty: true } } },
     });
     if (!invite) return res.status(404).json({ error: 'Invite not found' });
-    res.json({ programId: invite.programId, role: invite.role, program: invite.program });
+    res.json({ programId: invite.programId, role: normalizeRole(invite.role), program: invite.program });
   } catch (err) {
     console.error('[programs/join/:token] Error:', err.message);
     res.status(500).json({ error: 'Failed to look up invite' });
   }
 });
 
-// ── POST /api/programs/academic-year ──────────────────────────────────────────
+router.post('/:id/join-with-token', async (req, res) => {
+  const { id } = req.params;
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: 'token required' });
+  try {
+    const invite = await prisma.invite.findUnique({ where: { token } });
+    if (!invite || invite.usedAt || invite.programId !== id) {
+      return res.status(404).json({ error: 'Invalid or expired invite link' });
+    }
+
+    const existing = await prisma.programMember.findFirst({
+      where: { programId: id, userId: req.user.userId },
+    });
+    if (existing) {
+      await prisma.invite.update({ where: { token }, data: { usedAt: new Date() } });
+      return res.json({ membership: { ...existing, role: normalizeRole(existing.role) } });
+    }
+
+    const membership = await prisma.programMember.create({
+      data: { programId: id, userId: req.user.userId, role: normalizeRole(invite.role) },
+    });
+    await prisma.invite.update({ where: { token }, data: { usedAt: new Date() } });
+    res.status(201).json({ membership });
+  } catch (err) {
+    console.error('[programs/:id/join-with-token POST] Error:', err.message);
+    res.status(500).json({ error: 'Failed to join program' });
+  }
+});
+
+// â”€â”€ POST /api/programs/academic-year â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 router.post('/academic-year', async (req, res) => {
   const { programId, startDate } = req.body;
@@ -407,11 +444,8 @@ router.post('/academic-year', async (req, res) => {
   }
 
   try {
-    // Verify the requesting user is a member of this program
-    const membership = await prisma.programMember.findFirst({
-      where: { programId, userId: req.user.userId },
-    });
-    if (!membership) return res.status(403).json({ error: 'Not a member of this program' });
+    const membership = await requireProgramPermission(req, res, programId, 'create_academic_year');
+    if (!membership) return;
 
     const yearStart = new Date(startDate);
     const { blockDefs, yearEnd } = buildBlocks(yearStart);

@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const auth = require('../middleware/auth');
+const { requireBlockPermission, requireBlockView } = require('../lib/roles');
 
 const router = express.Router();
 router.use(auth);
@@ -26,6 +27,8 @@ router.get('/', async (req, res) => {
   const { blockId, callDayId } = req.query;
 
   if (blockId) {
+    const membership = await requireBlockView(req, res, blockId);
+    if (!membership) return;
     const assignments = await prisma.callAssignment.findMany({
       where: { callDay: { blockId } },
       include: {
@@ -38,6 +41,10 @@ router.get('/', async (req, res) => {
   }
 
   if (!callDayId) return res.status(400).json({ error: 'blockId or callDayId required' });
+  const callDay = await prisma.callDay.findUnique({ where: { id: callDayId }, select: { blockId: true } });
+  if (!callDay) return res.status(404).json({ error: 'Call day not found' });
+  const membership = await requireBlockView(req, res, callDay.blockId);
+  if (!membership) return;
 
   const assignments = await prisma.callAssignment.findMany({
     where: { callDayId },
@@ -52,6 +59,8 @@ router.post('/', async (req, res) => {
   if (!blockId || !date || !residentId || !roleOnDay) {
     return res.status(400).json({ error: 'blockId, date, residentId, roleOnDay required' });
   }
+  const membership = await requireBlockPermission(req, res, blockId, 'manual_assign_calls');
+  if (!membership) return;
 
   const startOfDay = startOfLogicalDay(date);
   const nextDay = nextLogicalDay(startOfDay);
@@ -105,6 +114,13 @@ router.post('/', async (req, res) => {
 
 // DELETE /api/assignments/:id
 router.delete('/:id', async (req, res) => {
+  const assignment = await prisma.callAssignment.findUnique({
+    where: { id: req.params.id },
+    select: { callDay: { select: { blockId: true } } },
+  });
+  if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
+  const membership = await requireBlockPermission(req, res, assignment.callDay.blockId, 'manual_assign_calls');
+  if (!membership) return;
   await prisma.callAssignment.delete({ where: { id: req.params.id } });
   res.json({ success: true });
 });

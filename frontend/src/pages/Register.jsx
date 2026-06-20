@@ -1,10 +1,22 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
+import { ROLE_OPTIONS, PROGRAM_ROLES } from '../constants/roles';
+import { MEDICAL_SPECIALTIES } from '../constants/medicalSpecialties';
 
 export default function Register() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get('invite') ?? '';
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    category: 'physician_trainee',
+    desiredRole: PROGRAM_ROLES.CHIEF_RESIDENT,
+    clinicalIdentity: 'resident',
+    homeSpecialty: 'Internal Medicine',
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -15,7 +27,7 @@ export default function Register() {
     setError('');
     setLoading(true);
     try {
-      await api.post('/auth/register', form);
+      await api.post('/auth/register', { ...form, ...(inviteToken ? { inviteToken } : {}) });
       navigate('/login');
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed');
@@ -66,6 +78,37 @@ export default function Register() {
             autoComplete="new-password"
           />
 
+          <label style={styles.label}>User category</label>
+          <select style={styles.input} name="category" value={form.category} onChange={handleChange}>
+            <option value="admin_leadership">Admin/leadership</option>
+            <option value="physician_trainee">Physician/trainee</option>
+            <option value="other">Other</option>
+          </select>
+
+          <label style={styles.label}>Desired app role</label>
+          <select style={styles.input} name="desiredRole" value={form.desiredRole} onChange={handleChange}>
+            {ROLE_OPTIONS.map(role => (
+              <option key={role.value} value={role.value}>{role.label}</option>
+            ))}
+          </select>
+
+          <label style={styles.label}>Clinical identity</label>
+          <select style={styles.input} name="clinicalIdentity" value={form.clinicalIdentity} onChange={handleChange}>
+            <option value="resident">Resident</option>
+            <option value="medical_student">Medical Student</option>
+            <option value="attending">Attending</option>
+            <option value="other">Other</option>
+          </select>
+
+          <label style={styles.label}>Home specialty</label>
+          <select style={styles.input} name="homeSpecialty" value={form.homeSpecialty} onChange={handleChange}>
+            {MEDICAL_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+
+          {inviteToken && (
+            <p style={styles.note}>Your program access will be set by the invite link.</p>
+          )}
+
           <button style={styles.button} type="submit" disabled={loading}>
             {loading ? 'Creating account…' : 'Register'}
           </button>
@@ -93,7 +136,7 @@ const styles = {
     borderRadius: 8,
     padding: '2.5rem 2rem',
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 460,
     boxShadow: '0 2px 16px rgba(0,0,0,0.08)',
   },
   title: { margin: 0, fontSize: '1.8rem', color: '#1a1a2e' },
@@ -119,5 +162,6 @@ const styles = {
     cursor: 'pointer',
   },
   error: { color: '#c0392b', background: '#fdecea', borderRadius: 6, padding: '0.5rem 0.75rem', marginBottom: '0.5rem' },
+  note: { fontSize: '0.82rem', color: '#64748B', margin: '0 0 0.5rem' },
   footer: { marginTop: '1.25rem', textAlign: 'center', fontSize: '0.9rem', color: '#555' },
 };

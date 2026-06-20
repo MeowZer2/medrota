@@ -1,5 +1,14 @@
 # Phase 6 Public Schedule And Export QA
 
+## Roles And Onboarding Stabilization
+
+- Canonical program roles are `chief_resident`, `program_admin`, `program_director`, and `viewer`.
+- Legacy role mapping: `coordinator`/`admin` -> `program_admin`, `builder`/`editor` -> `chief_resident`, unknown -> `viewer`.
+- Backend permission checks live in `backend/lib/roles.js`; frontend role labels and UI gating live in `frontend/src/constants/roles.js`.
+- User registration stores category, desired app role, clinical identity, and home specialty as account metadata. Existing-program access still comes from invites or program role management.
+- The specialty list is flat and shared through frontend/backend constants; new submissions are validated against that list.
+- Calendar block rules are collapsed by default in the schedule-building view. The dedicated block settings page remains the primary place to edit scheduling constraints.
+
 Status: closed after backend privacy/export checks, frontend build checks, and DB-backed Phase 5 regression checks.
 
 Phase 6 implemented:

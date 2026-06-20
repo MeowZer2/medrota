@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react';
+﻿import { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
@@ -12,7 +12,7 @@ import {
   toISODate, fmtShort, fmtDay, fmtFull, DAYS_OF_WEEK,
 } from '../lib/blockUtils';
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+// â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function normalizeDateKey(value) {
   if (!value) return '';
@@ -70,7 +70,7 @@ function buildAssignmentsMap(list) {
   return map;
 }
 
-// ── Chip ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Chip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function Chip({ label, color, bg }) {
   return (
@@ -81,7 +81,7 @@ function Chip({ label, color, bg }) {
   );
 }
 
-// ── FLAG presets ──────────────────────────────────────────────────────────────
+// â”€â”€ FLAG presets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const FLAG_PRESETS = [
   { color: '#EF4444', label: 'Holiday' },
@@ -92,7 +92,7 @@ const FLAG_PRESETS = [
   { color: '#14B8A6', label: 'Other' },
 ];
 
-// ── DayCell (grid) ────────────────────────────────────────────────────────────
+// â”€â”€ DayCell (grid) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const DayCell = memo(function DayCell({ dayData, onClick }) {
   const { day, attendings, assignment, flag, isHoliday } = dayData;
@@ -147,29 +147,29 @@ const DayCell = memo(function DayCell({ dayData, onClick }) {
         <span style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', lineHeight: 1 }}>{dayNum}</span>
         <span style={{ fontSize: 10, color: '#94A3B8', lineHeight: 1 }}>{monthAbbr}</span>
         {flag && (
-          <span style={{ fontSize: 9, fontWeight: 600, color: flag.color, lineHeight: 1 }}>· {flag.label}</span>
+          <span style={{ fontSize: 9, fontWeight: 600, color: flag.color, lineHeight: 1 }}>Â· {flag.label}</span>
         )}
         {isHoliday && !flag && (
           <span style={{ fontSize: 9, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', lineHeight: 1, marginLeft: 'auto' }}>Holiday</span>
         )}
       </div>
 
-      {/* TOP SECTION — non-call attendings as subtle gray chips */}
+      {/* TOP SECTION â€” non-call attendings as subtle gray chips */}
       {nonCallAtts.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {nonCallAtts.map((a, i) => {
-            const text = a.activityLabel ? `${a.attendingName} · ${a.activityLabel}` : a.attendingName;
+            const text = a.activityLabel ? `${a.attendingName} Â· ${a.activityLabel}` : a.attendingName;
             return <span key={i} style={{ ...chipBase, background: '#F1F5F9', color: '#334155' }}>{text}</span>;
           })}
         </div>
       )}
 
-      {/* Divider — only when both sections have content */}
+      {/* Divider â€” only when both sections have content */}
       {showDivider && (
         <div style={{ borderTop: '1px solid #E2E8F0', margin: '4px 0' }} />
       )}
 
-      {/* BOTTOM SECTION — call-day attendings (red chip) + resident chips */}
+      {/* BOTTOM SECTION â€” call-day attendings (red chip) + resident chips */}
       {hasBottomSection && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {callAtts.map((a, i) => (
@@ -195,7 +195,7 @@ const DayCell = memo(function DayCell({ dayData, onClick }) {
   prevProps.onClick === nextProps.onClick
 ));
 
-// ── DayRow (mobile) ───────────────────────────────────────────────────────────
+// â”€â”€ DayRow (mobile) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function DayRow({ dayData, onClick }) {
   const { day, attendings, assignment, flag, isHoliday } = dayData;
@@ -230,12 +230,12 @@ function DayRow({ dayData, onClick }) {
       </div>
       <div className="flex flex-col gap-0.5 flex-1 pt-0.5">
         {isHoliday && <span style={{ fontSize: 11, fontWeight: 600, color: '#DC2626' }}>Holiday</span>}
-        {/* Non-call attendings — plain text */}
+        {/* Non-call attendings â€” plain text */}
         {nonCallAtts.map((a, i) => {
-          const text = [a.attendingName, a.activityLabel].filter(Boolean).join(' · ');
+          const text = [a.attendingName, a.activityLabel].filter(Boolean).join(' Â· ');
           return text ? <span key={i} style={{ fontSize: 11, color: '#475569' }}>{text}</span> : null;
         })}
-        {/* Call attendings — navy bold */}
+        {/* Call attendings â€” navy bold */}
         {callAtts.map((a, i) => (
           <span key={`c${i}`} style={{ fontSize: 11, fontWeight: 600, color: '#1A3A5C' }}>{a.attendingName}</span>
         ))}
@@ -250,7 +250,7 @@ function DayRow({ dayData, onClick }) {
   );
 }
 
-// ── AttendingSection (inside modal) ──────────────────────────────────────────
+// â”€â”€ AttendingSection (inside modal) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const BLANK_FORM = { attendingName: '', activityLabel: '', isCallDay: false };
 
@@ -335,18 +335,18 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
         {entries.map(e => (
           <div key={e.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: '#F8FAFC', border: '1px solid #E8EFF6' }}>
             <div className="flex flex-wrap gap-1 flex-1">
-              {e.attendingName && <Chip label={`👤 ${e.attendingName}`} color="#1D4ED8" bg="#EFF6FF" />}
+              {e.attendingName && <Chip label={`ðŸ‘¤ ${e.attendingName}`} color="#1D4ED8" bg="#EFF6FF" />}
               {e.activityLabel && <Chip label={e.activityLabel} color="#6D28D9" bg="#F3F0FF" />}
               {e.isCallDay && <Chip label="Call" color="#1A3A5C" bg="#EEF4FF" />}
             </div>
             <button onClick={() => openEdit(e)} title="Edit"
               style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: '2px 4px', borderRadius: 4, lineHeight: 1 }}
               onMouseEnter={e => e.currentTarget.style.background = '#F0F5FF'}
-              onMouseLeave={e => e.currentTarget.style.background = 'none'}>✏️</button>
+              onMouseLeave={e => e.currentTarget.style.background = 'none'}>âœï¸</button>
             <button onClick={() => handleDelete(e.id)} title="Delete"
               style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626', padding: '2px 4px', borderRadius: 4, lineHeight: 1 }}
               onMouseEnter={ev => ev.currentTarget.style.background = '#FEF2F2'}
-              onMouseLeave={ev => ev.currentTarget.style.background = 'none'}>✕</button>
+              onMouseLeave={ev => ev.currentTarget.style.background = 'none'}>âœ•</button>
           </div>
         ))}
       </div>
@@ -363,7 +363,7 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
                 const autoActivity = matched?.activities?.length === 1 ? matched.activities[0] : '';
                 setForm(p => ({ ...p, attendingName: name, activityLabel: autoActivity || p.activityLabel }));
               }}>
-              <option value="">— Select attending —</option>
+              <option value="">â€” Select attending â€”</option>
               {roster.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
             </select>
           ) : (
@@ -379,7 +379,7 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
                 className={modalSelectClass}
                 value={form.activityLabel}
                 onChange={e => setForm(p => ({ ...p, activityLabel: e.target.value }))}>
-                <option value="">— Select activity —</option>
+                <option value="">â€” Select activity â€”</option>
                 {acts.map(a => <option key={a} value={a}>{a}</option>)}
                 {form.activityLabel && !acts.includes(form.activityLabel) && (
                   <option value={form.activityLabel}>{form.activityLabel}</option>
@@ -401,7 +401,7 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
             </button>
             <button onClick={handleSave} disabled={saving}
               style={{ flex: 1, padding: '6px', borderRadius: 6, border: 'none', background: '#1A3A5C', color: '#fff', fontSize: 12, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              {saving ? '…' : editId ? 'Update' : 'Add'}
+              {saving ? 'â€¦' : editId ? 'Update' : 'Add'}
             </button>
           </div>
         </div>
@@ -410,7 +410,7 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
   );
 }
 
-// ── FlagSection (inside modal) ────────────────────────────────────────────────
+// â”€â”€ FlagSection (inside modal) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function FlagSection({ day, blockId, flag, onFlagChange }) {
   const iso = toISODate(day);
@@ -489,7 +489,7 @@ function FlagSection({ day, blockId, flag, onFlagChange }) {
       {/* Preview */}
       {label.trim() && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, padding: '4px 10px', borderRadius: 6, background: color + '26', border: `1px solid ${color}55` }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color }}>· {label.trim()}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color }}>Â· {label.trim()}</span>
         </div>
       )}
       <div style={{ display: 'flex', gap: 8 }}>
@@ -507,14 +507,14 @@ function FlagSection({ day, blockId, flag, onFlagChange }) {
           disabled={saving || !label.trim()}
           style={{ flex: 1, padding: '6px', borderRadius: 6, border: 'none', background: color, color: '#fff', fontSize: 12, fontWeight: 600, cursor: (saving || !label.trim()) ? 'not-allowed' : 'pointer', opacity: (saving || !label.trim()) ? 0.5 : 1 }}
         >
-          {saving ? '…' : 'Save flag'}
+          {saving ? 'â€¦' : 'Save flag'}
         </button>
       </div>
     </div>
   );
 }
 
-// ── DayModal ──────────────────────────────────────────────────────────────────
+// â”€â”€ DayModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function DayModal({ isOpen, day, attendings, residents, roster, assignment, blockId, flag, onSave, onClose, onAttendingChange, onFlagChange }) {
   const [visible, setVisible] = useState(false);
@@ -588,20 +588,20 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
           <div>
             <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#64748B', marginBottom: 4 }}>Senior resident</label>
             <select key={`senior-${dayKey}`} name="seniorId" className={modalSelectClass} defaultValue={assignment?.seniorId ?? ''}>
-              <option value="">— Unassigned —</option>
+              <option value="">â€” Unassigned â€”</option>
               {seniors.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#64748B', marginBottom: 4 }}>Junior resident</label>
             <select key={`junior-${dayKey}`} name="juniorId" className={modalSelectClass} defaultValue={assignment?.juniorId ?? ''}>
-              <option value="">— Unassigned —</option>
+              <option value="">â€” Unassigned â€”</option>
               {juniors.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
           </div>
           {warning && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#FEF2F2', border: '1px solid #FCA5A5' }}>
-              <span style={{ fontSize: 12, color: '#DC2626' }}>⚠ {warning}</span>
+              <span style={{ fontSize: 12, color: '#DC2626' }}>Warning: {warning}</span>
             </div>
           )}
         </div>
@@ -630,7 +630,7 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
   );
 }
 
-// ── GenSummaryModal ───────────────────────────────────────────────────────────
+// â”€â”€ GenSummaryModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function GenSummaryModal({ summary, onClose }) {
   return (
@@ -712,7 +712,7 @@ function GenSummaryModal({ summary, onClose }) {
                 Warnings ({summary.warnings.length})
               </p>
               {summary.warnings.map((w, i) => (
-                <p key={i} style={{ fontSize: 11, color: '#64748B', marginBottom: 3 }}>⚠ {w.date}: {w.message}</p>
+                <p key={i} style={{ fontSize: 11, color: '#64748B', marginBottom: 3 }}>Warning: {w.date}: {w.message}</p>
               ))}
             </div>
           )}
@@ -729,7 +729,7 @@ function GenSummaryModal({ summary, onClose }) {
   );
 }
 
-// ── PublishConfirmModal ───────────────────────────────────────────────────────
+// â”€â”€ PublishConfirmModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function PublishConfirmModal({ onConfirm, onClose, publishing }) {
   return (
@@ -765,7 +765,7 @@ function PublishConfirmModal({ onConfirm, onClose, publishing }) {
               style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#16A34A', color: '#fff', fontSize: 13, fontWeight: 600, cursor: publishing ? 'not-allowed' : 'pointer', opacity: publishing ? 0.7 : 1 }}
               onMouseEnter={e => { if (!publishing) e.currentTarget.style.background = '#15803D'; }}
               onMouseLeave={e => e.currentTarget.style.background = '#16A34A'}>
-              {publishing ? 'Publishing…' : 'Publish'}
+              {publishing ? 'Publishingâ€¦' : 'Publish'}
             </button>
           </div>
         </div>
@@ -774,7 +774,7 @@ function PublishConfirmModal({ onConfirm, onClose, publishing }) {
   );
 }
 
-// ── ClearConfirmModal ─────────────────────────────────────────────────────────
+// â”€â”€ ClearConfirmModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ClearConfirmModal({ blockNum, onConfirm, onClose, clearing }) {
   return (
@@ -810,7 +810,7 @@ function ClearConfirmModal({ blockNum, onConfirm, onClose, clearing }) {
               style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#DC2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: clearing ? 'not-allowed' : 'pointer', opacity: clearing ? 0.7 : 1 }}
               onMouseEnter={e => { if (!clearing) e.currentTarget.style.background = '#B91C1C'; }}
               onMouseLeave={e => e.currentTarget.style.background = '#DC2626'}>
-              {clearing ? 'Clearing…' : 'Clear all assignments'}
+              {clearing ? 'Clearingâ€¦' : 'Clear all assignments'}
             </button>
           </div>
         </div>
@@ -819,7 +819,7 @@ function ClearConfirmModal({ blockNum, onConfirm, onClose, clearing }) {
   );
 }
 
-// ── PublishSuccessModal ──────────────────────────────────────────────────────
+// â”€â”€ PublishSuccessModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
   const [copied, setCopied] = useState(false);
@@ -920,7 +920,7 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
   );
 }
 
-// ── CalendarTopBar ────────────────────────────────────────────────────────────
+// â”€â”€ CalendarTopBar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function Spinner() {
   return <div className="w-3.5 h-3.5 rounded-full border-2 animate-spin inline-block"
@@ -1021,6 +1021,10 @@ const CalendarTopBar = memo(function CalendarTopBar({
   onPrintPdf, printingPdf,
   onViewPublished,
   blockId,
+  canExportDraft,
+  canClearSchedule,
+  canGenerateSchedule,
+  canPublishSchedule,
 }) {
   const assigned   = days.filter(d => { const a = assignmentMap[toISODate(d)]; return a?.seniorId || a?.juniorId; }).length;
   const unassigned = days.length - assigned;
@@ -1046,7 +1050,7 @@ const CalendarTopBar = memo(function CalendarTopBar({
             <h1 style={{ fontSize: 18, fontWeight: 700, color: '#1A3A5C' }}>Block {blockNum} Calendar</h1>
             {blockStart && blockEnd && (
               <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>
-                {fmtRange(blockStart)} – {fmtRange(blockEnd)}
+                {fmtRange(blockStart)} â€“ {fmtRange(blockEnd)}
               </p>
             )}
           </div>
@@ -1066,7 +1070,7 @@ const CalendarTopBar = memo(function CalendarTopBar({
           <motion.button
             whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
             onClick={onExportExcel}
-            disabled={exportingExcel || !blockId}
+            disabled={exportingExcel || !blockId || !canExportDraft}
             className="px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5"
             style={{ background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', cursor: exportingExcel ? 'not-allowed' : 'pointer' }}
             onMouseEnter={e => { if (!exportingExcel) e.currentTarget.style.background = '#DCFCE7'; }}
@@ -1083,7 +1087,7 @@ const CalendarTopBar = memo(function CalendarTopBar({
           <motion.button
             whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
             onClick={onPrintPdf}
-            disabled={printingPdf || !blockId}
+            disabled={printingPdf || !blockId || !canExportDraft}
             className="px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5"
             style={{ background: '#EEF4FF', color: '#2C5F8A', border: '1px solid #C7D9EC', cursor: printingPdf ? 'not-allowed' : 'pointer' }}
             onMouseEnter={e => { if (!printingPdf) e.currentTarget.style.background = '#DCE9F5'; }}
@@ -1135,24 +1139,24 @@ const CalendarTopBar = memo(function CalendarTopBar({
           <motion.button
             whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
             onClick={onClearSchedule}
-            disabled={clearingSchedule}
+            disabled={clearingSchedule || !canClearSchedule}
             className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2"
             style={{ background: '#fff', color: '#DC2626', border: '1px solid #FCA5A5', cursor: clearingSchedule ? 'not-allowed' : 'pointer' }}
             onMouseEnter={e => { if (!clearingSchedule) { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.borderColor = '#EF4444'; } }}
             onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#FCA5A5'; }}>
-            {clearingSchedule ? <><Spinner /><span style={{ color: '#DC2626' }}>Clearing…</span></> : 'Clear schedule'}
+            {clearingSchedule ? <><Spinner /><span style={{ color: '#DC2626' }}>Clearingâ€¦</span></> : 'Clear schedule'}
           </motion.button>
 
           {/* Auto-generate */}
           <motion.button
             whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
             onClick={onAutoGenerate}
-            disabled={generating}
+            disabled={generating || !canGenerateSchedule}
             className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2"
             style={{ background: '#EEF4FF', color: '#2C5F8A', border: '1px solid #C7D9EC', cursor: generating ? 'not-allowed' : 'pointer' }}
             onMouseEnter={e => { if (!generating) e.currentTarget.style.background = '#DCE9F5'; }}
             onMouseLeave={e => e.currentTarget.style.background = '#EEF4FF'}>
-            {generating ? <><Spinner /><span style={{ color: '#2C5F8A' }}>Generating…</span></> : 'Auto-generate'}
+            {generating ? <><Spinner /><span style={{ color: '#2C5F8A' }}>Generatingâ€¦</span></> : 'Auto-generate'}
           </motion.button>
 
           {/* Publish */}
@@ -1161,6 +1165,7 @@ const CalendarTopBar = memo(function CalendarTopBar({
             animate={publishPulsing ? { boxShadow: ['0 0 0 0 rgba(22,163,74,0)', '0 0 0 8px rgba(22,163,74,0.25)', '0 0 0 0 rgba(22,163,74,0)'] } : {}}
             transition={publishPulsing ? { duration: 0.6, repeat: 2 } : {}}
             onClick={onPublish}
+            disabled={!canPublishSchedule}
             className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
             style={{ background: isPublished ? '#16A34A' : '#1A3A5C', cursor: 'pointer', border: 'none' }}
             onMouseEnter={e => e.currentTarget.style.background = isPublished ? '#15803D' : '#2C5F8A'}
@@ -1209,11 +1214,11 @@ const CalendarTopBar = memo(function CalendarTopBar({
   );
 });
 
-// ── main page ─────────────────────────────────────────────────────────────────
+// â”€â”€ main page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function Calendar() {
   const { blockNumber } = useParams();
-  const { currentProgram, refreshContext } = useUser();
+  const { currentProgram, refreshContext, can } = useUser();
   const { currentBlock, setCurrentBlock, currentAcademicYear } = useBlock();
 
   const blockNum  = parseInt(blockNumber ?? '1', 10);
@@ -1261,13 +1266,15 @@ export default function Calendar() {
   const [settingsLoading, setSettingsLoading]       = useState(false);
   const [settingsSaving, setSettingsSaving]         = useState(false);
   const latestBlockIdRef = useRef(blockId);
+  const canEditResidents = can('edit_residents');
+  const canEditAttending = can('edit_attendings');
 
   useEffect(() => {
     latestBlockIdRef.current = blockId;
   }, [blockId]);
 
   useEffect(() => {
-    if (!blockId) return;
+    if (!blockId || !can('edit_block_settings')) return;
     const currentBlockId = blockId;
     let cancelled = false;
 
@@ -1286,9 +1293,9 @@ export default function Calendar() {
 
     fetchSettings();
     return () => { cancelled = true; };
-  }, [blockId]);
+  }, [blockId, can]);
 
-  // Derived from context — persists across tab switches
+  // Derived from context â€” persists across tab switches
   const isPublished = currentBlock?.isPublished ?? false;
   const publicToken = currentBlock?.publicToken ?? null;
 
@@ -1305,8 +1312,8 @@ export default function Calendar() {
         const [att, asgn, res, ros, fl] = await Promise.all([
           api.get(`/attending?blockId=${currentBlockId}`, { signal }),
           api.get(`/assignments?blockId=${currentBlockId}`, { signal }),
-          programId ? api.get(`/residents?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
-          programId ? api.get(`/attending/roster?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
+          programId && canEditResidents ? api.get(`/residents?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
+          programId && canEditAttending ? api.get(`/attending/roster?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
           api.get(`/flags?blockId=${currentBlockId}`, { signal }),
         ]);
 
@@ -1330,7 +1337,7 @@ export default function Calendar() {
       cancelled = true;
       controller.abort();
     };
-  }, [blockId, programId]);
+  }, [blockId, canEditAttending, canEditResidents, programId]);
 
   const attendingMap = useMemo(() => {
     const map = {};
@@ -1651,15 +1658,26 @@ export default function Calendar() {
           printingPdf={printingPdf}
           onViewPublished={handleViewPublished}
           blockId={blockId}
+          canExportDraft={can('export_draft_schedule')}
+          canClearSchedule={can('clear_schedule')}
+          canGenerateSchedule={can('generate_schedule')}
+          canPublishSchedule={can('publish_schedule')}
         />
 
-        <BlockSettingsPanel
-          settings={blockSettings}
-          saving={settingsSaving}
-          loading={settingsLoading}
-          onChange={setBlockSettings}
-          onSave={handleSaveSettings}
-        />
+        {can('edit_block_settings') && (
+          <details className="mb-4 rounded-xl" style={{ border: '1px solid #E8EFF6', background: '#fff' }}>
+            <summary style={{ padding: '12px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#1A3A5C' }}>
+              Block rules
+            </summary>
+            <BlockSettingsPanel
+              settings={blockSettings}
+              saving={settingsSaving}
+              loading={settingsLoading}
+              onChange={setBlockSettings}
+              onSave={handleSaveSettings}
+            />
+          </details>
+        )}
 
         {loadingData ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hidden md:grid grid-cols-7 gap-1">
@@ -1701,7 +1719,7 @@ export default function Calendar() {
             <div className="md:hidden rounded-xl overflow-hidden" style={{ border: '1px solid #E8EFF6', boxShadow: '0 1px 3px rgba(26,58,92,0.05)' }}>
               <div className="px-4 py-3" style={{ background: '#F8FAFC', borderBottom: '1px solid #E8EFF6' }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: '#94A3B8' }}>
-                  {days.length} days · Tap a day to assign residents
+                  {days.length} days Â· Tap a day to assign residents
                 </span>
               </div>
               {dayDataList.map((dayData, i) => (

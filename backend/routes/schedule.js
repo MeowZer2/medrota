@@ -1,20 +1,23 @@
-const express = require('express');
+﻿const express = require('express');
 const crypto  = require('crypto');
 const auth    = require('../middleware/auth');
 const prisma  = require('../lib/prisma');
 const { generateSchedule, clearSchedule } = require('../services/scheduler');
 const { createScheduleWorkbook, shapeProtectedSchedule } = require('../services/excelExport');
 const { createPrintableScheduleHtml, buildPrintableFilename } = require('../services/printableSchedule');
+const { requireBlockPermission, requireBlockView } = require('../lib/roles');
 
 const router = express.Router();
 router.use(auth);
 
-// POST /api/schedule/generate — clear + regenerate all assignments for a block
+// POST /api/schedule/generate â€” clear + regenerate all assignments for a block
 router.post('/generate', async (req, res) => {
   const { blockId } = req.body;
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
   try {
-    console.log(`[schedule/generate] blockId=${blockId} — pre-clearing existing data`);
+    const membership = await requireBlockPermission(req, res, blockId, 'generate_schedule');
+    if (!membership) return;
+    console.log(`[schedule/generate] blockId=${blockId} â€” pre-clearing existing data`);
     // Step 1: find all CallDay ids for this block
     const callDays = await prisma.callDay.findMany({ where: { blockId }, include: { assignments: true } });
     const callDayIds = callDays.map(d => d.id);
@@ -42,11 +45,13 @@ router.post('/generate', async (req, res) => {
   }
 });
 
-// DELETE /api/schedule/clear — wipe all assignments + call days for a block
+// DELETE /api/schedule/clear â€” wipe all assignments + call days for a block
 router.delete('/clear', async (req, res) => {
   const blockId = req.body?.blockId ?? req.query?.blockId;
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
   try {
+    const membership = await requireBlockPermission(req, res, blockId, 'clear_schedule');
+    if (!membership) return;
     // Step 1: find all CallDay ids for this block
     const callDays = await prisma.callDay.findMany({ where: { blockId } });
     const callDayIds = callDays.map(d => d.id);
@@ -65,11 +70,13 @@ router.delete('/clear', async (req, res) => {
   }
 });
 
-// POST /api/schedule/publish — snapshot current schedule and mark block as published
+// POST /api/schedule/publish â€” snapshot current schedule and mark block as published
 router.post('/publish', async (req, res) => {
   const { blockId } = req.body;
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
   try {
+    const membership = await requireBlockPermission(req, res, blockId, 'publish_schedule');
+    if (!membership) return;
     // Fetch all current schedule data for the block
     const block = await prisma.block.findUnique({
       where: { id: blockId },
@@ -134,12 +141,14 @@ router.post('/publish', async (req, res) => {
   }
 });
 
-// GET /api/schedule/diagnostics?blockId= — non-destructive duplicate logical-day report
+// GET /api/schedule/diagnostics?blockId= â€” non-destructive duplicate logical-day report
 router.get('/diagnostics', async (req, res) => {
   const { blockId } = req.query;
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
 
   try {
+    const membership = await requireBlockPermission(req, res, blockId, 'view_draft_schedule');
+    if (!membership) return;
     const [callDays, attendingEntries] = await Promise.all([
       prisma.callDay.findMany({
         where: { blockId },
@@ -191,6 +200,8 @@ router.get('/export/excel', async (req, res) => {
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
 
   try {
+    const membership = await requireBlockPermission(req, res, blockId, 'export_draft_schedule');
+    if (!membership) return;
     const block = await prisma.block.findUnique({
       where: { id: blockId },
       include: {
@@ -220,6 +231,8 @@ router.get('/export/pdf', async (req, res) => {
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
 
   try {
+    const membership = await requireBlockPermission(req, res, blockId, 'export_draft_schedule');
+    if (!membership) return;
     const block = await prisma.block.findUnique({
       where: { id: blockId },
       include: {
@@ -243,11 +256,13 @@ router.get('/export/pdf', async (req, res) => {
     res.status(500).json({ error: 'Failed to generate printable schedule' });
   }
 });
-// GET /api/schedule/history?blockId= — all published versions for a block
+// GET /api/schedule/history?blockId= â€” all published versions for a block
 router.get('/history', async (req, res) => {
   const { blockId } = req.query;
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
   try {
+    const membership = await requireBlockView(req, res, blockId);
+    if (!membership) return;
     const versions = await prisma.scheduleVersion.findMany({
       where: { blockId },
       orderBy: { publishedAt: 'desc' },

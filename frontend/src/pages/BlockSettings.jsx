@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 import Layout from '../components/Layout';
 import PageWrapper from '../components/PageWrapper';
 import api from '../api/axios';
-import { useBlock } from '../context/AppContext';
+import { useBlock, useUser } from '../context/AppContext';
 
 // ── Toggle ────────────────────────────────────────────────────────────────────
 
@@ -70,6 +70,7 @@ export default function BlockSettings() {
   const { blockNumber } = useParams();
   const navigate        = useNavigate();
   const { currentAcademicYear } = useBlock();
+  const { can } = useUser();
 
   // Resolve the block from context
   const block = currentAcademicYear?.blocks?.find(b => String(b.number) === String(blockNumber));
@@ -87,7 +88,7 @@ export default function BlockSettings() {
   const [saving,  setSaving]  = useState(false);
 
   useEffect(() => {
-    if (!blockId) return;
+    if (!blockId || !can('edit_block_settings')) return;
     setLoading(true);
     api.get(`/blocks/${blockId}/settings`)
       .then(({ data }) => setSettings({
@@ -100,7 +101,7 @@ export default function BlockSettings() {
       }))
       .catch(() => toast.error('Failed to load settings'))
       .finally(() => setLoading(false));
-  }, [blockId]);
+  }, [blockId, can]);
 
   const handleSave = async () => {
     if (!blockId) return;
@@ -120,6 +121,11 @@ export default function BlockSettings() {
   return (
     <PageWrapper>
       <Layout>
+        {!can('edit_block_settings') ? (
+          <div style={{ background: '#fff', border: '1px solid #E8EFF6', borderRadius: 12, padding: 24, color: '#64748B' }}>
+            Block settings are available to Chief Residents, Program Admins, and Program Directors.
+          </div>
+        ) : (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -226,6 +232,7 @@ export default function BlockSettings() {
             </div>
           )}
         </motion.div>
+        )}
       </Layout>
     </PageWrapper>
   );

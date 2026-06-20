@@ -12,6 +12,7 @@
     "phase6:excel": "node scripts/phase6-excel-check.js",
     "phase6:printable": "node scripts/phase6-printable-check.js",
     "phase6:smoke": "node scripts/phase6-smoke.js",
+    "roles:smoke": "node scripts/role-permission-smoke.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

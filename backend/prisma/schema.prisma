@@ -46,6 +46,10 @@ model User {
   name         String
   email        String          @unique
   passwordHash String
+  category     String?
+  clinicalIdentity String?
+  desiredRole  String?
+  homeSpecialty String?
   orgId        String?
   org          Organization?   @relation(fields: [orgId], references: [id])
   createdAt    DateTime        @default(now())

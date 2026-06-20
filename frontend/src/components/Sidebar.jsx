@@ -1,10 +1,10 @@
-import { memo, useState, useRef, useEffect } from 'react';
+﻿import { memo, useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBlock, useUser } from '../context/AppContext';
 import api from '../api/axios';
 
-// ── helpers ────────────────────────────────────────────────────────────────────
+// â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getInitials(name) {
   if (!name) return 'DR';
@@ -15,7 +15,7 @@ function getInitials(name) {
 function yearLabel(ay) {
   const start = new Date(ay.startDate);
   const end   = new Date(ay.endDate);
-  return `${start.getFullYear()}–${end.getFullYear()}`;
+  return `${start.getFullYear()}â€“${end.getFullYear()}`;
 }
 
 function isBlockCurrent(block) {
@@ -27,10 +27,10 @@ function fmtBlockDateRange(block) {
   const opts = { month: 'short', day: 'numeric' };
   const s = new Date(block.startDate).toLocaleDateString('en-GB', opts);
   const e = new Date(block.endDate).toLocaleDateString('en-GB', opts);
-  return `${s} – ${e}`;
+  return `${s} â€“ ${e}`;
 }
 
-// ── icons ─────────────────────────────────────────────────────────────────────
+// â”€â”€ icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ChevronDown() {
   return (
@@ -78,7 +78,7 @@ function PeopleIcon({ size = 12 }) {
   );
 }
 
-// ── nav data ──────────────────────────────────────────────────────────────────
+// â”€â”€ nav data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const NAV_LINKS = [
   {
@@ -116,7 +116,7 @@ const PROGRAM_LINKS = [
   },
 ];
 
-// ── NavItem ───────────────────────────────────────────────────────────────────
+// â”€â”€ NavItem â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function NavItem({ label, icon, isActive, onClick }) {
   return (
@@ -161,7 +161,7 @@ function NavItem({ label, icon, isActive, onClick }) {
   );
 }
 
-// ── YearSwitcher (dropdown, always visible) ───────────────────────────────────
+// â”€â”€ YearSwitcher (dropdown, always visible) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function YearSwitcher({ years, current, onChange, onAddYear, addingYear }) {
   const [open, setOpen] = useState(false);
@@ -189,7 +189,7 @@ function YearSwitcher({ years, current, onChange, onAddYear, addingYear }) {
         onMouseEnter={e => e.currentTarget.style.background = '#E4EDFF'}
         onMouseLeave={e => e.currentTarget.style.background = '#F0F5FF'}
       >
-        <span>{current ? yearLabel(current) : '—'}</span>
+        <span>{current ? yearLabel(current) : 'â€”'}</span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
           <ChevronDown />
         </motion.span>
@@ -224,9 +224,10 @@ function YearSwitcher({ years, current, onChange, onAddYear, addingYear }) {
                 onMouseLeave={e => { if (ay.id !== current?.id) e.currentTarget.style.background = 'transparent'; }}
               >
                 {yearLabel(ay)}
-                {ay.id === current?.id && <span style={{ marginLeft: 6, fontSize: 10, color: '#2C5F8A' }}>●</span>}
+                {ay.id === current?.id && <span style={{ marginLeft: 6, fontSize: 10, color: '#2C5F8A' }}>â—</span>}
               </button>
             ))}
+            {onAddYear && (
             <div style={{ borderTop: '1px solid #E8EFF6' }}>
               <button
                 onClick={() => { setOpen(false); onAddYear(); }}
@@ -241,9 +242,10 @@ function YearSwitcher({ years, current, onChange, onAddYear, addingYear }) {
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
               >
                 <PlusSmIcon />
-                {addingYear ? 'Adding…' : '+ Add year'}
+                {addingYear ? 'Addingâ€¦' : '+ Add year'}
               </button>
             </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -251,12 +253,12 @@ function YearSwitcher({ years, current, onChange, onAddYear, addingYear }) {
   );
 }
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
+// â”€â”€ Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const Sidebar = memo(function Sidebar({ userName }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentProgram, currentUser, refreshContext } = useUser();
+  const { currentProgram, currentUser, currentRoleLabel, refreshContext, can } = useUser();
   const { currentBlock, setCurrentBlock, academicYears, currentAcademicYear, setCurrentAcademicYear } = useBlock();
 
   const [programOpen, setProgramOpen] = useState(false);
@@ -266,10 +268,15 @@ const Sidebar = memo(function Sidebar({ userName }) {
 
   const displayName = userName || currentUser?.name || '';
   const blocks = currentAcademicYear?.blocks ?? [];
+  const programLinks = PROGRAM_LINKS.filter(link => (
+    link.path === '/residents' ? can('edit_residents') :
+    link.path === '/attending' ? can('edit_attendings') :
+    true
+  ));
 
   // Derive next year's start date from the last academic year
   async function handleAddYear() {
-    if (!currentProgram?.programId) return;
+    if (!currentProgram?.programId || !can('create_academic_year')) return;
     setAddingYear(true);
     try {
       const lastYear = academicYears[academicYears.length - 1];
@@ -330,7 +337,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
             >
               <div className="mt-1.5 px-1">
                 <p className="px-2 py-1.5 text-xs rounded-lg" style={{ color: '#5A7A9A', background: '#F8FAFC' }}>
-                  {currentProgram?.specialty ?? '—'} · {currentProgram?.role ?? '—'}
+                  {currentProgram?.specialty ?? '—'} · {currentRoleLabel ?? '—'}
                 </p>
               </div>
             </motion.div>
@@ -359,7 +366,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
           Program
         </p>
         <ul className="space-y-0.5">
-          {PROGRAM_LINKS.map(link => (
+          {programLinks.map(link => (
             <li key={link.path}>
               <NavItem
                 {...link}
@@ -378,12 +385,12 @@ const Sidebar = memo(function Sidebar({ userName }) {
             Blocks
           </p>
 
-          {/* Year switcher — always shown when any years exist */}
+          {/* Year switcher â€” always shown when any years exist */}
           <YearSwitcher
             years={academicYears}
             current={currentAcademicYear}
             onChange={setCurrentAcademicYear}
-            onAddYear={handleAddYear}
+            onAddYear={can('create_academic_year') ? handleAddYear : undefined}
             addingYear={addingYear}
           />
 
@@ -452,8 +459,8 @@ const Sidebar = memo(function Sidebar({ userName }) {
                         Now
                       </span>
                     )}
-                    {/* People icon — view residents for this block */}
-                    {(isActive || isHovered) && (
+                    {/* People icon â€” view residents for this block */}
+                    {can('edit_residents') && (isActive || isHovered) && (
                       <span
                         onClick={e => { e.stopPropagation(); setCurrentBlock(block); navigate('/residents'); }}
                         title="View residents for this block"
@@ -464,7 +471,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
                         <PeopleIcon size={12} />
                       </span>
                     )}
-                    {isActive && (
+                    {can('edit_block_settings') && isActive && (
                       <span
                         onClick={e => { e.stopPropagation(); navigate(`/blocks/${block.number}/settings`); }}
                         title="Block settings"
@@ -528,11 +535,12 @@ const Sidebar = memo(function Sidebar({ userName }) {
               {displayName || 'User'}
             </p>
             <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 1 }}>
-              {currentProgram?.role ?? 'Member'}
+              {currentRoleLabel ?? 'Member'}
             </p>
           </div>
 
           {/* Settings */}
+          {can('edit_program_settings') && (
           <div className="relative shrink-0">
             <button
               className="p-1.5 rounded-lg transition-colors duration-100"
@@ -563,6 +571,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
               )}
             </AnimatePresence>
           </div>
+          )}
 
           {/* Logout */}
           <div className="relative shrink-0">

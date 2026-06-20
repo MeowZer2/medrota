@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const auth = require('../middleware/auth');
+const { requireProgramPermission, requireBlockPermission } = require('../lib/roles');
 
 const router = express.Router();
 router.use(auth);
@@ -68,6 +69,8 @@ router.get('/', async (req, res) => {
   // ── programId path ─────────────────────────────────────────────────────────
   if (programId) {
     try {
+      const membership = await requireProgramPermission(req, res, programId, 'edit_residents');
+      if (!membership) return;
       // 1. All service residents for the program
       const serviceResidents = await prisma.residentProfile.findMany({
         where: { programId, isServiceResident: true },
@@ -127,6 +130,8 @@ router.get('/', async (req, res) => {
   // ── blockId path (for BlockPage and scheduler fallback) ───────────────────
   if (blockId) {
     try {
+      const membership = await requireBlockPermission(req, res, blockId, 'edit_residents');
+      if (!membership) return;
       // Find programId via block
       const block = await prisma.block.findUnique({
         where: { id: blockId },
@@ -189,6 +194,8 @@ router.post('/', async (req, res) => {
   if (!programId || !name || !pgyLevel || !residentRole) {
     return res.status(400).json({ error: 'programId, name, pgyLevel, residentRole are required' });
   }
+  const membership = await requireProgramPermission(req, res, programId, 'edit_residents');
+  if (!membership) return;
 
   // Medical students are always off-service and always require a block
   const isMed = isMedStudent ?? false;
@@ -254,6 +261,8 @@ router.post('/:id/enroll', async (req, res) => {
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
 
   try {
+    const membership = await requireBlockPermission(req, res, blockId, 'edit_residents');
+    if (!membership) return;
     const existing = await prisma.blockEnrollment.findFirst({ where: { blockId, residentId: id } });
     if (existing) return res.json(existing); // already enrolled
 
@@ -280,6 +289,8 @@ router.post('/:id/enroll', async (req, res) => {
 router.delete('/:id/enroll/:blockId', async (req, res) => {
   const { id, blockId } = req.params;
   try {
+    const membership = await requireBlockPermission(req, res, blockId, 'edit_residents');
+    if (!membership) return;
     await prisma.blockEnrollment.deleteMany({ where: { residentId: id, blockId } });
     res.json({ ok: true });
   } catch (err) {
@@ -302,6 +313,12 @@ router.put('/:id', async (req, res) => {
   const forcedServiceResident = isMedStudent ? false : isServiceResident;
 
   try {
+    const existingResident = await prisma.residentProfile.findUnique({ where: { id }, select: { programId: true } });
+    if (!existingResident) return res.status(404).json({ error: 'Resident not found' });
+    const membership = blockId
+      ? await requireBlockPermission(req, res, blockId, 'edit_residents')
+      : await requireProgramPermission(req, res, existingResident.programId, 'edit_residents');
+    if (!membership) return;
     const resident = await prisma.residentProfile.update({
       where: { id },
       data: {
@@ -341,6 +358,10 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
+  const existingResident = await prisma.residentProfile.findUnique({ where: { id }, select: { programId: true } });
+  if (!existingResident) return res.status(404).json({ error: 'Resident not found' });
+  const membership = await requireProgramPermission(req, res, existingResident.programId, 'edit_residents');
+  if (!membership) return;
   await prisma.callAssignment.deleteMany({ where: { residentId: id } });
   await prisma.blockEnrollment.deleteMany({ where: { residentId: id } });
   await prisma.residentProfile.delete({ where: { id } });
