@@ -2,75 +2,54 @@
 
 ## Current Project Status
 
-This milestone is stabilized after the roles/onboarding work, Phase 5 scheduling checks, Phase 6 public schedule/export work, local QA seed setup, and Playwright browser E2E coverage.
+Recovery branch status: trustworthy single-program MVP candidate, pending real-program rule review and deployment hardening. The reliability sprint closed the audited program-isolation, transactional calendar-save, silent override, missing availability, blended-call, misleading settings, weak data-integrity, and frontend auth gaps.
 
-## What Works Now
+This is not a claim of PARO, privacy, or production compliance.
 
-- Phase 5 scheduling smoke coverage is closed and passing.
-- PARO scheduler rules are implemented with program-level junior/senior in-house call settings.
-- Phase 6 is implemented:
-  - Public schedule link and read-only public schedule page.
-  - Public-safe schedule shaping.
-  - Protected and public Excel exports.
-  - Protected and public printable/PDF HTML exports.
-- Roles and onboarding are implemented with canonical program roles:
-  - `chief_resident`
-  - `program_admin`
-  - `program_director`
-  - `viewer`
-- Local QA users and QA data are available through `backend && npm run dev:seed-qa`.
-- Calendar day modal assignment save, resident preselects, attending display, reload persistence, viewer read-only behavior, and login password visibility behavior are covered by Playwright E2E.
-- Frontend performance guardrails are in place through `frontend && npm run perf:guard`.
+## Confirmed Working Behavior
 
-## Protected By Automated Checks
+- Canonical roles: `chief_resident`, `program_admin`, `program_director`, `viewer`; backend permissions are authoritative.
+- Cross-program stats, attending-copy/template, resident/block, membership, and schedule-history paths enforce resource ownership and permissions.
+- Day assignment updates are transactional and reject duplicate residents/invalid roles without destroying prior assignments.
+- Violating manual edits require a fresh backend check, explicit confirmation, and non-empty reason; recorded overrides are preserved and counted during regeneration.
+- The stored draft validator reports stable rule codes and is available from the Calendar.
+- Auto-generation excludes residents with missing block availability, preserves overrides, honors supported local caps, and leaves unfillable slots unassigned.
+- The blended formula is `(home * 3) + (in-house * 4) <= 30`.
+- Public holidays appear in the authenticated calendar and published snapshot.
+- Publishing creates immutable versions; public views/exports use the latest privacy-shaped published snapshot. Protected exports use the current draft and are labeled accordingly.
+- Protected frontend routes require authentication; expired/invalid sessions clear locally on 401 while public login/register/join/schedule routes remain public.
+- Password minimum, auth rate limiting, disabled request-access writes, environment checks, configurable CORS/app URL, and production-safe error responses are in place.
 
-- Backend role mapping and permissions: `npm run roles:smoke`.
-- Local role distribution audit: `npm run roles:audit`.
-- Phase 5 scheduling regression smoke: `npm run phase5:smoke`.
-- PARO scheduler helper and contract smoke: `npm run paro:smoke`.
-- Phase 6 public privacy, Excel, printable, and aggregate smoke checks.
-- Prisma schema validation.
-- Frontend performance guard, lint, and production build.
-- Playwright E2E for:
-  - Chief Resident login.
-  - Calendar day modal open/save/reopen/reload flow.
-  - Resident select preselection.
-  - Attending visibility.
-  - Viewer read-only restrictions.
-  - Viewer direct mutation API rejection.
-  - Login password eye icon stability and toggle.
-  - Visible mojibake checks.
+## Supported Settings
 
-## Known Remaining Warnings
+- Program: junior and senior in-house-call toggles.
+- Block: `avoidAcademicDays`, `allowAttendingOnlyDays`, `maxCallsMedStudent`, and positive `maxCallsPerResident` as a stricter local ceiling.
+- Deprecated database-only columns: `allowWeekendConsecutive`, `limitWeekendCalls`.
 
-- Vite build warns that the main chunk is larger than 500 kB after minification.
-- The performance guard warns about an animated Calendar box-shadow; the guard passes and the animation is currently low-frequency.
+## Behavioral Protection
 
-## Known Remaining Risks
+- `authz:smoke`: real HTTP and database isolation, role, auth, invite, transactional assignment, override, and history privacy checks.
+- `scheduler:integration`: real generator/database checks for vacation, pre-vacation, missing availability, call caps, weekends/consecutive rules, preserved overrides, and unfillable dates.
+- `schedule:validate-smoke`: direct stored-schedule violation behavior.
+- Phase 5 DB persistence and Phase 6 privacy/export behavior.
+- Ten Playwright workflows covering auth guards, calendar persistence, overrides, validation, holidays, Viewer restrictions, settings, publishing/public access, password UI, and visible encoding damage.
 
-- New machines need Playwright Chromium installed once:
+Legacy assertions that only searched application source strings were removed from the Phase 5 and PARO smoke scripts.
 
-```bash
-cd frontend
-npx playwright install chromium
-```
+## Known Warnings and Remaining Risks
 
-- E2E coverage is focused on core calendar/roles/login regressions, not every app route.
-- Manual visual QA is still useful before release, especially on real desktop/mobile browsers.
+- The Vite main bundle is about 625 kB minified and triggers the >500 kB warning. There is no current evidence that code splitting is a P0/P1 need.
+- The performance guard reports the short, user-triggered Calendar publish-pulse box shadow.
+- Windows Playwright-owned server teardown can hang after tests pass; `LOCAL_QA.md` documents the verified server-reuse run.
+- Existing data had five duplicate `(callDayId, roleOnDay)` groups. The sprint did not delete or reinterpret those records, so no role-slot unique constraint was added. The validator reports duplicate role slots and new transactional writes prevent them.
+- Only vacation is a reliable days-on-service deduction. Academic flags use a label convention; other time-away, multi-month averaging, shift work, emergency clauses, and formal approvals remain unsupported.
+- “Print / PDF” is printable HTML for browser Save as PDF, not server-generated PDF.
+- No production deployment, secret management platform, backup/restore drill, audit log, penetration test, accessibility audit, or real-program acceptance test has been completed.
 
-## Product Decisions Needed Before Implementation
+## Next Priorities
 
-- Final scheduling rule decisions before any assignment engine rebuild.
-- Whether viewer surfaces should move to a dedicated published schedule landing path inside the authenticated app.
-- Whether registration/onboarding needs more product copy, approval flow, or request-access workflow polish.
-- Whether large frontend chunks should be split now or deferred until measured performance requires it.
-- Final product policy for rare manual overrides that intentionally violate PARO constraints.
-
-## Suggested Next Priorities
-
-1. Finish browser QA on a real local machine using the QA users.
-2. Keep running `frontend && npm run e2e` after calendar, roles, permissions, or login changes.
-3. Resolve the Vite chunk-size warning later if it becomes a measured performance issue.
-4. Validate the PARO auto-generator against real program scenarios before further assignment-engine work.
-5. Continue registration/onboarding polish only after current bugs remain stable.
-6. Prepare Phase 7 launch/polish after the current milestone stays green.
+1. Validate scheduler and validator results against anonymized real program schedules and current institutional/PARO interpretation.
+2. Decide and safely remediate legacy duplicate role slots, then consider a `(callDayId, roleOnDay)` unique constraint.
+3. Add deployment configuration, managed secrets, TLS/reverse-proxy policy, database backups, monitoring, and recovery drills.
+4. Perform mobile, keyboard, modal-focus, and assistive-technology QA with representative users.
+5. Expand onboarding/invite acceptance testing and replace the disabled request-access stub only if an approval workflow becomes an MVP requirement.
