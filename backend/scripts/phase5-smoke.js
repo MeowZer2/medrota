@@ -73,6 +73,19 @@ const prisma = {
       createdCallDays.push(row);
       return row;
     },
+    upsert: async ({ where, update, create }) => {
+      const key = where.blockId_date;
+      const existing = [...existingCallDays, ...createdCallDays].find(row =>
+        row.blockId === key.blockId && row.date.getTime() === key.date.getTime()
+      );
+      if (existing) {
+        Object.assign(existing, update);
+        return existing;
+      }
+      const row = { id: `created-call-day-${createdCallDays.length + 1}`, ...create, assignments: [] };
+      createdCallDays.push(row);
+      return row;
+    },
     deleteMany: async (args) => {
       deleteManyCalls.push({ model: 'callDay', args });
       return { count: 1 };

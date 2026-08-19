@@ -347,8 +347,10 @@ async function generateSchedule(blockId) {
     const isHoliday = holidaySet.has(dateKey);
     const isAcademicDay = cfg.avoidAcademicDays && academicDaySet.has(dateKey);
     const overrideInfo = overrideByDateKey.get(dateKey);
-    const callDay = overrideInfo?.callDay ?? await prisma.callDay.create({
-      data: { blockId, date, isHoliday },
+    const callDay = overrideInfo?.callDay ?? await prisma.callDay.upsert({
+      where: { blockId_date: { blockId, date } },
+      update: { isHoliday },
+      create: { blockId, date, isHoliday },
     });
 
     let hasSenior = overrideInfo?.hasSenior ?? false;

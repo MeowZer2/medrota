@@ -286,12 +286,11 @@ router.post('/:id/enroll', async (req, res) => {
     if (!membership) return;
     const ownership = await assertResidentBelongsToBlockProgram(res, id, blockId);
     if (!ownership) return;
-    const existing = await prisma.blockEnrollment.findFirst({ where: { blockId, residentId: id } });
-    if (existing) return res.json(existing); // already enrolled
-
     const cleanDates = sanitizeVacationDates(vacationDates ?? []);
-    const enrollment = await prisma.blockEnrollment.create({
-      data: {
+    const enrollment = await prisma.blockEnrollment.upsert({
+      where: { blockId_residentId: { blockId, residentId: id } },
+      update: {},
+      create: {
         blockId,
         residentId: id,
         vacationDates: cleanDates,
@@ -363,7 +362,9 @@ router.put('/:id', async (req, res) => {
 
     if (blockId) {
       const cleanDates = sanitizeVacationDates(vacationDates ?? []);
-      const enrollment = await prisma.blockEnrollment.findFirst({ where: { blockId, residentId: id } });
+      const enrollment = await prisma.blockEnrollment.findUnique({
+        where: { blockId_residentId: { blockId, residentId: id } },
+      });
       if (enrollment) {
         await prisma.blockEnrollment.update({
           where: { id: enrollment.id },

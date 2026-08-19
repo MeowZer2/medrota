@@ -135,6 +135,14 @@ async function main() {
   const block = program.academicYears[0].blocks[0];
   const residentByName = new Map(program.residents.map(r => [r.name.replace(`${RUN_ID} `, ''), r]));
 
+  await prisma.blockEnrollment.createMany({
+    data: program.residents.map(resident => ({
+      blockId: block.id,
+      residentId: resident.id,
+      vacationDates: [],
+    })),
+  });
+
   const manualCallDay = await prisma.callDay.create({
     data: { blockId: block.id, date: dateObj('2026-01-01') },
   });

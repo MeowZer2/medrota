@@ -83,7 +83,9 @@ function hasPermission(role, permission) {
 
 async function getMembership(userId, programId) {
   if (!userId || !programId) return null;
-  const membership = await prisma.programMember.findFirst({ where: { userId, programId } });
+  const membership = await prisma.programMember.findUnique({
+    where: { programId_userId: { programId, userId } },
+  });
   if (!membership) return null;
   const normalizedRole = normalizeRole(membership.role);
   if (normalizedRole !== membership.role) {

@@ -335,7 +335,7 @@ router.put('/:id/members/:userId', async (req, res) => {
     const requester = await requireProgramPermission(req, res, id, 'manage_users');
     if (!requester) return;
 
-    const member = await prisma.programMember.findFirst({ where: { programId: id, userId } });
+    const member = await prisma.programMember.findUnique({ where: { programId_userId: { programId: id, userId } } });
     if (!member) return res.status(404).json({ error: 'Member not found' });
 
     if (normalizeRole(member.role) === ROLES.PROGRAM_ADMIN && nextRole !== ROLES.PROGRAM_ADMIN) {
@@ -370,7 +370,7 @@ router.delete('/:id/members/:userId', async (req, res) => {
       if (!requester) return;
     }
 
-    const member = await prisma.programMember.findFirst({ where: { programId: id, userId } });
+    const member = await prisma.programMember.findUnique({ where: { programId_userId: { programId: id, userId } } });
     if (!member) return res.status(404).json({ error: 'Member not found' });
 
     // No membership operation may leave a program without a Program Admin.
@@ -443,16 +443,18 @@ router.post('/:id/join-with-token', async (req, res) => {
       return res.status(404).json({ error: 'Invalid or expired invite link' });
     }
 
-    const existing = await prisma.programMember.findFirst({
-      where: { programId: id, userId: req.user.userId },
+    const existing = await prisma.programMember.findUnique({
+      where: { programId_userId: { programId: id, userId: req.user.userId } },
     });
     if (existing) {
       await prisma.invite.update({ where: { token }, data: { usedAt: new Date() } });
       return res.json({ membership: { ...existing, role: normalizeRole(existing.role) } });
     }
 
-    const membership = await prisma.programMember.create({
-      data: { programId: id, userId: req.user.userId, role: normalizeRole(invite.role) },
+    const membership = await prisma.programMember.upsert({
+      where: { programId_userId: { programId: id, userId: req.user.userId } },
+      update: {},
+      create: { programId: id, userId: req.user.userId, role: normalizeRole(invite.role) },
     });
     await prisma.invite.update({ where: { token }, data: { usedAt: new Date() } });
     res.status(201).json({ membership });

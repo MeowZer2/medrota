@@ -18,12 +18,6 @@ function startOfLogicalDay(value) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
-function nextLogicalDay(value) {
-  const next = new Date(value);
-  next.setUTCDate(next.getUTCDate() + 1);
-  return next;
-}
-
 function validateRoleOnDay(roleOnDay) {
   return typeof roleOnDay === 'string' && RESIDENT_ROLES_ON_DAY.has(roleOnDay);
 }
@@ -102,28 +96,12 @@ router.post('/', async (req, res) => {
   if (!await validateAttendingEntryForBlock(res, attendingEntryId, blockId)) return;
 
   const startOfDay = startOfLogicalDay(date);
-  const nextDay = nextLogicalDay(startOfDay);
 
-  let callDay = await prisma.callDay.findFirst({
-    where: {
-      blockId,
-      date: {
-        gte: startOfDay,
-        lt: nextDay,
-      },
-    },
+  const callDay = await prisma.callDay.upsert({
+    where: { blockId_date: { blockId, date: startOfDay } },
+    update: attendingEntryId !== undefined ? { attendingEntryId: attendingEntryId || null } : {},
+    create: { blockId, date: startOfDay, attendingEntryId: attendingEntryId || null },
   });
-
-  if (!callDay) {
-    callDay = await prisma.callDay.create({
-      data: { blockId, date: startOfDay, attendingEntryId: attendingEntryId ?? null },
-    });
-  } else if (attendingEntryId !== undefined) {
-    callDay = await prisma.callDay.update({
-      where: { id: callDay.id },
-      data: { attendingEntryId },
-    });
-  }
 
   const existing = await prisma.callAssignment.findFirst({
     where: { callDayId: callDay.id, residentId },
@@ -193,7 +171,6 @@ router.put('/day', async (req, res) => {
   }
 
   const startOfDay = startOfLogicalDay(date);
-  const nextDay = nextLogicalDay(startOfDay);
   const block = await prisma.block.findUnique({
     where: { id: blockId },
     select: { startDate: true, endDate: true },
@@ -225,19 +202,11 @@ router.put('/day', async (req, res) => {
 
   try {
     const result = await prisma.$transaction(async tx => {
-      let callDay = await tx.callDay.findFirst({
-        where: { blockId, date: { gte: startOfDay, lt: nextDay } },
+      const callDay = await tx.callDay.upsert({
+        where: { blockId_date: { blockId, date: startOfDay } },
+        update: attendingEntryId !== undefined ? { attendingEntryId: attendingEntryId || null } : {},
+        create: { blockId, date: startOfDay, attendingEntryId: attendingEntryId || null },
       });
-      if (!callDay) {
-        callDay = await tx.callDay.create({
-          data: { blockId, date: startOfDay, attendingEntryId: attendingEntryId || null },
-        });
-      } else if (attendingEntryId !== undefined) {
-        callDay = await tx.callDay.update({
-          where: { id: callDay.id },
-          data: { attendingEntryId: attendingEntryId || null },
-        });
-      }
 
       const previousAssignments = await tx.callAssignment.findMany({
         where: { callDayId: callDay.id, roleOnDay: { in: ['senior', 'junior'] } },

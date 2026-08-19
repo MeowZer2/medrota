@@ -150,11 +150,11 @@ async function upsertUser(user, orgId, passwordHash) {
 }
 
 async function upsertMembership(programId, userId, role) {
-  const existing = await prisma.programMember.findFirst({ where: { programId, userId } });
-  if (existing) {
-    return prisma.programMember.update({ where: { id: existing.id }, data: { role } });
-  }
-  return prisma.programMember.create({ data: { programId, userId, role } });
+  return prisma.programMember.upsert({
+    where: { programId_userId: { programId, userId } },
+    update: { role },
+    create: { programId, userId, role },
+  });
 }
 
 async function upsertResident(programId, resident) {
@@ -197,11 +197,11 @@ async function upsertAttendingEntry(blockId, date, attendingName, activityLabel,
 }
 
 async function upsertCallDay(blockId, date, attendingEntryId) {
-  const existing = await prisma.callDay.findFirst({ where: { blockId, date } });
-  if (existing) {
-    return prisma.callDay.update({ where: { id: existing.id }, data: { attendingEntryId } });
-  }
-  return prisma.callDay.create({ data: { blockId, date, attendingEntryId } });
+  return prisma.callDay.upsert({
+    where: { blockId_date: { blockId, date } },
+    update: { attendingEntryId },
+    create: { blockId, date, attendingEntryId },
+  });
 }
 
 async function upsertAssignment(callDayId, residentId, roleOnDay) {
