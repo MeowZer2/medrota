@@ -16,13 +16,13 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'npm --prefix ../backend run dev:seed-qa && npm --prefix ../backend start',
+      command: 'cd ../backend && node scripts/dev-seed-qa.js && node index.js',
       url: 'http://127.0.0.1:3000/api/health',
       reuseExistingServer: Boolean(process.env.PLAYWRIGHT_REUSE_SERVERS),
       timeout: 120_000,
     },
     {
-      command: 'npm run dev -- --host 127.0.0.1 --port 5173',
+      command: 'node ./node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5173',
       url: 'http://127.0.0.1:5173/login',
       reuseExistingServer: Boolean(process.env.PLAYWRIGHT_REUSE_SERVERS),
       timeout: 120_000,

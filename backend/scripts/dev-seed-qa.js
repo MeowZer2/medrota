@@ -175,6 +175,14 @@ async function upsertResident(programId, resident) {
   return prisma.residentProfile.create({ data: { programId, name: resident.name, ...data } });
 }
 
+async function upsertEnrollment(blockId, residentId) {
+  return prisma.blockEnrollment.upsert({
+    where: { blockId_residentId: { blockId, residentId } },
+    update: { vacationDates: [] },
+    create: { blockId, residentId, vacationDates: [] },
+  });
+}
+
 async function upsertRoster(programId, attendingName, typicalActivities) {
   const existing = await prisma.attendingRoster.findFirst({ where: { programId, attendingName } });
   if (existing) {
@@ -266,10 +274,19 @@ async function main() {
   for (const resident of RESIDENTS) {
     const saved = await upsertResident(program.id, resident);
     residents[resident.name] = saved;
+    await upsertEnrollment(block.id, saved.id);
   }
 
   await upsertRoster(program.id, 'QA_ONLY Dr Avery', ['Clinic', 'OR']);
   await upsertRoster(program.id, 'QA_ONLY Dr Blake', ['Ward']);
+
+  // Keep browser tests deterministic across reruns without touching non-QA data.
+  await prisma.callAssignment.deleteMany({
+    where: {
+      callDay: { blockId: block.id },
+      resident: { name: { startsWith: 'QA_ONLY' } },
+    },
+  });
 
   const callAttending = await upsertAttendingEntry(block.id, day(0), 'QA_ONLY Dr Avery', 'Ward', true);
   await upsertAttendingEntry(block.id, day(1), 'QA_ONLY Dr Blake', 'Clinic', false);

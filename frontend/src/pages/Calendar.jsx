@@ -125,6 +125,7 @@ const DayCell = memo(function DayCell({ dayData, onClick, canEdit }) {
 
   return (
     <button
+      aria-label={`${canEdit ? 'Edit' : 'View'} ${fmtFull(day)}`}
       onClick={() => { if (canEdit) onClick(dayData); }}
       className={`flex flex-col text-left w-full${isHoliday ? ' holiday-glow' : ''}`}
       style={{
@@ -212,7 +213,7 @@ function DayRow({ dayData, onClick, canEdit }) {
     : isHoliday ? '#FCA5A5' : weekend ? '#E2E8F0' : 'transparent';
 
   return (
-    <button onClick={() => { if (canEdit) onClick(dayData); }} className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors duration-100"
+    <button aria-label={`${canEdit ? 'Edit' : 'View'} ${fmtFull(day)}`} onClick={() => { if (canEdit) onClick(dayData); }} className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors duration-100"
       style={{ background: rowBg, borderLeft: `3px solid ${accentColor}`, borderBottom: '1px solid #F1F5F9', cursor: canEdit ? 'pointer' : 'default' }}
       onMouseEnter={e => { if (canEdit) e.currentTarget.style.background = '#F0F5FF'; }}
       onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}
@@ -702,14 +703,6 @@ function GenSummaryModal({ summary, onClose }) {
             </div>
           )}
 
-          {summary.usedFallback && (
-            <div className="mb-4 px-3 py-2 rounded-lg" style={{ background: '#FFF7ED', border: '1px solid #FED7AA' }}>
-              <p style={{ fontSize: 11, color: '#C2410C', fontWeight: 500 }}>
-                Note: Some residents were scheduled using default settings because no block enrollment was found.
-              </p>
-            </div>
-          )}
-
           {summary.unassignedDates?.length > 0 && (
             <div className="mb-4 px-3 py-2 rounded-lg" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
               <p style={{ fontSize: 10, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>
@@ -728,7 +721,9 @@ function GenSummaryModal({ summary, onClose }) {
                 Warnings ({summary.warnings.length})
               </p>
               {summary.warnings.map((w, i) => (
-                <p key={i} style={{ fontSize: 11, color: '#64748B', marginBottom: 3 }}>Warning: {w.date}: {w.message}</p>
+                <p key={i} style={{ fontSize: 11, color: '#64748B', marginBottom: 3 }}>
+                  Warning: {w.date ? `${w.date}: ` : ''}{w.message}
+                </p>
               ))}
             </div>
           )}

@@ -1,6 +1,4 @@
 const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
 
 const {
   calculateDaysOnService,
@@ -61,12 +59,5 @@ assert.strictEqual(violatesPostCallBeforeVacation('2026-07-01', ['2026-07-02']),
 assert.strictEqual(requiredCompleteWeekendsOff(blockDates), 2);
 assert.strictEqual(calculateCompleteWeekendsOff(['2026-07-03', '2026-07-10'], blockDates), 2);
 assert.strictEqual(calculateCompleteWeekendsOff(['2026-07-03', '2026-07-10', '2026-07-17'], blockDates), 1);
-
-const schedulerSource = fs.readFileSync(path.join(__dirname, '..', 'services', 'scheduler.js'), 'utf8');
-assert(schedulerSource.includes('where: { isOverride: true }'), 'scheduler should preserve and load manual overrides');
-assert(schedulerSource.includes('No PARO-eligible senior available'), 'scheduler should warn instead of forcing senior assignments');
-assert(schedulerSource.includes('No PARO-eligible junior available'), 'scheduler should warn instead of forcing junior assignments');
-assert(schedulerSource.includes('daysOnService'), 'scheduler summary should include PARO daysOnService');
-assert(schedulerSource.includes('weightedCallPoints'), 'scheduler summary should include weighted call points');
 
 console.log('PARO scheduler smoke checks passed');

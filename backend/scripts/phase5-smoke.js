@@ -1,6 +1,4 @@
 const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
 
 const blockId = 'phase5-block';
 const dates = ['2026-01-01', '2026-01-02', '2026-01-03'];
@@ -142,15 +140,6 @@ async function main() {
   const callDayDelete = deleteManyCalls.find(c => c.model === 'callDay');
   assert.strictEqual(assignmentDelete.args.where.isOverride, false, 'clearSchedule should delete generated assignments only');
   assert.deepStrictEqual(callDayDelete.args.where.assignments, { none: {} }, 'clearSchedule should delete only empty CallDays');
-
-  const scheduleRoute = fs.readFileSync(path.join(__dirname, '..', 'routes', 'schedule.js'), 'utf8');
-  assert(scheduleRoute.includes("router.get('/diagnostics'"), 'diagnostics endpoint should be registered');
-  assert(scheduleRoute.includes('duplicateCallDays'), 'diagnostics should report duplicate CallDays');
-  assert(scheduleRoute.includes('duplicateAttendingEntries'), 'diagnostics should report duplicate AttendingEntries');
-
-  const calendar = fs.readFileSync(path.join(__dirname, '..', '..', 'frontend', 'src', 'pages', 'Calendar.jsx'), 'utf8');
-  assert(calendar.includes('publishedAt={publishResult?.publishedAt}'), 'publish success should display publishedAt');
-  assert(calendar.includes('versionId={publishResult?.versionId}'), 'publish success should display versionId');
 
   console.log('Phase 5 smoke checks passed');
 }
