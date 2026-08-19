@@ -153,7 +153,7 @@ router.get('/stats', async (req, res) => {
       ...recentEnrollments.map(e => ({
         type: 'resident_added',
         description: `${e.resident.name} enrolled in Block ${block.number}`,
-        icon: 'ðŸ‘¤',
+        icon: '👤',
         color: '#16A34A',
         timestamp: e.id, // use id as proxy since BlockEnrollment has no createdAt
         _sort: e.id,
@@ -161,7 +161,7 @@ router.get('/stats', async (req, res) => {
       ...recentAssignments.map(a => ({
         type: 'call_assigned',
         description: `Call assigned to ${a.resident.name}`,
-        icon: 'ðŸ“‹',
+        icon: '📋',
         color: '#2C5F8A',
         timestamp: a.createdAt,
         _sort: a.createdAt,
