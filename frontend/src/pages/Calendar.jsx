@@ -94,7 +94,7 @@ const FLAG_PRESETS = [
 // â”€â”€ DayCell (grid) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const DayCell = memo(function DayCell({ dayData, onClick, canEdit }) {
-  const { day, attendings, assignment, flag, isHoliday } = dayData;
+  const { day, attendings, assignment, flag, isHoliday, holidayName } = dayData;
   const weekend = isWeekend(day);
 
   // Split attendings: non-call go in top section, call-day go in bottom
@@ -149,7 +149,7 @@ const DayCell = memo(function DayCell({ dayData, onClick, canEdit }) {
           <span style={{ fontSize: 9, fontWeight: 600, color: flag.color, lineHeight: 1 }}>- {flag.label}</span>
         )}
         {isHoliday && !flag && (
-          <span style={{ fontSize: 9, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', lineHeight: 1, marginLeft: 'auto' }}>Holiday</span>
+          <span style={{ fontSize: 9, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', lineHeight: 1, marginLeft: 'auto' }}>{holidayName || 'Holiday'}</span>
         )}
       </div>
 
@@ -198,7 +198,7 @@ const DayCell = memo(function DayCell({ dayData, onClick, canEdit }) {
 // â”€â”€ DayRow (mobile) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function DayRow({ dayData, onClick, canEdit }) {
-  const { day, attendings, assignment, flag, isHoliday } = dayData;
+  const { day, attendings, assignment, flag, isHoliday, holidayName } = dayData;
   const weekend = isWeekend(day);
   const nonCallAtts = (attendings ?? []).filter(a => !a.isCallDay);
   const callAtts    = (attendings ?? []).filter(a => a.isCallDay);
@@ -229,7 +229,7 @@ function DayRow({ dayData, onClick, canEdit }) {
         )}
       </div>
       <div className="flex flex-col gap-0.5 flex-1 pt-0.5">
-        {isHoliday && <span style={{ fontSize: 11, fontWeight: 600, color: '#DC2626' }}>Holiday</span>}
+        {isHoliday && <span style={{ fontSize: 11, fontWeight: 600, color: '#DC2626' }}>{holidayName || 'Holiday'}</span>}
         {/* Non-call attendings â€” plain text */}
         {nonCallAtts.map((a, i) => {
           const text = [a.attendingName, a.activityLabel].filter(Boolean).join(' - ');
@@ -1291,6 +1291,7 @@ export default function Calendar() {
   const [residents, setResidents]               = useState([]);
   const [roster, setRoster]                     = useState([]);
   const [flags, setFlags]                       = useState([]);
+  const [holidays, setHolidays]                 = useState([]);
   const [selectedDateKey, setSelectedDateKey]   = useState(null);
   const [loadingData, setLoadingData]           = useState(false);
   const [generating, setGenerating]             = useState(false);
@@ -1356,12 +1357,13 @@ export default function Calendar() {
     async function fetchBlockData() {
       setLoadingData(true);
       try {
-        const [att, asgn, res, ros, fl] = await Promise.all([
+        const [att, asgn, res, ros, fl, hol] = await Promise.all([
           api.get(`/attending?blockId=${currentBlockId}`, { signal }),
           api.get(`/assignments?blockId=${currentBlockId}`, { signal }),
           programId && canEditResidents ? api.get(`/residents?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
           programId && canEditAttending ? api.get(`/attending/roster?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
           api.get(`/flags?blockId=${currentBlockId}`, { signal }),
+          api.get(`/blocks/${currentBlockId}/holidays`, { signal }),
         ]);
 
         if (cancelled || latestBlockIdRef.current !== currentBlockId) return;
@@ -1370,6 +1372,7 @@ export default function Calendar() {
         setResidents(res.data);
         setRoster(ros.data.map(r => ({ id: r.id, name: r.attendingName, activities: r.typicalActivities })));
         setFlags(fl.data);
+        setHolidays(hol.data);
       } catch (err) {
         if (!cancelled && err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') {
           // Keep the existing silent failure behavior for transient API errors.
@@ -1402,6 +1405,12 @@ export default function Calendar() {
     return map;
   }, [flags]);
 
+  const holidaysMap = useMemo(() => {
+    const map = {};
+    holidays.forEach(holiday => { map[normalizeDateKey(holiday.date)] = holiday; });
+    return map;
+  }, [holidays]);
+
   const dayDataMap = useMemo(() => {
     const map = {};
     days.forEach(day => {
@@ -1412,11 +1421,12 @@ export default function Calendar() {
         attendings: attendingMap[dateKey] ?? [],
         assignment: assignmentsMap[dateKey] ?? null,
         flag: flagsMap[dateKey] ?? null,
-        isHoliday: false,
+        isHoliday: Boolean(holidaysMap[dateKey]),
+        holidayName: holidaysMap[dateKey]?.name ?? null,
       };
     });
     return map;
-  }, [assignmentsMap, attendingMap, days, flagsMap]);
+  }, [assignmentsMap, attendingMap, days, flagsMap, holidaysMap]);
 
   const dayDataList = useMemo(
     () => days.map(day => dayDataMap[normalizeDateKey(day)]),

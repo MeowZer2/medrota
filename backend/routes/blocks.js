@@ -1,7 +1,7 @@
 const express = require('express');
 const prisma  = require('../lib/prisma');
 const auth    = require('../middleware/auth');
-const { requireBlockPermission } = require('../lib/roles');
+const { requireBlockPermission, requireBlockView } = require('../lib/roles');
 
 const router = express.Router();
 router.use(auth);
@@ -15,6 +15,38 @@ function shapeSupportedSettings(settings, blockId) {
     avoidAcademicDays: settings?.avoidAcademicDays ?? true,
   };
 }
+
+// GET /api/blocks/:id/holidays - holidays inherited from the academic year.
+router.get('/:id/holidays', async (req, res) => {
+  const { id } = req.params;
+  const membership = await requireBlockView(req, res, id);
+  if (!membership) return;
+  try {
+    const block = await prisma.block.findUnique({
+      where: { id },
+      select: {
+        startDate: true,
+        endDate: true,
+        academicYear: {
+          select: {
+            holidays: {
+              select: { id: true, date: true, name: true },
+              orderBy: { date: 'asc' },
+            },
+          },
+        },
+      },
+    });
+    if (!block) return res.status(404).json({ error: 'Block not found' });
+    const holidays = block.academicYear.holidays.filter(item =>
+      item.date >= block.startDate && item.date <= block.endDate
+    );
+    res.json(holidays);
+  } catch (err) {
+    console.error('[blocks/holidays GET] Error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch holidays' });
+  }
+});
 
 // GET /api/blocks/:id/settings
 router.get('/:id/settings', async (req, res) => {

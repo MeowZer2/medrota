@@ -237,6 +237,14 @@ async function upsertFlag(blockId, date) {
   return prisma.dayFlag.create({ data: { blockId, date, label: 'QA_ONLY Flag', ...data } });
 }
 
+async function upsertHoliday(academicYearId, date) {
+  const existing = await prisma.publicHoliday.findFirst({ where: { academicYearId, date } });
+  if (existing) {
+    return prisma.publicHoliday.update({ where: { id: existing.id }, data: { name: 'QA_ONLY Holiday' } });
+  }
+  return prisma.publicHoliday.create({ data: { academicYearId, date, name: 'QA_ONLY Holiday' } });
+}
+
 async function main() {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Refusing to seed QA data when NODE_ENV=production');
@@ -269,6 +277,7 @@ async function main() {
   await upsertAssignment(callDay.id, residents['QA_ONLY Senior Resident'].id, 'senior');
   await upsertAssignment(callDay.id, residents['QA_ONLY Junior Resident'].id, 'junior');
   await upsertFlag(block.id, day(2));
+  await upsertHoliday(academicYear.id, day(3));
 
   console.log('[dev:seed-qa] QA data ready');
   console.log(JSON.stringify({
