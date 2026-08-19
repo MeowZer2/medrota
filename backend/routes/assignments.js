@@ -1,7 +1,7 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const auth = require('../middleware/auth');
-const { requireBlockPermission, requireBlockView } = require('../lib/roles');
+const { assertResidentBelongsToBlockProgram, requireBlockPermission, requireBlockView } = require('../lib/roles');
 
 const router = express.Router();
 router.use(auth);
@@ -61,6 +61,8 @@ router.post('/', async (req, res) => {
   }
   const membership = await requireBlockPermission(req, res, blockId, 'manual_assign_calls');
   if (!membership) return;
+  const ownership = await assertResidentBelongsToBlockProgram(res, residentId, blockId);
+  if (!ownership) return;
 
   const startOfDay = startOfLogicalDay(date);
   const nextDay = nextLogicalDay(startOfDay);

@@ -102,6 +102,36 @@ async function getProgramIdForBlock(blockId) {
   return { programId: block.academicYear?.programId ?? null, isPublished: block.isPublished };
 }
 
+async function assertResidentBelongsToBlockProgram(res, residentId, blockId) {
+  if (!residentId || !blockId) {
+    res.status(400).json({ error: 'residentId and blockId are required' });
+    return null;
+  }
+
+  const [resident, blockAccess] = await Promise.all([
+    prisma.residentProfile.findUnique({
+      where: { id: residentId },
+      select: { id: true, programId: true },
+    }),
+    getProgramIdForBlock(blockId),
+  ]);
+
+  if (!resident) {
+    res.status(404).json({ error: 'Resident not found' });
+    return null;
+  }
+  if (!blockAccess?.programId) {
+    res.status(404).json({ error: 'Block not found' });
+    return null;
+  }
+  if (resident.programId !== blockAccess.programId) {
+    res.status(400).json({ error: 'Resident and block must belong to the same program' });
+    return null;
+  }
+
+  return { resident, blockAccess };
+}
+
 async function requireProgramPermission(req, res, programId, permission) {
   const membership = await getMembership(req.user?.userId, programId);
   if (!membership) {
@@ -148,6 +178,8 @@ module.exports = {
   isValidRole,
   hasPermission,
   getMembership,
+  getProgramIdForBlock,
+  assertResidentBelongsToBlockProgram,
   requireProgramPermission,
   requireBlockPermission,
   requireBlockView,

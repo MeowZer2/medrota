@@ -1,7 +1,7 @@
 const express = require('express');
 const prisma  = require('../lib/prisma');
 const auth    = require('../middleware/auth');
-const { requireProgramPermission, requireBlockPermission } = require('../lib/roles');
+const { getProgramIdForBlock, requireProgramPermission, requireBlockPermission } = require('../lib/roles');
 
 const router = express.Router();
 router.use(auth);
@@ -130,13 +130,24 @@ router.delete('/entry/:id', async (req, res) => {
 router.post('/:programId/apply/:blockId', async (req, res) => {
   const { programId, blockId } = req.params;
   const { extraBlockIds = [] } = req.body;
+  if (!Array.isArray(extraBlockIds) || extraBlockIds.some(id => typeof id !== 'string' || !id)) {
+    return res.status(400).json({ error: 'extraBlockIds must be an array of block IDs' });
+  }
   const programMembership = await requireProgramPermission(req, res, programId, 'edit_attendings');
   if (!programMembership) return;
-  const blockMembership = await requireBlockPermission(req, res, blockId, 'edit_attendings');
-  if (!blockMembership) return;
 
-  async function applyToBlock(bId, template) {
-    const block = await prisma.block.findUnique({ where: { id: bId } });
+  const requestedBlockIds = [...new Set([blockId, ...extraBlockIds])];
+  for (const requestedBlockId of requestedBlockIds) {
+    const blockMembership = await requireBlockPermission(req, res, requestedBlockId, 'edit_attendings');
+    if (!blockMembership) return;
+    const blockAccess = await getProgramIdForBlock(requestedBlockId);
+    if (blockAccess?.programId !== programId) {
+      return res.status(400).json({ error: 'Every target block must belong to the template program' });
+    }
+  }
+
+  async function applyToBlock(tx, bId, template) {
+    const block = await tx.block.findUnique({ where: { id: bId } });
     if (!block) return { created: 0, updated: 0 };
 
     const cur   = startOfLogicalDay(block.startDate);
@@ -154,7 +165,7 @@ router.post('/:programId/apply/:blockId', async (req, res) => {
       const startOfDay = startOfLogicalDay(day);
       const nextDay = nextLogicalDay(startOfDay);
       for (const t of entries) {
-        const existing = await prisma.attendingEntry.findFirst({
+        const existing = await tx.attendingEntry.findFirst({
           where: {
             blockId: bId,
             attendingName: t.attendingName,
@@ -165,13 +176,13 @@ router.post('/:programId/apply/:blockId', async (req, res) => {
           },
         });
         if (existing) {
-          await prisma.attendingEntry.update({
+          await tx.attendingEntry.update({
             where: { id: existing.id },
             data: { activityLabel: t.activityLabel },
           });
           updated++;
         } else {
-          await prisma.attendingEntry.create({
+          await tx.attendingEntry.create({
             data: {
               blockId: bId,
               date: startOfDay,
@@ -192,24 +203,23 @@ router.post('/:programId/apply/:blockId', async (req, res) => {
       where: { programId },
     });
 
-    let totalCreated = 0, totalUpdated = 0;
+    const result = await prisma.$transaction(async tx => {
+      let totalCreated = 0;
+      let totalUpdated = 0;
+      for (const requestedBlockId of requestedBlockIds) {
+        const applied = await applyToBlock(tx, requestedBlockId, template);
+        totalCreated += applied.created;
+        totalUpdated += applied.updated;
+      }
+      return { totalCreated, totalUpdated };
+    });
 
-    // Apply to the primary block
-    const primary = await applyToBlock(blockId, template);
-    if (primary.created === 0 && primary.updated === 0 && !(await prisma.block.findUnique({ where: { id: blockId } }))) {
-      return res.status(404).json({ error: 'Block not found' });
-    }
-    totalCreated += primary.created;
-    totalUpdated += primary.updated;
-
-    // Apply to any extra blocks
-    for (const extraId of extraBlockIds) {
-      const extra = await applyToBlock(extraId, template);
-      totalCreated += extra.created;
-      totalUpdated += extra.updated;
-    }
-
-    res.json({ applied: totalCreated + totalUpdated, created: totalCreated, updated: totalUpdated, blocks: 1 + extraBlockIds.length });
+    res.json({
+      applied: result.totalCreated + result.totalUpdated,
+      created: result.totalCreated,
+      updated: result.totalUpdated,
+      blocks: requestedBlockIds.length,
+    });
   } catch (err) {
     console.error('[attending-template apply]', err.message);
     res.status(500).json({ error: 'Failed to apply template' });

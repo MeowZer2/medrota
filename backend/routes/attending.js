@@ -1,7 +1,7 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const auth = require('../middleware/auth');
-const { requireProgramPermission, requireBlockPermission, requireBlockView } = require('../lib/roles');
+const { getProgramIdForBlock, requireProgramPermission, requireBlockPermission, requireBlockView } = require('../lib/roles');
 
 const router = express.Router();
 router.use(auth);
@@ -114,8 +114,17 @@ router.post('/copy', async (req, res) => {
     if (!sourceBlock || !targetBlock) {
       return res.status(404).json({ error: 'Source or target block not found' });
     }
-    const membership = await requireBlockPermission(req, res, targetBlockId, 'edit_attendings');
-    if (!membership) return;
+    const targetMembership = await requireBlockPermission(req, res, targetBlockId, 'edit_attendings');
+    if (!targetMembership) return;
+    const sourceMembership = await requireBlockView(req, res, sourceBlockId);
+    if (!sourceMembership) return;
+    const [sourceAccess, targetAccess] = await Promise.all([
+      getProgramIdForBlock(sourceBlockId),
+      getProgramIdForBlock(targetBlockId),
+    ]);
+    if (sourceAccess?.programId !== targetAccess?.programId) {
+      return res.status(400).json({ error: 'Source and target blocks must belong to the same program' });
+    }
 
     const sourceStart = startOfLogicalDay(sourceBlock.startDate);
     const targetStart = startOfLogicalDay(targetBlock.startDate);

@@ -1,7 +1,7 @@
 ﻿const express = require('express');
 const prisma = require('../lib/prisma');
 const auth = require('../middleware/auth');
-const { ROLES, normalizeRole, isValidRole, requireProgramPermission } = require('../lib/roles');
+const { ROLES, normalizeRole, isValidRole, requireProgramPermission, requireBlockView } = require('../lib/roles');
 const { isAllowedSpecialty } = require('../lib/medicalSpecialties');
 
 const router = express.Router();
@@ -85,6 +85,8 @@ router.get('/stats', async (req, res) => {
   if (!blockId) return res.status(400).json({ error: 'blockId is required' });
 
   try {
+    const membership = await requireBlockView(req, res, blockId);
+    if (!membership) return;
     const block = await prisma.block.findUnique({
       where: { id: blockId },
       include: {
@@ -305,7 +307,7 @@ router.put('/:id', async (req, res) => {
 router.get('/:id/members', async (req, res) => {
   const { id } = req.params;
   try {
-    const membership = await requireProgramPermission(req, res, id, 'edit_program_settings');
+    const membership = await requireProgramPermission(req, res, id, 'manage_users');
     if (!membership) return;
 
     const members = await prisma.programMember.findMany({
@@ -336,6 +338,15 @@ router.put('/:id/members/:userId', async (req, res) => {
     const member = await prisma.programMember.findFirst({ where: { programId: id, userId } });
     if (!member) return res.status(404).json({ error: 'Member not found' });
 
+    if (normalizeRole(member.role) === ROLES.PROGRAM_ADMIN && nextRole !== ROLES.PROGRAM_ADMIN) {
+      const otherAdmins = await prisma.programMember.count({
+        where: { programId: id, role: ROLES.PROGRAM_ADMIN, userId: { not: userId } },
+      });
+      if (otherAdmins === 0) {
+        return res.status(400).json({ error: 'Assign another Program Admin before changing this role' });
+      }
+    }
+
     const updated = await prisma.programMember.update({
       where: { id: member.id },
       data:  { role: nextRole },
@@ -362,8 +373,8 @@ router.delete('/:id/members/:userId', async (req, res) => {
     const member = await prisma.programMember.findFirst({ where: { programId: id, userId } });
     if (!member) return res.status(404).json({ error: 'Member not found' });
 
-    // A program admin cannot leave if they are the only admin.
-    if (isSelfLeave && normalizeRole(member.role) === ROLES.PROGRAM_ADMIN) {
+    // No membership operation may leave a program without a Program Admin.
+    if (normalizeRole(member.role) === ROLES.PROGRAM_ADMIN) {
       const otherAdmins = await prisma.programMember.count({
         where: { programId: id, role: ROLES.PROGRAM_ADMIN, userId: { not: userId } },
       });

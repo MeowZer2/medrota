@@ -6,6 +6,7 @@ const { generateSchedule, clearSchedule } = require('../services/scheduler');
 const { createScheduleWorkbook, shapeProtectedSchedule } = require('../services/excelExport');
 const { createPrintableScheduleHtml, buildPrintableFilename } = require('../services/printableSchedule');
 const { requireBlockPermission, requireBlockView } = require('../lib/roles');
+const { hasPermission } = require('../lib/roles');
 
 const router = express.Router();
 router.use(auth);
@@ -263,6 +264,7 @@ router.get('/history', async (req, res) => {
   try {
     const membership = await requireBlockView(req, res, blockId);
     if (!membership) return;
+    const canViewDraft = hasPermission(membership.role, 'view_draft_schedule');
     const versions = await prisma.scheduleVersion.findMany({
       where: { blockId },
       orderBy: { publishedAt: 'desc' },
@@ -288,9 +290,9 @@ router.get('/history', async (req, res) => {
       return {
         id: v.id,
         publishedAt: v.publishedAt,
-        publishedBy: publisherName,
+        publishedBy: canViewDraft ? publisherName : null,
         assignedDays,
-        snapshotJson: snapshot,
+        ...(canViewDraft ? { snapshotJson: snapshot } : {}),
       };
     }));
 
