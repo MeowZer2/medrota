@@ -25,7 +25,9 @@ const {
   violatesVacation,
   violatesPostCallBeforeVacation,
   requiredCompleteWeekendsOff,
+  isAcademicDayLabel,
 } = require('./paroRules');
+const { minimumPositive, validateSchedule } = require('./scheduleValidator');
 
 function startOfLogicalDay(value) {
   const dateKey = normalizeDateKey(value);
@@ -51,7 +53,7 @@ function vacationKeysFromEnrollment(enrollment) {
     .filter(Boolean);
 }
 
-function makeResidentState(enrollment, blockDateKeys, cfg) {
+function makeResidentState(enrollment, blockDateKeys, cfg, availabilityComplete = true) {
   const vacationDateKeys = vacationKeysFromEnrollment(enrollment);
   const daysOnService = calculateDaysOnService(blockDateKeys, vacationDateKeys);
   const isMedStudent = Boolean(enrollment.resident.isMedStudent);
@@ -61,11 +63,15 @@ function makeResidentState(enrollment, blockDateKeys, cfg) {
     name: enrollment.resident.name,
     role: enrollment.resident.residentRole,
     isMedStudent,
+    isActive: enrollment.resident.isActive !== false,
+    availabilityComplete,
     vacationDateKeys,
     daysOnService,
     inHouseMax: getInHouseMax(daysOnService),
     homeMax: getHomeCallMax(daysOnService),
-    totalCallCap: enrollment.callCapOverride ?? null,
+    totalCallCap: minimumPositive(cfg.maxCallsPerResident, enrollment.callCapOverride),
+    blockCallCap: minimumPositive(cfg.maxCallsPerResident),
+    residentCallCap: minimumPositive(enrollment.callCapOverride),
     medStudentCallCap: isMedStudent ? cfg.maxCallsMedStudent : null,
     assignedDateKeys: new Set(),
     homeCallDateKeys: new Set(),
@@ -176,6 +182,8 @@ function buildSummaryRow(resident) {
     homeCallMax: resident.homeMax,
     inHouseCallMax: resident.inHouseMax,
     weightedCallPoints: calculateWeightedCallPoints(resident.homeCalls, resident.inHouseCalls),
+    availabilityComplete: resident.availabilityComplete,
+    localCallCap: resident.totalCallCap,
   };
 }
 
@@ -201,6 +209,7 @@ async function generateSchedule(blockId) {
     allowAttendingOnlyDays: block.settings?.allowAttendingOnlyDays ?? false,
     avoidAcademicDays: block.settings?.avoidAcademicDays ?? true,
     maxCallsMedStudent: block.settings?.maxCallsMedStudent ?? 5,
+    maxCallsPerResident: block.settings?.maxCallsPerResident ?? 9,
   };
 
   console.log(`[scheduler] blockId=${blockId} number=${block.number}`);
@@ -214,7 +223,7 @@ async function generateSchedule(blockId) {
   );
   const academicDaySet = new Set(
     (block.flags ?? [])
-      .filter(f => /academic/i.test(f.label ?? ''))
+      .filter(f => isAcademicDayLabel(f.label))
       .map(f => normalizeDateKey(f.date))
       .filter(Boolean)
   );
@@ -229,29 +238,36 @@ async function generateSchedule(blockId) {
 
   const enrollmentByResidentId = new Map();
   for (const enrollment of block.enrollments) {
+    enrollment._availabilityComplete = true;
     enrollmentByResidentId.set(enrollment.resident.id, enrollment);
   }
+  const missingAvailabilityResidents = [];
   for (const resident of activeServiceResidents) {
     if (!enrollmentByResidentId.has(resident.id)) {
+      missingAvailabilityResidents.push(resident);
       enrollmentByResidentId.set(resident.id, {
         resident,
         vacationDates: [],
         academicDayPref: null,
         callCapOverride: null,
+        _availabilityComplete: false,
       });
     }
   }
 
   const enrollmentSource = [...enrollmentByResidentId.values()];
-  const usedFallback = enrollmentSource.length > block.enrollments.length;
   const residents = enrollmentSource.map((enrollment, index) => ({
-    ...makeResidentState(enrollment, blockDateKeys, cfg),
+    ...makeResidentState(enrollment, blockDateKeys, cfg, enrollment._availabilityComplete !== false),
     sortOrder: index,
   }));
 
   const residentById = new Map(residents.map(resident => [resident.id, resident]));
-  const regularResidents = residents.filter(resident => !resident.isMedStudent);
-  const medStudents = residents.filter(resident => resident.isMedStudent);
+  const regularResidents = residents.filter(resident =>
+    !resident.isMedStudent && resident.isActive && resident.availabilityComplete
+  );
+  const medStudents = residents.filter(resident =>
+    resident.isMedStudent && resident.isActive && resident.availabilityComplete
+  );
 
   const existingCallDays = await prisma.callDay.findMany({
     where: { blockId },
@@ -264,7 +280,13 @@ async function generateSchedule(blockId) {
   });
 
   const overrideByDateKey = new Map();
-  const warnings = [];
+  const warnings = missingAvailabilityResidents.map(resident => ({
+    code: 'MISSING_RESIDENT_AVAILABILITY',
+    residentId: resident.id,
+    residentName: resident.name,
+    message: `${resident.name} was excluded from auto-generation because block enrollment/availability is incomplete.`,
+    action: 'Complete block enrollment and vacation availability, then generate again.',
+  }));
 
   for (const callDay of existingCallDays) {
     const dateKey = normalizeDateKey(callDay.date);
@@ -405,6 +427,19 @@ async function generateSchedule(blockId) {
     .map(buildSummaryRow)
     .sort((a, b) => b.calls - a.calls || a.name.localeCompare(b.name));
 
+  const validation = await validateSchedule(blockId);
+  for (const item of validation?.violations ?? []) {
+    if (!item.isOverride) continue;
+    warnings.push({
+      code: item.code,
+      date: item.date,
+      residentId: item.residentId,
+      residentName: item.residentName,
+      message: `Manual override: ${item.message}`,
+      overrideReasons: item.overrideReasons,
+    });
+  }
+
   console.log(`[scheduler] done - assigned=${assignedCount}/${workDays} warnings=${warnings.length}`);
   console.log('[scheduler] call summary:', callSummary.map(r => `${r.name}(${r.calls})`).join(', '));
 
@@ -416,7 +451,12 @@ async function generateSchedule(blockId) {
     unassignedDates,
     warnings,
     callSummary,
-    usedFallback,
+    availabilityComplete: missingAvailabilityResidents.length === 0,
+    excludedResidents: missingAvailabilityResidents.map(resident => ({
+      residentId: resident.id,
+      residentName: resident.name,
+      reason: 'Missing block enrollment/availability',
+    })),
   };
 }
 
