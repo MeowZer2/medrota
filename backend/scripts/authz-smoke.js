@@ -160,13 +160,13 @@ async function main() {
 
     const duplicateDayRole = await request('/assignments/day', chiefToken, {
       method: 'PUT',
-      body: JSON.stringify({ blockId: blockA1.id, date: '2031-01-03', seniorId: residentA.id, juniorId: residentA.id }),
+      body: JSON.stringify({ blockId: blockA1.id, date: '2031-01-05', seniorId: residentA.id, juniorId: residentA.id }),
     });
     assert.equal(duplicateDayRole.status, 400, 'same resident in both day roles must fail');
 
     const validDay = await request('/assignments/day', chiefToken, {
       method: 'PUT',
-      body: JSON.stringify({ blockId: blockA1.id, date: '2031-01-03', seniorId: residentA.id, juniorId: residentAJunior.id }),
+      body: JSON.stringify({ blockId: blockA1.id, date: '2031-01-05', seniorId: residentA.id, juniorId: residentAJunior.id }),
     });
     assert.equal(validDay.status, 200, 'different senior and junior must save atomically');
     assert.deepEqual(
@@ -176,17 +176,62 @@ async function main() {
 
     const invalidReplacement = await request('/assignments/day', chiefToken, {
       method: 'PUT',
-      body: JSON.stringify({ blockId: blockA1.id, date: '2031-01-03', seniorId: residentA.id, juniorId: residentA.id }),
+      body: JSON.stringify({ blockId: blockA1.id, date: '2031-01-05', seniorId: residentA.id, juniorId: residentA.id }),
     });
     assert.equal(invalidReplacement.status, 400);
     const persistedAssignments = await request(`/assignments?blockId=${blockA1.id}`, chiefToken);
     assert.equal(persistedAssignments.status, 200);
-    const persistedDay = persistedAssignments.body.filter(item => item.callDay.date.startsWith('2031-01-03'));
+    const persistedDay = persistedAssignments.body.filter(item => item.callDay.date.startsWith('2031-01-05'));
     assert.deepEqual(
       new Set(persistedDay.map(item => `${item.roleOnDay}:${item.residentId}`)),
       new Set([`senior:${residentA.id}`, `junior:${residentAJunior.id}`]),
       'invalid day update must leave the existing assignments intact',
     );
+
+    const violatingManualEdit = await request('/assignments/day', chiefToken, {
+      method: 'PUT',
+      body: JSON.stringify({ blockId: blockA1.id, date: '2031-01-06', seniorId: residentA.id, juniorId: residentAJunior.id }),
+    });
+    assert.equal(violatingManualEdit.status, 409, 'violating manual edit must require explicit confirmation');
+    assert.equal(violatingManualEdit.body.requiresOverrideConfirmation, true);
+    assert(violatingManualEdit.body.violations.some(item => item.code === 'CONSECUTIVE_CALL'));
+
+    const missingReason = await request('/assignments/day', chiefToken, {
+      method: 'PUT',
+      body: JSON.stringify({
+        blockId: blockA1.id,
+        date: '2031-01-06',
+        seniorId: residentA.id,
+        juniorId: residentAJunior.id,
+        confirmOverride: true,
+      }),
+    });
+    assert.equal(missingReason.status, 400, 'confirmed violation must require a reason');
+
+    const overrideReason = `${tag}_CLINICAL_EXCEPTION`;
+    const confirmedOverride = await request('/assignments/day', chiefToken, {
+      method: 'PUT',
+      body: JSON.stringify({
+        blockId: blockA1.id,
+        date: '2031-01-06',
+        seniorId: residentA.id,
+        juniorId: residentAJunior.id,
+        confirmOverride: true,
+        overrideReason,
+      }),
+    });
+    assert.equal(confirmedOverride.status, 200, 'confirmed override with reason must save');
+    assert(confirmedOverride.body.assignments.every(item => item.isOverride));
+    assert(confirmedOverride.body.assignments.every(item => item.overrideReason === overrideReason));
+
+    const validationResult = await request(`/schedule/validate?blockId=${blockA1.id}`, chiefToken);
+    assert.equal(validationResult.status, 200);
+    assert.equal(validationResult.body.compliant, false);
+    assert(validationResult.body.violations.some(item =>
+      item.code === 'CONSECUTIVE_CALL'
+      && item.isOverride
+      && item.overrideReasons.includes(overrideReason)
+    ), 'stored override must remain visible in validation results');
 
     const viewerHistory = await request(`/schedule/history?blockId=${blockA1.id}`, viewerToken);
     assert.equal(viewerHistory.status, 200, 'viewer may read published history metadata');

@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import Layout from '../components/Layout';
@@ -47,7 +47,6 @@ function getDaysFromDateKeys(startDate, endDate) {
 const DEFAULT_BLOCK_SETTINGS = {
   maxCallsPerResident: 9,
   maxCallsMedStudent: 5,
-  allowWeekendConsecutive: false,
   allowAttendingOnlyDays: false,
   avoidAcademicDays: true,
 };
@@ -748,6 +747,87 @@ function GenSummaryModal({ summary, onClose }) {
 
 // â”€â”€ PublishConfirmModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+function ValidationModal({ result, onClose, onEditDate }) {
+  const items = result?.violations ?? [];
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.4)' }} onClick={onClose}>
+      <div className="w-full max-w-2xl rounded-2xl overflow-hidden" style={{ background: '#fff', maxHeight: '85vh', boxShadow: '0 18px 48px rgba(15,23,42,0.2)' }} onClick={event => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-4 px-5 py-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
+          <div>
+            <h2 style={{ fontSize: 17, fontWeight: 750, color: '#1A3A5C' }}>
+              {result?.compliant ? 'Schedule is compliant' : 'Schedule needs attention'}
+            </h2>
+            <p style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>
+              {items.length} violation{items.length === 1 ? '' : 's'} and {result?.warnings?.length ?? 0} warning{result?.warnings?.length === 1 ? '' : 's'}
+            </p>
+          </div>
+          <button onClick={onClose} aria-label="Close validation results" style={{ border: 0, background: 'none', color: '#64748B', cursor: 'pointer', fontSize: 20 }}>×</button>
+        </div>
+        <div className="px-5 py-4 space-y-3 overflow-y-auto" style={{ maxHeight: '64vh' }}>
+          {items.length === 0 && (
+            <div className="rounded-xl px-4 py-3" style={{ background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', fontSize: 13 }}>
+              No scheduling-rule violations were found in the stored draft.
+            </div>
+          )}
+          {items.map((item, index) => (
+            <div key={`${item.code}-${item.residentId}-${item.date}-${index}`} className="rounded-xl px-4 py-3" style={{ border: '1px solid #FECACA', background: '#FEF2F2' }}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 750, color: '#991B1B' }}>{item.code.replaceAll('_', ' ')}</p>
+                  <p style={{ fontSize: 13, color: '#7F1D1D', marginTop: 3 }}>{item.message}</p>
+                  {item.isOverride && <p style={{ fontSize: 11, color: '#B45309', marginTop: 4 }}>Recorded manual override</p>}
+                </div>
+                {item.date && onEditDate && (
+                  <button onClick={() => onEditDate(item.date)} className="px-3 py-1.5 rounded-lg" style={{ border: '1px solid #FCA5A5', background: '#fff', color: '#991B1B', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                    Edit {item.date}
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          {(result?.warnings ?? []).map((item, index) => (
+            <div key={`warning-${item.code}-${item.residentId}-${index}`} className="rounded-xl px-4 py-3" style={{ border: '1px solid #FDE68A', background: '#FFFBEB' }}>
+              <p style={{ fontSize: 12, fontWeight: 750, color: '#92400E' }}>{item.code.replaceAll('_', ' ')}</p>
+              <p style={{ fontSize: 13, color: '#78350F', marginTop: 3 }}>{item.message}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OverrideConfirmModal({ violations, onConfirm, onClose, saving }) {
+  const [reason, setReason] = useState('');
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.48)' }} onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: '#fff', boxShadow: '0 18px 48px rgba(15,23,42,0.22)' }} onClick={event => event.stopPropagation()}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
+          <h2 style={{ fontSize: 17, fontWeight: 750, color: '#991B1B' }}>Rule violation requires an override</h2>
+          <p style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>Review the violations and record why this exception is necessary.</p>
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          <ul className="space-y-2" style={{ maxHeight: 190, overflowY: 'auto' }}>
+            {violations.map((item, index) => (
+              <li key={`${item.code}-${index}`} className="rounded-lg px-3 py-2" style={{ background: '#FEF2F2', color: '#7F1D1D', fontSize: 12 }}>
+                <strong>{item.code.replaceAll('_', ' ')}:</strong> {item.message}
+              </li>
+            ))}
+          </ul>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#1A3A5C' }} htmlFor="override-reason">Override reason</label>
+          <textarea id="override-reason" value={reason} onChange={event => setReason(event.target.value)} rows={3} placeholder="Explain the clinical or operational reason for this exception" style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: 10, padding: '10px 12px', fontSize: 13, resize: 'vertical' }} />
+        </div>
+        <div className="flex gap-2 px-5 pb-5">
+          <button onClick={onClose} disabled={saving} className="flex-1 py-2.5 rounded-lg" style={{ border: '1px solid #CBD5E1', background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: 700 }}>Cancel</button>
+          <button onClick={() => onConfirm(reason)} disabled={saving || !reason.trim()} className="flex-1 py-2.5 rounded-lg" style={{ border: 0, background: '#B91C1C', color: '#fff', cursor: saving || !reason.trim() ? 'not-allowed' : 'pointer', opacity: saving || !reason.trim() ? 0.6 : 1, fontWeight: 750 }}>
+            {saving ? 'Saving override...' : 'Confirm override'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PublishConfirmModal({ onConfirm, onClose, publishing }) {
   return (
     <motion.div
@@ -944,84 +1024,19 @@ function Spinner() {
     style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />;
 }
 
-function BlockSettingsPanel({ settings, saving, loading, onChange, onSave }) {
-  const numberInputStyle = {
-    width: 72,
-    padding: '7px 9px',
-    borderRadius: 8,
-    border: '1px solid #DCE6F1',
-    color: '#1A3A5C',
-    fontSize: 13,
-    fontWeight: 600,
-    background: '#fff',
-  };
-
-  const labelStyle = { fontSize: 12, color: '#64748B', fontWeight: 600 };
-  const toggleLabelStyle = { fontSize: 12, color: '#1A3A5C', fontWeight: 600 };
-
-  const updateNumber = (key) => (event) => {
-    onChange({ ...settings, [key]: Number(event.target.value) });
-  };
-  const updateBoolean = (key) => (event) => {
-    onChange({ ...settings, [key]: event.target.checked });
-  };
-
+function BlockSettingsSummary({ settings, blockNum, loading }) {
   return (
-    <div className="rounded-xl mb-4 px-5 py-4"
-      style={{ border: '1px solid #E8EFF6', background: '#fff', boxShadow: '0 1px 3px rgba(26,58,92,0.05)' }}>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
         <div>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: '#1A3A5C', margin: 0 }}>Block Settings</h2>
-          <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>Used by auto-generate for this block</p>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#1A3A5C' }}>Block rules</p>
+          <p style={{ fontSize: 11, color: '#94A3B8' }}>{loading ? 'Loading...' : 'PARO rules plus local settings'}</p>
         </div>
-        <button
-          onClick={onSave}
-          disabled={saving || loading}
-          className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
-          style={{ background: '#1A3A5C', border: 'none', cursor: saving || loading ? 'not-allowed' : 'pointer', opacity: saving || loading ? 0.7 : 1 }}
-          onMouseEnter={e => { if (!saving && !loading) e.currentTarget.style.background = '#2C5F8A'; }}
-          onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}
-        >
-          {saving ? 'Saving...' : 'Save settings'}
-        </button>
+        {!loading && <span style={{ fontSize: 12, color: '#475569' }}>Resident cap: {settings.maxCallsPerResident > 0 ? settings.maxCallsPerResident : 'PARO only'}</span>}
+        {!loading && <span style={{ fontSize: 12, color: '#475569' }}>Med-student cap: {settings.maxCallsMedStudent}</span>}
+        {!loading && <span style={{ fontSize: 12, color: '#475569' }}>{settings.avoidAcademicDays ? 'Avoid academic days' : 'Academic days allowed'}</span>}
       </div>
-
-      <div className="flex flex-wrap gap-4">
-        <label className="flex items-center gap-2">
-          <span style={labelStyle}>Max resident calls</span>
-          <input
-            type="number"
-            min="1"
-            max="30"
-            value={settings.maxCallsPerResident}
-            onChange={updateNumber('maxCallsPerResident')}
-            style={numberInputStyle}
-          />
-        </label>
-        <label className="flex items-center gap-2">
-          <span style={labelStyle}>Max med student calls</span>
-          <input
-            type="number"
-            min="0"
-            max="30"
-            value={settings.maxCallsMedStudent}
-            onChange={updateNumber('maxCallsMedStudent')}
-            style={numberInputStyle}
-          />
-        </label>
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={settings.allowWeekendConsecutive} onChange={updateBoolean('allowWeekendConsecutive')} />
-          <span style={toggleLabelStyle}>Allow weekend consecutive</span>
-        </label>
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={settings.allowAttendingOnlyDays} onChange={updateBoolean('allowAttendingOnlyDays')} />
-          <span style={toggleLabelStyle}>Allow attending-only days</span>
-        </label>
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={settings.avoidAcademicDays} onChange={updateBoolean('avoidAcademicDays')} />
-          <span style={toggleLabelStyle}>Avoid academic days</span>
-        </label>
-      </div>
+      <Link to={`/blocks/${blockNum}/settings`} style={{ fontSize: 12, fontWeight: 700, color: '#2C5F8A' }}>Edit settings</Link>
     </div>
   );
 }
@@ -1037,11 +1052,13 @@ const CalendarTopBar = memo(function CalendarTopBar({
   onExportExcel, exportingExcel,
   onPrintPdf, printingPdf,
   onViewPublished,
+  onValidate, validating,
   blockId,
   canExportDraft,
   canClearSchedule,
   canGenerateSchedule,
   canPublishSchedule,
+  canValidateSchedule,
 }) {
   const assigned   = days.filter(d => { const a = assignmentMap[toISODate(d)]; return a?.seniorId || a?.juniorId; }).length;
   const unassigned = days.length - assigned;
@@ -1083,6 +1100,14 @@ const CalendarTopBar = memo(function CalendarTopBar({
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
+          <motion.button
+            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
+            onClick={onValidate}
+            disabled={validating || !canValidateSchedule}
+            className="px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5"
+            style={{ background: '#FFF7ED', color: '#9A3412', border: '1px solid #FED7AA', cursor: validating ? 'not-allowed' : 'pointer' }}>
+            {validating ? 'Validating...' : 'Validate schedule'}
+          </motion.button>
           {/* Export Excel */}
           <motion.button
             whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
@@ -1281,8 +1306,11 @@ export default function Calendar() {
   const [clearing, setClearing]                     = useState(false);
   const [blockSettings, setBlockSettings]           = useState(DEFAULT_BLOCK_SETTINGS);
   const [settingsLoading, setSettingsLoading]       = useState(false);
-  const [settingsSaving, setSettingsSaving]         = useState(false);
   const [assignmentSaving, setAssignmentSaving]     = useState(false);
+  const [validating, setValidating]                 = useState(false);
+  const [validationResult, setValidationResult]     = useState(null);
+  const [pendingOverride, setPendingOverride]       = useState(null);
+  const [overrideSaving, setOverrideSaving]         = useState(false);
   const latestBlockIdRef = useRef(blockId);
   const canEditResidents = can('edit_residents');
   const canEditAttending = can('edit_attendings');
@@ -1429,13 +1457,14 @@ export default function Calendar() {
     try {
       const dayEntries       = attendingMap[iso] ?? [];
       const attendingEntryId = (dayEntries.find(e => e.isCallDay) ?? dayEntries[0])?.id ?? null;
-      const { data } = await api.put('/assignments/day', {
+      const payload = {
         blockId,
         date: iso,
         seniorId: seniorId || null,
         juniorId: juniorId || null,
         attendingEntryId,
-      });
+      };
+      const { data } = await api.put('/assignments/day', payload);
       const seniorAssignment = data.assignments.find(item => item.roleOnDay === 'senior');
       const juniorAssignment = data.assignments.find(item => item.roleOnDay === 'junior');
 
@@ -1450,11 +1479,75 @@ export default function Calendar() {
       setSelectedDateKey(null);
       toast.success(`${fmtShort(dateFromDateKey(iso))} saved`);
     } catch (err) {
+      if (err.response?.data?.requiresOverrideConfirmation) {
+        setPendingOverride({
+          payload: {
+            blockId,
+            date: iso,
+            seniorId: seniorId || null,
+            juniorId: juniorId || null,
+            attendingEntryId: (attendingMap[iso] ?? []).find(entry => entry.isCallDay)?.id
+              ?? (attendingMap[iso] ?? [])[0]?.id
+              ?? null,
+          },
+          display: { seniorId, juniorId, senior, junior },
+          violations: err.response.data.violations ?? [],
+        });
+        return;
+      }
       toast.error(err.response?.data?.error ?? 'Failed to save assignment');
     } finally {
       setAssignmentSaving(false);
     }
   }, [attendingMap, blockId, selectedDateKey]);
+
+  const handleConfirmOverride = useCallback(async (reason) => {
+    if (!pendingOverride || !reason.trim()) return;
+    setOverrideSaving(true);
+    try {
+      const { data } = await api.put('/assignments/day', {
+        ...pendingOverride.payload,
+        confirmOverride: true,
+        overrideReason: reason.trim(),
+      });
+      const seniorAssignment = data.assignments.find(item => item.roleOnDay === 'senior');
+      const juniorAssignment = data.assignments.find(item => item.roleOnDay === 'junior');
+      const iso = pendingOverride.payload.date;
+      setAssignmentsMap(prev => ({
+        ...prev,
+        [iso]: {
+          callDayId: data.callDay.id,
+          seniorId: pendingOverride.display.seniorId || undefined,
+          senior: pendingOverride.display.senior || undefined,
+          seniorAssignmentId: seniorAssignment?.id,
+          juniorId: pendingOverride.display.juniorId || undefined,
+          junior: pendingOverride.display.junior || undefined,
+          juniorAssignmentId: juniorAssignment?.id,
+          warning: true,
+        },
+      }));
+      setPendingOverride(null);
+      setSelectedDateKey(null);
+      toast.success('Manual override saved with reason');
+    } catch (err) {
+      toast.error(err.response?.data?.error ?? 'Failed to save override');
+    } finally {
+      setOverrideSaving(false);
+    }
+  }, [pendingOverride]);
+
+  const handleValidateSchedule = useCallback(async () => {
+    if (!blockId) return;
+    setValidating(true);
+    try {
+      const { data } = await api.get(`/schedule/validate?blockId=${blockId}`);
+      setValidationResult(data);
+    } catch (err) {
+      toast.error(err.response?.data?.error ?? 'Failed to validate schedule');
+    } finally {
+      setValidating(false);
+    }
+  }, [blockId]);
 
   const handleAutoGenerate = useCallback(async () => {
     if (!blockId) { toast.error('No block selected'); return; }
@@ -1474,30 +1567,6 @@ export default function Calendar() {
       if (latestBlockIdRef.current === currentBlockId) setGenerating(false);
     }
   }, [blockId]);
-
-  const handleSaveSettings = useCallback(async () => {
-    if (!blockId) return;
-    const currentBlockId = blockId;
-    const payload = {
-      maxCallsPerResident: Math.max(1, Number(blockSettings.maxCallsPerResident) || DEFAULT_BLOCK_SETTINGS.maxCallsPerResident),
-      maxCallsMedStudent: Math.max(0, Number(blockSettings.maxCallsMedStudent) || DEFAULT_BLOCK_SETTINGS.maxCallsMedStudent),
-      allowWeekendConsecutive: Boolean(blockSettings.allowWeekendConsecutive),
-      allowAttendingOnlyDays: Boolean(blockSettings.allowAttendingOnlyDays),
-      avoidAcademicDays: Boolean(blockSettings.avoidAcademicDays),
-    };
-
-    setSettingsSaving(true);
-    try {
-      const { data } = await api.put(`/blocks/${currentBlockId}/settings`, payload);
-      if (latestBlockIdRef.current !== currentBlockId) return;
-      setBlockSettings({ ...DEFAULT_BLOCK_SETTINGS, ...data });
-      toast.success('Block settings saved');
-    } catch (err) {
-      toast.error(err.response?.data?.error ?? 'Failed to save block settings');
-    } finally {
-      if (latestBlockIdRef.current === currentBlockId) setSettingsSaving(false);
-    }
-  }, [blockId, blockSettings]);
 
   const handleClearSchedule = useCallback(async () => {
     if (!blockId) return;
@@ -1655,11 +1724,14 @@ export default function Calendar() {
           onPrintPdf={handlePrintPdf}
           printingPdf={printingPdf}
           onViewPublished={handleViewPublished}
+          onValidate={handleValidateSchedule}
+          validating={validating}
           blockId={blockId}
           canExportDraft={can('export_draft_schedule')}
           canClearSchedule={can('clear_schedule')}
           canGenerateSchedule={can('generate_schedule')}
           canPublishSchedule={can('publish_schedule')}
+          canValidateSchedule={can('view_draft_schedule')}
         />
 
         {can('edit_block_settings') && (
@@ -1667,12 +1739,10 @@ export default function Calendar() {
             <summary style={{ padding: '12px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#1A3A5C' }}>
               Block rules
             </summary>
-            <BlockSettingsPanel
+            <BlockSettingsSummary
               settings={blockSettings}
-              saving={settingsSaving}
               loading={settingsLoading}
-              onChange={setBlockSettings}
-              onSave={handleSaveSettings}
+              blockNum={blockNum}
             />
           </details>
         )}
@@ -1756,6 +1826,26 @@ export default function Calendar() {
             <GenSummaryModal summary={genSummary} onClose={() => setGenSummary(null)} />
           )}
         </AnimatePresence>
+
+        {validationResult && (
+          <ValidationModal
+            result={validationResult}
+            onClose={() => setValidationResult(null)}
+            onEditDate={canEditSchedule ? (dateKey) => {
+              setValidationResult(null);
+              setSelectedDateKey(dateKey);
+            } : null}
+          />
+        )}
+
+        {pendingOverride && (
+          <OverrideConfirmModal
+            violations={pendingOverride.violations}
+            onConfirm={handleConfirmOverride}
+            onClose={() => setPendingOverride(null)}
+            saving={overrideSaving}
+          />
+        )}
 
         {/* Clear schedule confirmation modal */}
         <AnimatePresence>

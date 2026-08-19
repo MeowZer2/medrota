@@ -2,6 +2,7 @@ const express = require('express');
 const prisma = require('../lib/prisma');
 const auth = require('../middleware/auth');
 const { assertResidentBelongsToBlockProgram, requireBlockPermission, requireBlockView } = require('../lib/roles');
+const { validateProposedDayAssignments } = require('../services/scheduleValidator');
 
 const router = express.Router();
 router.use(auth);
@@ -162,7 +163,10 @@ router.post('/', async (req, res) => {
 
 // PUT /api/assignments/day - atomically replace the senior/junior slots for one day.
 router.put('/day', async (req, res) => {
-  const { blockId, date, seniorId, juniorId, attendingEntryId } = req.body;
+  const {
+    blockId, date, seniorId, juniorId, attendingEntryId,
+    confirmOverride = false, overrideReason,
+  } = req.body;
   if (!blockId || !date) {
     return res.status(400).json({ error: 'blockId and date are required' });
   }
@@ -199,6 +203,26 @@ router.put('/day', async (req, res) => {
     return res.status(400).json({ error: 'Assignment date must fall within the block' });
   }
 
+  const validation = await validateProposedDayAssignments(blockId, {
+    date,
+    seniorId: seniorId || null,
+    juniorId: juniorId || null,
+    overrideReason: overrideReason?.trim() || null,
+  });
+  if (!validation) return res.status(404).json({ error: 'Block not found' });
+  if (validation.violations.length > 0 && !confirmOverride) {
+    return res.status(409).json({
+      requiresOverrideConfirmation: true,
+      violations: validation.violations,
+    });
+  }
+  if (validation.violations.length > 0 && (!overrideReason || !overrideReason.trim())) {
+    return res.status(400).json({
+      error: 'An override reason is required when confirming a rule violation.',
+      violations: validation.violations,
+    });
+  }
+
   try {
     const result = await prisma.$transaction(async tx => {
       let callDay = await tx.callDay.findFirst({
@@ -215,18 +239,31 @@ router.put('/day', async (req, res) => {
         });
       }
 
+      const previousAssignments = await tx.callAssignment.findMany({
+        where: { callDayId: callDay.id, roleOnDay: { in: ['senior', 'junior'] } },
+      });
       await tx.callAssignment.deleteMany({
         where: { callDayId: callDay.id, roleOnDay: { in: ['senior', 'junior'] } },
       });
       if (requested.length) {
         await tx.callAssignment.createMany({
-          data: requested.map(item => ({
-            callDayId: callDay.id,
-            residentId: item.residentId,
-            roleOnDay: item.roleOnDay,
-            isOverride: true,
-            overrideReason: null,
-          })),
+          data: requested.map(item => {
+            const prior = previousAssignments.find(previous =>
+              previous.residentId === item.residentId && previous.roleOnDay === item.roleOnDay
+            );
+            const confirmedViolation = validation.violations.some(violation =>
+              !violation.residentId || violation.residentId === item.residentId
+            );
+            return {
+              callDayId: callDay.id,
+              residentId: item.residentId,
+              roleOnDay: item.roleOnDay,
+              isOverride: true,
+              overrideReason: confirmedViolation
+                ? overrideReason.trim()
+                : (prior?.overrideReason ?? null),
+            };
+          }),
         });
       }
       const assignments = await tx.callAssignment.findMany({
@@ -234,7 +271,7 @@ router.put('/day', async (req, res) => {
         include: { resident: { select: { id: true, name: true, residentRole: true } } },
         orderBy: { roleOnDay: 'desc' },
       });
-      return { callDay, assignments };
+      return { callDay, assignments, validation: validation.proposed };
     });
 
     res.json(result);

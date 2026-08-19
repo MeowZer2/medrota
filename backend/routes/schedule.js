@@ -7,6 +7,7 @@ const { createScheduleWorkbook, shapeProtectedSchedule } = require('../services/
 const { createPrintableScheduleHtml, buildPrintableFilename } = require('../services/printableSchedule');
 const { requireBlockPermission, requireBlockView } = require('../lib/roles');
 const { hasPermission } = require('../lib/roles');
+const { validateSchedule } = require('../services/scheduleValidator');
 
 const router = express.Router();
 router.use(auth);
@@ -68,6 +69,22 @@ router.delete('/clear', async (req, res) => {
   } catch (err) {
     console.error('[schedule/clear] Error:', err.message);
     res.status(500).json({ error: 'Failed to clear schedule' });
+  }
+});
+
+// GET /api/schedule/validate?blockId= - validate the stored draft without mutation.
+router.get('/validate', async (req, res) => {
+  const { blockId } = req.query;
+  if (!blockId) return res.status(400).json({ error: 'blockId required' });
+  try {
+    const membership = await requireBlockPermission(req, res, blockId, 'view_draft_schedule');
+    if (!membership) return;
+    const result = await validateSchedule(blockId);
+    if (!result) return res.status(404).json({ error: 'Block not found' });
+    res.json(result);
+  } catch (err) {
+    console.error('[schedule/validate] Error:', err.message);
+    res.status(500).json({ error: 'Failed to validate schedule' });
   }
 });
 

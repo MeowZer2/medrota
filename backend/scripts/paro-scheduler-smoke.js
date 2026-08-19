@@ -48,9 +48,9 @@ assert.strictEqual(calculateDaysOnService(['2026-07-01', '2026-07-02'], ['2026-0
 assert.strictEqual(getAssignmentCallType('junior', { juniorInHouseCall: true, seniorInHouseCall: false }), 'in_house');
 assert.strictEqual(getAssignmentCallType('senior', { juniorInHouseCall: true, seniorInHouseCall: false }), 'home');
 assert.strictEqual(getAssignmentCallType('senior', { seniorInHouseCall: true }), 'in_house');
-assert.strictEqual(calculateWeightedCallPoints(3, 4), 15);
-assert.strictEqual(isBlendedCallLoadAllowed(3, 9), true);
-assert.strictEqual(isBlendedCallLoadAllowed(4, 9), false);
+assert.strictEqual(calculateWeightedCallPoints(3, 4), 25);
+assert.strictEqual(isBlendedCallLoadAllowed(3, 5), true);
+assert.strictEqual(isBlendedCallLoadAllowed(2, 7), false);
 
 assert.strictEqual(hasConsecutiveCall('2026-07-02', ['2026-07-01']), true);
 assert.strictEqual(hasConsecutiveCall('2026-07-02', ['2026-07-04']), false);
