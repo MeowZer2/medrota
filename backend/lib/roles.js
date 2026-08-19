@@ -111,7 +111,7 @@ async function assertResidentBelongsToBlockProgram(res, residentId, blockId) {
   const [resident, blockAccess] = await Promise.all([
     prisma.residentProfile.findUnique({
       where: { id: residentId },
-      select: { id: true, programId: true },
+      select: { id: true, programId: true, residentRole: true, isMedStudent: true, isActive: true },
     }),
     getProgramIdForBlock(blockId),
   ]);

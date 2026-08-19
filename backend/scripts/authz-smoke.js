@@ -81,11 +81,15 @@ async function main() {
       { programId: programA.id, userId: viewer.id, role: 'viewer' },
     ] });
 
-    const [residentA, residentB] = await Promise.all([
+    const [residentA, residentAJunior, residentB] = await Promise.all([
       prisma.residentProfile.create({ data: { programId: programA.id, name: `${tag}_RESIDENT_A`, pgyLevel: '4', residentRole: 'senior' } }),
+      prisma.residentProfile.create({ data: { programId: programA.id, name: `${tag}_RESIDENT_A_JUNIOR`, pgyLevel: '2', residentRole: 'junior' } }),
       prisma.residentProfile.create({ data: { programId: programB.id, name: `${tag}_RESIDENT_B`, pgyLevel: '2', residentRole: 'junior' } }),
     ]);
-    await prisma.blockEnrollment.create({ data: { blockId: blockA1.id, residentId: residentA.id, vacationDates: [] } });
+    await prisma.blockEnrollment.createMany({ data: [
+      { blockId: blockA1.id, residentId: residentA.id, vacationDates: [] },
+      { blockId: blockA1.id, residentId: residentAJunior.id, vacationDates: [] },
+    ] });
     await prisma.attendingEntry.create({ data: { blockId: blockB.id, attendingName: `${tag}_ATTENDING_B`, date: new Date('2031-01-01T00:00:00Z'), activityLabel: 'Call', isCallDay: true } });
     await prisma.attendingScheduleTemplate.create({ data: { programId: programA.id, attendingName: `${tag}_ATTENDING_A`, dayOfWeek: 0, activityLabel: 'Clinic' } });
     await prisma.scheduleVersion.create({
@@ -153,6 +157,36 @@ async function main() {
       body: JSON.stringify({ blockId: blockA1.id, date: '2031-01-02', residentId: residentA.id, roleOnDay: 'senior' }),
     });
     assert.equal(validAssignment.status, 201, 'same-program assignment must succeed');
+
+    const duplicateDayRole = await request('/assignments/day', chiefToken, {
+      method: 'PUT',
+      body: JSON.stringify({ blockId: blockA1.id, date: '2031-01-03', seniorId: residentA.id, juniorId: residentA.id }),
+    });
+    assert.equal(duplicateDayRole.status, 400, 'same resident in both day roles must fail');
+
+    const validDay = await request('/assignments/day', chiefToken, {
+      method: 'PUT',
+      body: JSON.stringify({ blockId: blockA1.id, date: '2031-01-03', seniorId: residentA.id, juniorId: residentAJunior.id }),
+    });
+    assert.equal(validDay.status, 200, 'different senior and junior must save atomically');
+    assert.deepEqual(
+      new Set(validDay.body.assignments.map(item => `${item.roleOnDay}:${item.residentId}`)),
+      new Set([`senior:${residentA.id}`, `junior:${residentAJunior.id}`]),
+    );
+
+    const invalidReplacement = await request('/assignments/day', chiefToken, {
+      method: 'PUT',
+      body: JSON.stringify({ blockId: blockA1.id, date: '2031-01-03', seniorId: residentA.id, juniorId: residentA.id }),
+    });
+    assert.equal(invalidReplacement.status, 400);
+    const persistedAssignments = await request(`/assignments?blockId=${blockA1.id}`, chiefToken);
+    assert.equal(persistedAssignments.status, 200);
+    const persistedDay = persistedAssignments.body.filter(item => item.callDay.date.startsWith('2031-01-03'));
+    assert.deepEqual(
+      new Set(persistedDay.map(item => `${item.roleOnDay}:${item.residentId}`)),
+      new Set([`senior:${residentA.id}`, `junior:${residentAJunior.id}`]),
+      'invalid day update must leave the existing assignments intact',
+    );
 
     const viewerHistory = await request(`/schedule/history?blockId=${blockA1.id}`, viewerToken);
     assert.equal(viewerHistory.status, 200, 'viewer may read published history metadata');

@@ -517,9 +517,10 @@ function FlagSection({ day, blockId, flag, onFlagChange }) {
 
 // â”€â”€ DayModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-function DayModal({ isOpen, day, attendings, residents, roster, assignment, blockId, flag, onSave, onClose, onAttendingChange, onFlagChange }) {
+function DayModal({ isOpen, day, attendings, residents, roster, assignment, blockId, flag, onSave, onClose, onAttendingChange, onFlagChange, saving }) {
   const [visible, setVisible] = useState(false);
-  const assignmentFormRef = useRef(null);
+  const [seniorId, setSeniorId] = useState('');
+  const [juniorId, setJuniorId] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -529,6 +530,12 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
       setVisible(false);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSeniorId(assignment?.seniorId ?? '');
+    setJuniorId(assignment?.juniorId ?? '');
+  }, [isOpen, day, assignment?.seniorId, assignment?.juniorId]);
 
   if (!day) {
     return (
@@ -544,15 +551,15 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
   const assignedJuniorMissing = assignment?.juniorId && !juniors.some(r => r.id === assignment.juniorId);
 
   const dayKey = toISODate(day);
-  const warning = null;
+  const warning = seniorId && juniorId && seniorId === juniorId
+    ? 'The same resident cannot be assigned as both senior and junior on the same call day.'
+    : null;
 
   const handleSave = () => {
-    const seniorId = assignmentFormRef.current?.querySelector('[name="seniorId"]')?.value || '';
-    const juniorId = assignmentFormRef.current?.querySelector('[name="juniorId"]')?.value || '';
+    if (warning || saving) return;
     const seniorName = residents.find(r => r.id === seniorId)?.name ?? '';
     const juniorName = residents.find(r => r.id === juniorId)?.name ?? '';
-    const warning = seniorId && juniorId && seniorId === juniorId ? 'Same resident assigned to both roles' : null;
-    onSave({ senior: seniorName, junior: juniorName, seniorId, juniorId, warning });
+    onSave({ senior: seniorName, junior: juniorName, seniorId, juniorId });
   };
 
   return (
@@ -587,10 +594,10 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
           onChange={onAttendingChange}
         />
 
-        <div ref={assignmentFormRef} className="px-5 py-4 space-y-4">
+        <div className="px-5 py-4 space-y-4">
           <div>
             <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#64748B', marginBottom: 4 }}>Senior resident</label>
-            <select key={`senior-${dayKey}`} name="seniorId" className={modalSelectClass} defaultValue={assignment?.seniorId ?? ''}>
+            <select key={`senior-${dayKey}`} name="seniorId" className={modalSelectClass} value={seniorId} onChange={event => setSeniorId(event.target.value)}>
               <option value="">Unassigned</option>
               {assignedSeniorMissing && (
                 <option value={assignment.seniorId}>{assignment.senior ?? 'Assigned senior'}</option>
@@ -600,7 +607,7 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#64748B', marginBottom: 4 }}>Junior resident</label>
-            <select key={`junior-${dayKey}`} name="juniorId" className={modalSelectClass} defaultValue={assignment?.juniorId ?? ''}>
+            <select key={`junior-${dayKey}`} name="juniorId" className={modalSelectClass} value={juniorId} onChange={event => setJuniorId(event.target.value)}>
               <option value="">Unassigned</option>
               {assignedJuniorMissing && (
                 <option value={assignment.juniorId}>{assignment.junior ?? 'Assigned junior'}</option>
@@ -629,10 +636,11 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
             onMouseLeave={e => e.currentTarget.style.background = '#F8FAFC'}>Cancel</button>
           <button
             onClick={handleSave}
+            disabled={Boolean(warning) || saving}
             className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white"
-            style={{ background: '#1A3A5C', cursor: 'pointer', border: 'none' }}
+            style={{ background: '#1A3A5C', cursor: warning || saving ? 'not-allowed' : 'pointer', opacity: warning || saving ? 0.6 : 1, border: 'none' }}
             onMouseEnter={e => e.currentTarget.style.background = '#2C5F8A'}
-            onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}>Save</button>
+            onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}>{saving ? 'Saving...' : 'Save'}</button>
         </div>
       </div>
     </div>
@@ -1274,6 +1282,7 @@ export default function Calendar() {
   const [blockSettings, setBlockSettings]           = useState(DEFAULT_BLOCK_SETTINGS);
   const [settingsLoading, setSettingsLoading]       = useState(false);
   const [settingsSaving, setSettingsSaving]         = useState(false);
+  const [assignmentSaving, setAssignmentSaving]     = useState(false);
   const latestBlockIdRef = useRef(blockId);
   const canEditResidents = can('edit_residents');
   const canEditAttending = can('edit_attendings');
@@ -1411,63 +1420,41 @@ export default function Calendar() {
 
   const handleSaveAssignment = useCallback(async ({ seniorId, juniorId, senior, junior }) => {
     if (!selectedDateKey) return;
+    if (seniorId && juniorId && seniorId === juniorId) {
+      toast.error('The same resident cannot be assigned as both senior and junior on the same call day.');
+      return;
+    }
     const iso      = selectedDateKey;
-    const existing = assignmentsMap[iso] ?? {};
-
-    setAssignmentsMap(prev => ({
-      ...prev,
-      [iso]: {
-        callDayId: existing.callDayId,
-        seniorId: seniorId || undefined,
-        senior:   senior   || undefined,
-        juniorId: juniorId || undefined,
-        junior:   junior   || undefined,
-        seniorAssignmentId: seniorId === existing.seniorId ? existing.seniorAssignmentId : undefined,
-        juniorAssignmentId: juniorId === existing.juniorId ? existing.juniorAssignmentId : undefined,
-      },
-    }));
-    setSelectedDateKey(null);
-
+    setAssignmentSaving(true);
     try {
       const dayEntries       = attendingMap[iso] ?? [];
       const attendingEntryId = (dayEntries.find(e => e.isCallDay) ?? dayEntries[0])?.id ?? null;
-
-      if (!seniorId && existing.seniorAssignmentId)
-        await api.delete(`/assignments/${existing.seniorAssignmentId}`);
-      if (!juniorId && existing.juniorAssignmentId)
-        await api.delete(`/assignments/${existing.juniorAssignmentId}`);
-      if (seniorId && existing.seniorAssignmentId && seniorId !== existing.seniorId)
-        await api.delete(`/assignments/${existing.seniorAssignmentId}`);
-      if (juniorId && existing.juniorAssignmentId && juniorId !== existing.juniorId)
-        await api.delete(`/assignments/${existing.juniorAssignmentId}`);
-
-      let newCallDayId = existing.callDayId;
-      let newSeniorAid, newJuniorAid;
-
-      if (seniorId) {
-        const { data } = await api.post('/assignments', { blockId, date: iso, residentId: seniorId, roleOnDay: 'senior', attendingEntryId, isOverride: true, overrideReason: 'manual' });
-        newCallDayId = data.callDay.id;
-        newSeniorAid = data.assignment.id;
-      }
-      if (juniorId) {
-        const { data } = await api.post('/assignments', { blockId, date: iso, residentId: juniorId, roleOnDay: 'junior', attendingEntryId, isOverride: true, overrideReason: 'manual' });
-        newCallDayId = data.callDay.id;
-        newJuniorAid = data.assignment.id;
-      }
+      const { data } = await api.put('/assignments/day', {
+        blockId,
+        date: iso,
+        seniorId: seniorId || null,
+        juniorId: juniorId || null,
+        attendingEntryId,
+      });
+      const seniorAssignment = data.assignments.find(item => item.roleOnDay === 'senior');
+      const juniorAssignment = data.assignments.find(item => item.roleOnDay === 'junior');
 
       setAssignmentsMap(prev => ({
         ...prev,
         [iso]: {
-          callDayId: newCallDayId,
-          seniorId: seniorId || undefined, senior: senior || undefined, seniorAssignmentId: newSeniorAid,
-          juniorId: juniorId || undefined, junior: junior || undefined, juniorAssignmentId: newJuniorAid,
+          callDayId: data.callDay.id,
+          seniorId: seniorId || undefined, senior: senior || undefined, seniorAssignmentId: seniorAssignment?.id,
+          juniorId: juniorId || undefined, junior: junior || undefined, juniorAssignmentId: juniorAssignment?.id,
         },
       }));
+      setSelectedDateKey(null);
       toast.success(`${fmtShort(dateFromDateKey(iso))} saved`);
-    } catch {
-      toast.error('Failed to save assignment');
+    } catch (err) {
+      toast.error(err.response?.data?.error ?? 'Failed to save assignment');
+    } finally {
+      setAssignmentSaving(false);
     }
-  }, [assignmentsMap, attendingMap, blockId, selectedDateKey]);
+  }, [attendingMap, blockId, selectedDateKey]);
 
   const handleAutoGenerate = useCallback(async () => {
     if (!blockId) { toast.error('No block selected'); return; }
@@ -1760,6 +1747,7 @@ export default function Calendar() {
           onClose={closeDayModal}
           onAttendingChange={handleAttendingChange}
           onFlagChange={handleFlagChange}
+          saving={assignmentSaving}
         />
 
         {/* Generation summary modal */}

@@ -6,6 +6,8 @@ const { assertResidentBelongsToBlockProgram, requireBlockPermission, requireBloc
 const router = express.Router();
 router.use(auth);
 
+const RESIDENT_ROLES_ON_DAY = new Set(['senior', 'junior']);
+
 function startOfLogicalDay(value) {
   if (typeof value === 'string') {
     const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -19,6 +21,33 @@ function nextLogicalDay(value) {
   const next = new Date(value);
   next.setUTCDate(next.getUTCDate() + 1);
   return next;
+}
+
+function validateRoleOnDay(roleOnDay) {
+  return typeof roleOnDay === 'string' && RESIDENT_ROLES_ON_DAY.has(roleOnDay);
+}
+
+function residentCanFillRole(resident, roleOnDay) {
+  if (!resident?.isActive) return false;
+  if (roleOnDay === 'senior') return !resident.isMedStudent && resident.residentRole === 'senior';
+  return resident.isMedStudent || resident.residentRole === 'junior';
+}
+
+async function validateAttendingEntryForBlock(res, attendingEntryId, blockId) {
+  if (attendingEntryId === undefined || attendingEntryId === null || attendingEntryId === '') return true;
+  const attendingEntry = await prisma.attendingEntry.findUnique({
+    where: { id: attendingEntryId },
+    select: { blockId: true },
+  });
+  if (!attendingEntry) {
+    res.status(404).json({ error: 'Attending entry not found' });
+    return false;
+  }
+  if (attendingEntry.blockId !== blockId) {
+    res.status(400).json({ error: 'Attending entry must belong to the same block' });
+    return false;
+  }
+  return true;
 }
 
 // GET /api/assignments?blockId= — all assignments for a block (joined with date + resident)
@@ -59,10 +88,17 @@ router.post('/', async (req, res) => {
   if (!blockId || !date || !residentId || !roleOnDay) {
     return res.status(400).json({ error: 'blockId, date, residentId, roleOnDay required' });
   }
+  if (!validateRoleOnDay(roleOnDay)) {
+    return res.status(400).json({ error: 'roleOnDay must be senior or junior' });
+  }
   const membership = await requireBlockPermission(req, res, blockId, 'manual_assign_calls');
   if (!membership) return;
   const ownership = await assertResidentBelongsToBlockProgram(res, residentId, blockId);
   if (!ownership) return;
+  if (!residentCanFillRole(ownership.resident, roleOnDay)) {
+    return res.status(400).json({ error: `Resident is not eligible for the ${roleOnDay} slot` });
+  }
+  if (!await validateAttendingEntryForBlock(res, attendingEntryId, blockId)) return;
 
   const startOfDay = startOfLogicalDay(date);
   const nextDay = nextLogicalDay(startOfDay);
@@ -92,6 +128,16 @@ router.post('/', async (req, res) => {
     where: { callDayId: callDay.id, residentId },
   });
 
+  if (existing && existing.roleOnDay !== roleOnDay) {
+    return res.status(409).json({ error: 'Resident is already assigned to another role on this call day' });
+  }
+  const existingRoleAssignment = await prisma.callAssignment.findFirst({
+    where: { callDayId: callDay.id, roleOnDay },
+  });
+  if (existingRoleAssignment && existingRoleAssignment.residentId !== residentId) {
+    return res.status(409).json({ error: `${roleOnDay} slot is already assigned` });
+  }
+
   const assignment = existing
     ? await prisma.callAssignment.update({
         where: { id: existing.id },
@@ -112,6 +158,90 @@ router.post('/', async (req, res) => {
       });
 
   res.status(201).json({ callDay, assignment });
+});
+
+// PUT /api/assignments/day - atomically replace the senior/junior slots for one day.
+router.put('/day', async (req, res) => {
+  const { blockId, date, seniorId, juniorId, attendingEntryId } = req.body;
+  if (!blockId || !date) {
+    return res.status(400).json({ error: 'blockId and date are required' });
+  }
+  if (seniorId && juniorId && seniorId === juniorId) {
+    return res.status(400).json({
+      error: 'The same resident cannot be assigned as both senior and junior on the same call day.',
+    });
+  }
+
+  const membership = await requireBlockPermission(req, res, blockId, 'manual_assign_calls');
+  if (!membership) return;
+  if (!await validateAttendingEntryForBlock(res, attendingEntryId, blockId)) return;
+
+  const requested = [
+    ...(seniorId ? [{ residentId: seniorId, roleOnDay: 'senior' }] : []),
+    ...(juniorId ? [{ residentId: juniorId, roleOnDay: 'junior' }] : []),
+  ];
+  for (const item of requested) {
+    const ownership = await assertResidentBelongsToBlockProgram(res, item.residentId, blockId);
+    if (!ownership) return;
+    if (!residentCanFillRole(ownership.resident, item.roleOnDay)) {
+      return res.status(400).json({ error: `Resident is not eligible for the ${item.roleOnDay} slot` });
+    }
+  }
+
+  const startOfDay = startOfLogicalDay(date);
+  const nextDay = nextLogicalDay(startOfDay);
+  const block = await prisma.block.findUnique({
+    where: { id: blockId },
+    select: { startDate: true, endDate: true },
+  });
+  if (!block) return res.status(404).json({ error: 'Block not found' });
+  if (startOfDay < startOfLogicalDay(block.startDate) || startOfDay > startOfLogicalDay(block.endDate)) {
+    return res.status(400).json({ error: 'Assignment date must fall within the block' });
+  }
+
+  try {
+    const result = await prisma.$transaction(async tx => {
+      let callDay = await tx.callDay.findFirst({
+        where: { blockId, date: { gte: startOfDay, lt: nextDay } },
+      });
+      if (!callDay) {
+        callDay = await tx.callDay.create({
+          data: { blockId, date: startOfDay, attendingEntryId: attendingEntryId || null },
+        });
+      } else if (attendingEntryId !== undefined) {
+        callDay = await tx.callDay.update({
+          where: { id: callDay.id },
+          data: { attendingEntryId: attendingEntryId || null },
+        });
+      }
+
+      await tx.callAssignment.deleteMany({
+        where: { callDayId: callDay.id, roleOnDay: { in: ['senior', 'junior'] } },
+      });
+      if (requested.length) {
+        await tx.callAssignment.createMany({
+          data: requested.map(item => ({
+            callDayId: callDay.id,
+            residentId: item.residentId,
+            roleOnDay: item.roleOnDay,
+            isOverride: true,
+            overrideReason: null,
+          })),
+        });
+      }
+      const assignments = await tx.callAssignment.findMany({
+        where: { callDayId: callDay.id },
+        include: { resident: { select: { id: true, name: true, residentRole: true } } },
+        orderBy: { roleOnDay: 'desc' },
+      });
+      return { callDay, assignments };
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('[assignments/day PUT] error:', err.message);
+    res.status(500).json({ error: 'Failed to save call-day assignments' });
+  }
 });
 
 // DELETE /api/assignments/:id

@@ -128,7 +128,6 @@ async function main() {
   assert(scheduleRoute.includes('duplicateAttendingEntries'), 'diagnostics should report duplicate AttendingEntries');
 
   const calendar = fs.readFileSync(path.join(__dirname, '..', '..', 'frontend', 'src', 'pages', 'Calendar.jsx'), 'utf8');
-  assert(calendar.includes('isOverride: true'), 'Calendar manual assignment saves should send isOverride');
   assert(calendar.includes('publishedAt={publishResult?.publishedAt}'), 'publish success should display publishedAt');
   assert(calendar.includes('versionId={publishResult?.versionId}'), 'publish success should display versionId');
 
