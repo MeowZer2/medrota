@@ -79,10 +79,8 @@ export default function BlockSettings() {
   const [settings, setSettings] = useState({
     maxCallsPerResident:    9,
     maxCallsMedStudent:     5,
-    allowWeekendConsecutive: false,
     allowAttendingOnlyDays:  false,
     avoidAcademicDays:       true,
-    limitWeekendCalls:       true,
   });
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
@@ -94,10 +92,8 @@ export default function BlockSettings() {
       .then(({ data }) => setSettings({
         maxCallsPerResident:     data.maxCallsPerResident    ?? 9,
         maxCallsMedStudent:      data.maxCallsMedStudent     ?? 5,
-        allowWeekendConsecutive: data.allowWeekendConsecutive ?? false,
         allowAttendingOnlyDays:  data.allowAttendingOnlyDays  ?? false,
         avoidAcademicDays:       data.avoidAcademicDays       ?? true,
-        limitWeekendCalls:       data.limitWeekendCalls       ?? true,
       }))
       .catch(() => toast.error('Failed to load settings'))
       .finally(() => setLoading(false));
@@ -172,23 +168,17 @@ export default function BlockSettings() {
 
               <div style={{ padding: '0 24px' }}>
                 <SettingRow
-                  label="Limit residents to one weekend block"
-                  description="Each resident can only be assigned to one weekend (Fri/Sat/Sun) per block"
+                  label="Local resident call ceiling"
+                  description="A stricter local cap; enter 0 to use the PARO-derived maximum only"
                 >
-                  <Toggle
-                    checked={settings.limitWeekendCalls}
-                    onChange={val => set('limitWeekendCalls', val)}
-                  />
+                  <NumberInput value={settings.maxCallsPerResident} onChange={val => set('maxCallsPerResident', val)} />
                 </SettingRow>
 
                 <SettingRow
-                  label="Allow weekend consecutive calls"
-                  description="Allow assigning a resident to call on consecutive weekend days"
+                  label="Medical-student call ceiling"
+                  description="Maximum number of calls for a medical student in this block"
                 >
-                  <Toggle
-                    checked={settings.allowWeekendConsecutive}
-                    onChange={val => set('allowWeekendConsecutive', val)}
-                  />
+                  <NumberInput value={settings.maxCallsMedStudent} onChange={val => set('maxCallsMedStudent', val)} />
                 </SettingRow>
 
                 <SettingRow
