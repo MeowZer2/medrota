@@ -51,6 +51,7 @@ function createPrintableScheduleHtml(schedule, options = {}) {
   const startKey = block.startDateKey ?? toDateKey(block.startDate);
   const endKey = block.endDateKey ?? toDateKey(block.endDate);
   const publishedLabel = formatPublishedAt(schedule.publishedAt);
+  const stateLabel = publishedLabel ? `Published schedule - ${publishedLabel}` : 'Draft schedule';
   const title = `MedRota - ${block.programName ?? 'Program'} - Block ${block.number ?? ''}`;
 
   const headerCells = HEADERS.map(header => `<th>${escapeHtml(header)}</th>`).join('');
@@ -158,7 +159,7 @@ function createPrintableScheduleHtml(schedule, options = {}) {
         <h1>${escapeHtml(title)}</h1>
         <p class="meta">
           ${escapeHtml([block.specialty, `${formatDateKey(startKey)} to ${formatDateKey(endKey)}`].filter(Boolean).join(' - '))}
-          ${publishedLabel ? `<br>Published ${escapeHtml(publishedLabel)}` : ''}
+          <br>${escapeHtml(stateLabel)}
         </p>
       </div>
       <div class="actions">

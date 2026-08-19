@@ -47,7 +47,6 @@ const ROLE_PERMISSIONS = Object.freeze({
     'edit_program_settings',
     'manage_users',
     'create_academic_year',
-    'delete_program',
   ]),
   [ROLES.PROGRAM_DIRECTOR]: new Set([
     'view_draft_schedule',
