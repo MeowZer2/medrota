@@ -13,4 +13,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  response => response,
+  error => {
+    const status = error?.response?.status;
+    const url = error?.config?.url ?? '';
+    const isCredentialAttempt = url.includes('/auth/login') || url.includes('/auth/register');
+    if (status === 401 && !isCredentialAttempt) {
+      localStorage.removeItem('token');
+      window.dispatchEvent(new CustomEvent('medrota:auth-expired'));
+    }
+    return Promise.reject(error);
+  },
+);
+
 export default api;
