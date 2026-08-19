@@ -327,10 +327,10 @@ router.get('/:id/members', async (req, res) => {
 router.put('/:id/members/:userId', async (req, res) => {
   const { id, userId } = req.params;
   const { role } = req.body;
-  const nextRole = normalizeRole(role);
-  if (!isValidRole(nextRole)) {
+  if (!isValidRole(role)) {
     return res.status(400).json({ error: 'Invalid role' });
   }
+  const nextRole = normalizeRole(role);
   try {
     const requester = await requireProgramPermission(req, res, id, 'manage_users');
     if (!requester) return;
@@ -396,8 +396,8 @@ router.delete('/:id/members/:userId', async (req, res) => {
 router.post('/:id/invite', async (req, res) => {
   const { id } = req.params;
   const { role = 'viewer' } = req.body;
+  if (!isValidRole(role)) return res.status(400).json({ error: 'Invalid role' });
   const inviteRole = normalizeRole(role);
-  if (!isValidRole(inviteRole)) return res.status(400).json({ error: 'Invalid role' });
   try {
     const membership = await requireProgramPermission(req, res, id, 'manage_users');
     if (!membership) return;
@@ -405,7 +405,8 @@ router.post('/:id/invite', async (req, res) => {
     const invite = await prisma.invite.create({
       data: { programId: id, role: inviteRole },
     });
-    res.json({ inviteLink: `http://localhost:5173/join/${invite.token}`, token: invite.token });
+    const appBaseUrl = (process.env.APP_BASE_URL || 'http://localhost:5173').replace(/\/$/, '');
+    res.json({ inviteLink: `${appBaseUrl}/join/${invite.token}`, token: invite.token });
   } catch (err) {
     console.error('[programs/:id/invite POST] Error:', err.message);
     res.status(500).json({ error: 'Failed to create invite' });

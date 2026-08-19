@@ -117,7 +117,7 @@ async function main() {
       const response = await fetch(`${baseUrl}${path}`, {
         ...options,
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...(options.body ? { 'Content-Type': 'application/json' } : {}),
           ...(options.headers ?? {}),
         },
@@ -127,6 +127,46 @@ async function main() {
       try { body = text ? JSON.parse(text) : null; } catch { body = text; }
       return { status: response.status, body };
     }
+
+    const shortPassword = await request('/auth/register', null, {
+      method: 'POST',
+      body: JSON.stringify({ name: `${tag}_SHORT`, email: `${tag.toLowerCase()}_short@example.test`, password: 'short' }),
+    });
+    assert.equal(shortPassword.status, 400);
+
+    const orgCountBefore = await prisma.organization.count();
+    const requestAccess = await request('/auth/request-access', null, {
+      method: 'POST',
+      body: JSON.stringify({ name: `${tag}_JUNK`, country: 'CA' }),
+    });
+    assert.equal(requestAccess.status, 410, 'request-access must not create unauthenticated organizations');
+    assert.equal(await prisma.organization.count(), orgCountBefore);
+
+    const invite = await prisma.invite.create({ data: { programId: programA.id, role: 'viewer' } });
+    const invitedEmail = `${tag.toLowerCase()}_invited@example.test`;
+    const invitedRegistration = await request('/auth/register', null, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: `${tag}_INVITED`,
+        email: invitedEmail,
+        password: 'long-enough-password',
+        inviteToken: invite.token,
+        desiredRole: 'program_admin',
+      }),
+    });
+    assert.equal(invitedRegistration.status, 201);
+    userIds.push(invitedRegistration.body.user.id);
+    const invitedMembership = await prisma.programMember.findUnique({
+      where: { programId_userId: { programId: programA.id, userId: invitedRegistration.body.user.id } },
+    });
+    assert.equal(invitedMembership.role, 'viewer', 'invite role must override self-selected desired role');
+
+    const caseInsensitiveLogin = await request('/auth/login', null, {
+      method: 'POST',
+      body: JSON.stringify({ email: invitedEmail.toUpperCase(), password: 'long-enough-password' }),
+    });
+    assert.equal(caseInsensitiveLogin.status, 200);
+    assert.equal(caseInsensitiveLogin.body.user.id, invitedRegistration.body.user.id);
 
     const foreignStats = await request(`/programs/stats?blockId=${blockB.id}`, viewerToken);
     assert.equal(foreignStats.status, 403, 'viewer must not read another program stats');

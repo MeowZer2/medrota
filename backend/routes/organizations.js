@@ -8,7 +8,6 @@ router.use(auth);
 // POST /api/organizations
 router.post('/', async (req, res) => {
   const { name, country } = req.body;
-  console.log(`[organizations POST] userId=${req.user?.userId} name="${name}" country="${country}"`);
 
   if (!name || !country) {
     return res.status(400).json({ error: 'name and country are required' });
@@ -22,7 +21,6 @@ router.post('/', async (req, res) => {
     res.status(201).json({ organization: org });
   } catch (err) {
     console.error('[organizations POST] Prisma error:', err.message);
-    console.error(err);
     res.status(500).json({ error: 'Failed to create organization' });
   }
 });

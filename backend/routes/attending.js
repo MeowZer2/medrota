@@ -44,7 +44,6 @@ router.get('/roster', async (req, res) => {
 
 // POST /api/attending/roster
 router.post('/roster', async (req, res) => {
-  console.log('[attending/roster POST] body:', JSON.stringify(req.body));
   const { programId, attendingName, typicalActivities } = req.body;
   if (!programId || !attendingName) {
     console.warn('[attending/roster POST] missing fields', { programId, attendingName });
@@ -208,7 +207,6 @@ router.get('/', async (req, res) => {
 
 // POST /api/attending
 router.post('/', async (req, res) => {
-  console.log('[attending POST] body:', JSON.stringify(req.body));
   const { blockId, attendingName, date, activityLabel, notes, isCallDay } = req.body;
   if (!blockId || !attendingName || !date) {
     console.warn('[attending POST] missing required fields', { blockId, attendingName, date });
@@ -252,7 +250,7 @@ router.post('/', async (req, res) => {
     console.log(`[attending POST] created entry id=${entry.id} blockId=${blockId} attending=${attendingName} date=${date}`);
     res.status(existing ? 200 : 201).json(entry);
   } catch (err) {
-    console.error('[attending POST] Prisma error:', err.message, err);
+    console.error('[attending POST] Prisma error:', err.message);
     res.status(500).json({ error: 'Failed to create attending entry' });
   }
 });

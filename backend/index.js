@@ -1,4 +1,10 @@
 require('dotenv').config();
+
+for (const name of ['DATABASE_URL', 'JWT_SECRET']) {
+  if (!process.env[name]?.trim()) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+}
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
@@ -15,12 +21,17 @@ const flagsRoutes = require('./routes/flags');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const allowedOrigins = new Set([
+const defaultOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:5174',
   'http://127.0.0.1:5174',
-]);
+];
+const configuredOrigins = (process.env.CORS_ORIGINS ?? '')
+  .split(',')
+  .map(value => value.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+const allowedOrigins = new Set(configuredOrigins.length ? configuredOrigins : defaultOrigins);
 
 app.use(cors({
   origin(origin, callback) {
@@ -60,7 +71,10 @@ app.get('/api/health', (_req, res) => {
 
 app.use((err, _req, res, _next) => {
   console.error('[error]', err);
-  res.status(500).json({ error: err.message || 'Internal server error' });
+  const message = process.env.NODE_ENV === 'production'
+    ? 'Internal server error'
+    : (err.message || 'Internal server error');
+  res.status(500).json({ error: message });
 });
 
 if (require.main === module) {
