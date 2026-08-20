@@ -11,6 +11,10 @@ import {
   getDaysInBlock, isWeekend,
   toISODate, fmtShort, fmtDay, fmtFull, DAYS_OF_WEEK,
 } from '../lib/blockUtils';
+import ReadinessPanel from '../components/ReadinessPanel';
+import Modal, { useDialogA11y } from '../components/Modal';
+import { ViolationCard, UnfilledSlotCard } from '../components/ViolationList';
+import AuditHistory from '../components/AuditHistory';
 
 // â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -154,7 +158,7 @@ const DayCell = memo(function DayCell({ dayData, onClick, canEdit }) {
         )}
       </div>
 
-      {/* TOP SECTION â€” non-call attendings as subtle gray chips */}
+      {/* TOP SECTION — non-call attendings as subtle gray chips */}
       {nonCallAtts.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {nonCallAtts.map((a, i) => {
@@ -164,12 +168,12 @@ const DayCell = memo(function DayCell({ dayData, onClick, canEdit }) {
         </div>
       )}
 
-      {/* Divider â€” only when both sections have content */}
+      {/* Divider — only when both sections have content */}
       {showDivider && (
         <div style={{ borderTop: '1px solid #E2E8F0', margin: '4px 0' }} />
       )}
 
-      {/* BOTTOM SECTION â€” call-day attendings (red chip) + resident chips */}
+      {/* BOTTOM SECTION — call-day attendings (red chip) + resident chips */}
       {hasBottomSection && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {callAtts.map((a, i) => (
@@ -231,12 +235,12 @@ function DayRow({ dayData, onClick, canEdit }) {
       </div>
       <div className="flex flex-col gap-0.5 flex-1 pt-0.5">
         {isHoliday && <span style={{ fontSize: 11, fontWeight: 600, color: '#DC2626' }}>{holidayName || 'Holiday'}</span>}
-        {/* Non-call attendings â€” plain text */}
+        {/* Non-call attendings — plain text */}
         {nonCallAtts.map((a, i) => {
           const text = [a.attendingName, a.activityLabel].filter(Boolean).join(' - ');
           return text ? <span key={i} style={{ fontSize: 11, color: '#475569' }}>{text}</span> : null;
         })}
-        {/* Call attendings â€” navy bold */}
+        {/* Call attendings — navy bold */}
         {callAtts.map((a, i) => (
           <span key={`c${i}`} style={{ fontSize: 11, fontWeight: 600, color: '#1A3A5C' }}>{a.attendingName}</span>
         ))}
@@ -369,7 +373,7 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
             </select>
           ) : (
             <input value={form.attendingName} onChange={e => setForm(p => ({ ...p, attendingName: e.target.value }))}
-              placeholder="Attending name" style={miniInput} />
+              aria-label="Attending name" placeholder="Attending name" style={miniInput} />
           )}
 
           {(() => {
@@ -388,7 +392,7 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
               </select>
             ) : (
               <input value={form.activityLabel} onChange={e => setForm(p => ({ ...p, activityLabel: e.target.value }))}
-                placeholder="Activity label (e.g. General Medicine)" style={miniInput} />
+                aria-label="Activity label" placeholder="Activity label (e.g. General Medicine)" style={miniInput} />
             );
           })()}
           <label className="flex items-center gap-2" style={{ fontSize: 12, color: '#374151', cursor: 'pointer' }}>
@@ -468,6 +472,7 @@ function FlagSection({ day, blockId, flag, onFlagChange }) {
       <input
         value={label}
         onChange={e => setLabel(e.target.value)}
+        aria-label="Day flag label"
         placeholder="e.g. Teaching Day"
         style={{ ...miniInput, marginBottom: 8 }}
       />
@@ -521,6 +526,12 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
   const [visible, setVisible] = useState(false);
   const [seniorId, setSeniorId] = useState('');
   const [juniorId, setJuniorId] = useState('');
+  // The day sheet keeps its own mobile slide-up chrome, so it borrows the
+  // dialog behaviour rather than the shared shell. Focus waits for `visible`
+  // because the backdrop is visibility:hidden until then, and a hidden element
+  // cannot take focus.
+  const { panelRef, handleKeyDown } = useDialogA11y(onClose, { active: isOpen && visible });
+  const headingId = 'day-modal-title';
 
   useEffect(() => {
     if (isOpen) {
@@ -569,15 +580,22 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
       onClick={onClose}
     >
       <div
-        className={`w-full max-w-sm rounded-t-2xl md:rounded-2xl overflow-hidden modal-panel${visible ? ' open' : ''}`}
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={headingId}
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
+        className={`w-full max-w-sm rounded-t-2xl md:rounded-2xl overflow-hidden modal-panel outline-none${visible ? ' open' : ''}`}
         style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6', transition: 'opacity 120ms ease, transform 120ms ease' }}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
           <div>
-            <p style={{ fontSize: 14, fontWeight: 600, color: '#1A3A5C' }}>{fmtFull(day)}</p>
+            <h2 id={headingId} style={{ fontSize: 14, fontWeight: 600, color: '#1A3A5C' }}>{fmtFull(day)}</h2>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg" style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
+          <button onClick={onClose} aria-label="Close day editor" className="rounded-lg"
+            style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 36, minHeight: 36 }}
             onMouseEnter={e => e.currentTarget.style.background = '#F0F5FF'}
             onMouseLeave={e => e.currentTarget.style.background = ''}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -651,26 +669,19 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
 
 function GenSummaryModal({ summary, onClose }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.34)' }}
-      onClick={onClose}
+    <Modal
+      title="Schedule Generated"
+      description="Auto-generation complete"
+      onClose={onClose}
+      maxWidth="max-w-sm"
+      closeLabel="Close generation summary"
+      footer={(
+        <button type="button" onClick={onClose}
+          style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: '#1A3A5C', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+          View Schedule
+        </button>
+      )}
     >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 16 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 16 }}
-        transition={{ duration: 0.14, ease: 'easeOut' }}
-        className="w-full max-w-sm rounded-2xl overflow-hidden"
-        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{ height: 4, background: 'linear-gradient(90deg, #16A34A 0%, #2C5F8A 100%)' }} />
-        <div style={{ padding: '24px 24px 20px' }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1A3A5C', margin: 0 }}>Schedule Generated</h2>
-          <p style={{ fontSize: 13, color: '#94A3B8', marginTop: 4, marginBottom: 20 }}>Auto-generation complete</p>
-
           <div className="grid grid-cols-3 gap-3 mb-5">
             {[
               { label: 'Work Days',  value: summary.workDays,   color: '#1A3A5C' },
@@ -728,141 +739,197 @@ function GenSummaryModal({ summary, onClose }) {
             </div>
           )}
 
-          <button onClick={onClose}
-            style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: '#1A3A5C', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#2C5F8A'}
-            onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}>
-            View Schedule
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
+    </Modal>
   );
 }
 
 // â”€â”€ PublishConfirmModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ValidationModal({ result, onClose, onEditDate }) {
-  const items = result?.violations ?? [];
+  const violations = result?.violations ?? [];
+  const warnings = result?.warnings ?? [];
+  const unfilled = result?.unfilledSlots ?? [];
+  const documented = violations.filter(item => item.isOverride);
+  const outstanding = violations.filter(item => !item.isOverride);
+
+  const open = (dateKey) => { onEditDate?.(dateKey); onClose(); };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.4)' }} onClick={onClose}>
-      <div className="w-full max-w-2xl rounded-2xl overflow-hidden" style={{ background: '#fff', maxHeight: '85vh', boxShadow: '0 18px 48px rgba(15,23,42,0.2)' }} onClick={event => event.stopPropagation()}>
-        <div className="flex items-start justify-between gap-4 px-5 py-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
-          <div>
-            <h2 style={{ fontSize: 17, fontWeight: 750, color: '#1A3A5C' }}>
-              {result?.compliant ? 'Schedule is compliant' : 'Schedule needs attention'}
-            </h2>
-            <p style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>
-              {items.length} violation{items.length === 1 ? '' : 's'} and {result?.warnings?.length ?? 0} warning{result?.warnings?.length === 1 ? '' : 's'}
-            </p>
-          </div>
-          <button onClick={onClose} aria-label="Close validation results" style={{ border: 0, background: 'none', color: '#64748B', cursor: 'pointer', fontSize: 20 }}>×</button>
+    <Modal
+      title={result?.compliant ? 'Schedule is compliant' : 'Schedule needs attention'}
+      description={
+        `${outstanding.length} outstanding violation${outstanding.length === 1 ? '' : 's'}, ` +
+        `${documented.length} documented override${documented.length === 1 ? '' : 's'}, ` +
+        `${unfilled.length} unfilled slot${unfilled.length === 1 ? '' : 's'}`
+      }
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+      closeLabel="Close validation results"
+    >
+      {violations.length === 0 && (
+        <div className="rounded-xl px-4 py-3 mb-4" data-testid="validation-clean"
+          style={{ background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', fontSize: 13 }}>
+          No scheduling-rule violations were found in the stored draft.
         </div>
-        <div className="px-5 py-4 space-y-3 overflow-y-auto" style={{ maxHeight: '64vh' }}>
-          {items.length === 0 && (
-            <div className="rounded-xl px-4 py-3" style={{ background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', fontSize: 13 }}>
-              No scheduling-rule violations were found in the stored draft.
-            </div>
-          )}
-          {items.map((item, index) => (
-            <div key={`${item.code}-${item.residentId}-${item.date}-${index}`} className="rounded-xl px-4 py-3" style={{ border: '1px solid #FECACA', background: '#FEF2F2' }}>
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p style={{ fontSize: 12, fontWeight: 750, color: '#991B1B' }}>{item.code.replaceAll('_', ' ')}</p>
-                  <p style={{ fontSize: 13, color: '#7F1D1D', marginTop: 3 }}>{item.message}</p>
-                  {item.isOverride && <p style={{ fontSize: 11, color: '#B45309', marginTop: 4 }}>Recorded manual override</p>}
-                </div>
-                {item.date && onEditDate && (
-                  <button onClick={() => onEditDate(item.date)} className="px-3 py-1.5 rounded-lg" style={{ border: '1px solid #FCA5A5', background: '#fff', color: '#991B1B', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
-                    Edit {item.date}
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-          {(result?.warnings ?? []).map((item, index) => (
-            <div key={`warning-${item.code}-${item.residentId}-${index}`} className="rounded-xl px-4 py-3" style={{ border: '1px solid #FDE68A', background: '#FFFBEB' }}>
-              <p style={{ fontSize: 12, fontWeight: 750, color: '#92400E' }}>{item.code.replaceAll('_', ' ')}</p>
-              <p style={{ fontSize: 13, color: '#78350F', marginTop: 3 }}>{item.message}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+      )}
+
+      {outstanding.length > 0 && (
+        <section className="mb-4">
+          <h4 style={{ fontSize: 11, fontWeight: 700, color: '#991B1B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            Needs a decision ({outstanding.length})
+          </h4>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {outstanding.map((item, index) => (
+              <ViolationCard key={`${item.code}-${item.residentId}-${item.date}-${index}`} item={item} onEditDate={open} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {documented.length > 0 && (
+        <section className="mb-4">
+          <h4 style={{ fontSize: 11, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            Accepted exceptions ({documented.length})
+          </h4>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {documented.map((item, index) => (
+              <ViolationCard key={`override-${item.code}-${item.residentId}-${item.date}-${index}`} item={item} onEditDate={open} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {warnings.length > 0 && (
+        <section className="mb-4">
+          <h4 style={{ fontSize: 11, fontWeight: 700, color: '#92400E', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            Warnings ({warnings.length})
+          </h4>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {warnings.map((item, index) => (
+              <ViolationCard key={`warning-${item.code}-${item.residentId}-${index}`} item={item} onEditDate={open} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {unfilled.length > 0 && (
+        <details data-testid="unfilled-slots" open={unfilled.length <= 3}>
+          <summary style={{ fontSize: 11, fontWeight: 700, color: '#1A3A5C', textTransform: 'uppercase', letterSpacing: '0.06em', cursor: 'pointer', marginBottom: 8 }}>
+            Unfilled slots ({unfilled.length})
+          </summary>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {unfilled.map(slot => (
+              <UnfilledSlotCard key={`${slot.date}-${slot.roleOnDay}`} slot={slot} onEditDate={open} />
+            ))}
+          </ul>
+        </details>
+      )}
+    </Modal>
   );
 }
 
 function OverrideConfirmModal({ violations, onConfirm, onClose, saving }) {
   const [reason, setReason] = useState('');
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.48)' }} onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: '#fff', boxShadow: '0 18px 48px rgba(15,23,42,0.22)' }} onClick={event => event.stopPropagation()}>
-        <div className="px-5 py-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
-          <h2 style={{ fontSize: 17, fontWeight: 750, color: '#991B1B' }}>Rule violation requires an override</h2>
-          <p style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>Review the violations and record why this exception is necessary.</p>
-        </div>
-        <div className="px-5 py-4 space-y-3">
-          <ul className="space-y-2" style={{ maxHeight: 190, overflowY: 'auto' }}>
-            {violations.map((item, index) => (
-              <li key={`${item.code}-${index}`} className="rounded-lg px-3 py-2" style={{ background: '#FEF2F2', color: '#7F1D1D', fontSize: 12 }}>
-                <strong>{item.code.replaceAll('_', ' ')}:</strong> {item.message}
-              </li>
-            ))}
-          </ul>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#1A3A5C' }} htmlFor="override-reason">Override reason</label>
-          <textarea id="override-reason" value={reason} onChange={event => setReason(event.target.value)} rows={3} placeholder="Explain the clinical or operational reason for this exception" style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: 10, padding: '10px 12px', fontSize: 13, resize: 'vertical' }} />
-        </div>
-        <div className="flex gap-2 px-5 pb-5">
-          <button onClick={onClose} disabled={saving} className="flex-1 py-2.5 rounded-lg" style={{ border: '1px solid #CBD5E1', background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: 700 }}>Cancel</button>
-          <button onClick={() => onConfirm(reason)} disabled={saving || !reason.trim()} className="flex-1 py-2.5 rounded-lg" style={{ border: 0, background: '#B91C1C', color: '#fff', cursor: saving || !reason.trim() ? 'not-allowed' : 'pointer', opacity: saving || !reason.trim() ? 0.6 : 1, fontWeight: 750 }}>
+    <Modal
+      title="Rule violation requires an override"
+      description="Review the violations and record why this exception is necessary."
+      onClose={onClose}
+      maxWidth="max-w-lg"
+      closeLabel="Close override confirmation"
+      footer={(
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button type="button" onClick={onClose} disabled={saving} className="flex-1 py-2.5 rounded-lg"
+            style={{ border: '1px solid #CBD5E1', background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: 700 }}>
+            Cancel
+          </button>
+          <button type="button" onClick={() => onConfirm(reason)} disabled={saving || !reason.trim()} className="flex-1 py-2.5 rounded-lg"
+            style={{ border: 0, background: '#B91C1C', color: '#fff', cursor: saving || !reason.trim() ? 'not-allowed' : 'pointer', opacity: saving || !reason.trim() ? 0.6 : 1, fontWeight: 750 }}>
             {saving ? 'Saving override...' : 'Confirm override'}
           </button>
         </div>
-      </div>
-    </div>
+      )}
+    >
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
+        {violations.map((item, index) => (
+          <ViolationCard key={`${item.code}-${index}`} item={item} />
+        ))}
+      </ul>
+      <label htmlFor="override-reason" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#1A3A5C', marginTop: 14 }}>
+        Override reason
+      </label>
+      <textarea
+        id="override-reason" value={reason} onChange={event => setReason(event.target.value)} rows={3}
+        placeholder="Explain the clinical or operational reason for this exception"
+        style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: 10, padding: '10px 12px', fontSize: 13, resize: 'vertical', marginTop: 6 }}
+      />
+    </Modal>
+  );
+}
+
+function LinkControlModal({ mode, onConfirm, onClose, busy }) {
+  const isUnpublish = mode === 'unpublish';
+  return (
+    <Modal
+      title={isUnpublish ? 'Unpublish this schedule?' : 'Generate a new public link?'}
+      onClose={onClose}
+      maxWidth="max-w-md"
+      footer={(
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button type="button" onClick={onClose} disabled={busy}
+            className="flex-1 py-2.5 rounded-lg text-sm font-medium"
+            style={{ background: '#fff', color: '#64748B', border: '1px solid #E2E8F0', cursor: busy ? 'not-allowed' : 'pointer' }}>
+            Cancel
+          </button>
+          <button type="button" onClick={onConfirm} disabled={busy}
+            data-testid={isUnpublish ? 'confirm-unpublish' : 'confirm-rotate'}
+            className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white"
+            style={{ background: '#B91C1C', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+            {busy ? 'Working...' : (isUnpublish ? 'Unpublish' : 'Generate new link')}
+          </button>
+        </div>
+      )}
+    >
+      {isUnpublish ? (
+        <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
+          <p>The public link will stop working immediately, and anyone holding it will see an unavailable page.</p>
+          <p style={{ marginTop: 8 }}>Your draft schedule is not changed, and the published version history is kept. You can publish again at any time.</p>
+        </div>
+      ) : (
+        <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
+          <p>A new link is created and the current one stops working immediately. Anyone who already has the old link will lose access.</p>
+          <p style={{ marginTop: 8 }}>The published schedule itself does not change. You will need to share the new link with everyone who needs it.</p>
+        </div>
+      )}
+    </Modal>
   );
 }
 
 function PublishConfirmModal({ onConfirm, onClose, publishing }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.34)' }}
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 12 }}
-        transition={{ duration: 0.14, ease: 'easeOut' }}
-        className="w-full max-w-sm rounded-2xl overflow-hidden"
-        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{ height: 4, background: 'linear-gradient(90deg, #16A34A 0%, #2C5F8A 100%)' }} />
-        <div style={{ padding: '24px 24px 20px' }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1A3A5C', margin: '0 0 8px' }}>Publish Schedule</h2>
-          <p style={{ fontSize: 13, color: '#64748B', marginBottom: 20, lineHeight: 1.5 }}>
-            This will make the schedule publicly viewable via a shareable link. Residents will be able to see their assignments without logging in.
-          </p>
-          <div className="flex gap-3">
-            <button onClick={onClose} disabled={publishing}
-              style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#F8FAFC', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#F0F5FF'}
-              onMouseLeave={e => e.currentTarget.style.background = '#F8FAFC'}>
-              Cancel
-            </button>
-            <button onClick={onConfirm} disabled={publishing}
-              style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#16A34A', color: '#fff', fontSize: 13, fontWeight: 600, cursor: publishing ? 'not-allowed' : 'pointer', opacity: publishing ? 0.7 : 1 }}
-              onMouseEnter={e => { if (!publishing) e.currentTarget.style.background = '#15803D'; }}
-              onMouseLeave={e => e.currentTarget.style.background = '#16A34A'}>
-              {publishing ? 'Publishing...' : 'Publish'}
-            </button>
-          </div>
+    <Modal
+      title="Publish Schedule"
+      onClose={onClose}
+      maxWidth="max-w-sm"
+      closeLabel="Close publish confirmation"
+      footer={(
+        <div className="flex gap-3">
+          <button type="button" onClick={onClose} disabled={publishing}
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#fff', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: publishing ? 'not-allowed' : 'pointer' }}>
+            Cancel
+          </button>
+          <button type="button" onClick={onConfirm} disabled={publishing}
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#16A34A', color: '#fff', fontSize: 13, fontWeight: 600, cursor: publishing ? 'not-allowed' : 'pointer', opacity: publishing ? 0.7 : 1 }}>
+            {publishing ? 'Publishing...' : 'Publish'}
+          </button>
         </div>
-      </motion.div>
-    </motion.div>
+      )}
+    >
+      <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
+        This will make the schedule publicly viewable via a shareable link. Residents will be able to see their
+        assignments without logging in.
+      </p>
+    </Modal>
   );
 }
 
@@ -870,44 +937,29 @@ function PublishConfirmModal({ onConfirm, onClose, publishing }) {
 
 function ClearConfirmModal({ blockNum, onConfirm, onClose, clearing }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.34)' }}
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 12 }}
-        transition={{ duration: 0.14, ease: 'easeOut' }}
-        className="w-full max-w-sm rounded-2xl overflow-hidden"
-        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{ height: 4, background: '#DC2626' }} />
-        <div style={{ padding: '24px 24px 20px' }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1A3A5C', margin: '0 0 8px' }}>Clear schedule</h2>
-          <p style={{ fontSize: 13, color: '#64748B', marginBottom: 20, lineHeight: 1.5 }}>
-            This will remove all resident call assignments for Block {blockNum}. Attending entries will not be affected. This cannot be undone.
-          </p>
-          <div className="flex gap-3">
-            <button onClick={onClose} disabled={clearing}
-              style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#F8FAFC', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#F0F5FF'}
-              onMouseLeave={e => e.currentTarget.style.background = '#F8FAFC'}>
-              Cancel
-            </button>
-            <button onClick={onConfirm} disabled={clearing}
-              style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#DC2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: clearing ? 'not-allowed' : 'pointer', opacity: clearing ? 0.7 : 1 }}
-              onMouseEnter={e => { if (!clearing) e.currentTarget.style.background = '#B91C1C'; }}
-              onMouseLeave={e => e.currentTarget.style.background = '#DC2626'}>
-              {clearing ? 'Clearing...' : 'Clear all assignments'}
-            </button>
-          </div>
+    <Modal
+      title="Clear schedule"
+      onClose={onClose}
+      maxWidth="max-w-sm"
+      closeLabel="Close clear confirmation"
+      footer={(
+        <div className="flex gap-3">
+          <button type="button" onClick={onClose} disabled={clearing}
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#fff', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: clearing ? 'not-allowed' : 'pointer' }}>
+            Cancel
+          </button>
+          <button type="button" onClick={onConfirm} disabled={clearing}
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#DC2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: clearing ? 'not-allowed' : 'pointer', opacity: clearing ? 0.7 : 1 }}>
+            {clearing ? 'Clearing...' : 'Clear all assignments'}
+          </button>
         </div>
-      </motion.div>
-    </motion.div>
+      )}
+    >
+      <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
+        This will remove all resident call assignments for Block {blockNum}. Attending entries will not be
+        affected. This cannot be undone.
+      </p>
+    </Modal>
   );
 }
 
@@ -927,30 +979,25 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.34)' }}
-      onClick={onClose}
+    <Modal
+      title="Schedule published!"
+      description="Share this read-only public link with your team."
+      onClose={onClose}
+      maxWidth="max-w-md"
+      closeLabel="Close publish confirmation"
+      footer={(
+        <div className="flex gap-3">
+          <button type="button" onClick={() => window.open(publicUrl, '_blank')}
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #C7D9EC', background: '#EEF4FF', color: '#2C5F8A', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            View published version
+          </button>
+          <button type="button" onClick={onClose}
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#1A3A5C', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            Done
+          </button>
+        </div>
+      )}
     >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 12 }}
-        transition={{ duration: 0.14, ease: 'easeOut' }}
-        className="w-full max-w-md rounded-2xl overflow-hidden"
-        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{ height: 4, background: 'linear-gradient(90deg, #16A34A 0%, #2C5F8A 100%)' }} />
-        <div style={{ padding: '24px 24px 20px', textAlign: 'center' }}>
-          <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1A3A5C', margin: '0 0 6px' }}>Schedule published!</h2>
-          <p style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>Share this read-only public link with your team.</p>
 
           {(publishedLabel || versionId) && (
             <div className="rounded-lg px-3 py-2 mb-4" style={{ background: '#F8FAFC', border: '1px solid #E8EFF6' }}>
@@ -959,8 +1006,12 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
             </div>
           )}
 
+          <label htmlFor="published-public-link" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1A3A5C', marginBottom: 6 }}>
+            Public link
+          </label>
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             <input
+              id="published-public-link"
               readOnly
               value={publicUrl}
               style={{
@@ -970,6 +1021,7 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
               }}
             />
             <button
+              type="button"
               onClick={handleCopy}
               style={{
                 padding: '9px 16px', borderRadius: 8,
@@ -981,34 +1033,7 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
               {copied ? 'Copied!' : 'Copy'}
             </button>
           </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => window.open(publicUrl, '_blank')}
-              style={{
-                flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #C7D9EC',
-                background: '#EEF4FF', color: '#2C5F8A', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = '#DCE9F5'}
-              onMouseLeave={e => e.currentTarget.style.background = '#EEF4FF'}
-            >
-              View published version
-            </button>
-            <button
-              onClick={onClose}
-              style={{
-                flex: 1, padding: '10px', borderRadius: 10, border: 'none',
-                background: '#1A3A5C', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = '#2C5F8A'}
-              onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
+    </Modal>
   );
 }
 
@@ -1044,6 +1069,8 @@ const CalendarTopBar = memo(function CalendarTopBar({
   isPublished, publicToken,
   publicUrl,
   onCopyLink,
+  onUnpublish,
+  onRotateLink,
   onExportExcel, exportingExcel,
   onPrintPdf, printingPdf,
   onViewPublished,
@@ -1213,8 +1240,9 @@ const CalendarTopBar = memo(function CalendarTopBar({
       </div>
       {isPublished && publicToken && (
         <div className="flex flex-wrap items-center gap-3 px-5 py-3" style={{ background: '#F8FAFC', borderBottom: '1px solid #E8EFF6' }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#2C5F8A', whiteSpace: 'nowrap' }}>Public link</span>
+          <label htmlFor="calendar-public-link" style={{ fontSize: 12, fontWeight: 700, color: '#2C5F8A', whiteSpace: 'nowrap' }}>Public link</label>
           <input
+            id="calendar-public-link"
             readOnly
             value={publicUrl}
             className="min-w-0 flex-1"
@@ -1239,6 +1267,30 @@ const CalendarTopBar = memo(function CalendarTopBar({
           >
             Copy public link
           </button>
+          {canPublishSchedule && (
+            <>
+              <button
+                onClick={onRotateLink}
+                data-testid="rotate-public-link"
+                className="px-3 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: '#fff', color: '#B45309', border: '1px solid #FDE68A', cursor: 'pointer' }}
+                onMouseEnter={event => { event.currentTarget.style.background = '#FFFBEB'; }}
+                onMouseLeave={event => { event.currentTarget.style.background = '#fff'; }}
+              >
+                New link
+              </button>
+              <button
+                onClick={onUnpublish}
+                data-testid="unpublish-schedule"
+                className="px-3 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: '#fff', color: '#DC2626', border: '1px solid #FCA5A5', cursor: 'pointer' }}
+                onMouseEnter={event => { event.currentTarget.style.background = '#FEF2F2'; }}
+                onMouseLeave={event => { event.currentTarget.style.background = '#fff'; }}
+              >
+                Unpublish
+              </button>
+            </>
+          )}
         </div>
       )}
       <div className="flex flex-wrap gap-6 px-6 py-3">
@@ -1290,12 +1342,16 @@ export default function Calendar() {
   const [selectedDateKey, setSelectedDateKey]   = useState(null);
   const [loadingData, setLoadingData]           = useState(false);
   const [generating, setGenerating]             = useState(false);
+  const [readiness, setReadiness]               = useState(null);
   const [genSummary, setGenSummary]             = useState(null);
   const [publishPulsing, setPublishPulsing]     = useState(false);
   const [showPublishModal, setShowPublishModal]     = useState(false);
   const [showPublishSuccess, setShowPublishSuccess] = useState(false);
   const [publishResult, setPublishResult]           = useState(null);
   const [publishing, setPublishing]                 = useState(false);
+  const [publishBlockedBy, setPublishBlockedBy]     = useState(null);
+  const [linkControlMode, setLinkControlMode]       = useState(null);
+  const [linkControlBusy, setLinkControlBusy]       = useState(false);
   const [exportingExcel, setExportingExcel]         = useState(false);
   const [printingPdf, setPrintingPdf]               = useState(false);
   const [showClearModal, setShowClearModal]         = useState(false);
@@ -1311,6 +1367,7 @@ export default function Calendar() {
   const canEditResidents = can('edit_residents');
   const canEditAttending = can('edit_attendings');
   const canEditSchedule = can('manual_assign_calls') || canEditAttending;
+  const canGenerate = can('generate_schedule');
 
   useEffect(() => {
     latestBlockIdRef.current = blockId;
@@ -1338,7 +1395,7 @@ export default function Calendar() {
     return () => { cancelled = true; };
   }, [blockId, can]);
 
-  // Derived from context â€” persists across tab switches
+  // Derived from context — persists across tab switches
   const isPublished = currentBlock?.isPublished ?? false;
   const publicToken = currentBlock?.publicToken ?? null;
 
@@ -1352,13 +1409,16 @@ export default function Calendar() {
     async function fetchBlockData() {
       setLoadingData(true);
       try {
-        const [att, asgn, res, ros, fl, hol] = await Promise.all([
+        const [att, asgn, res, ros, fl, hol, ready] = await Promise.all([
           api.get(`/attending?blockId=${currentBlockId}`, { signal }),
           api.get(`/assignments?blockId=${currentBlockId}`, { signal }),
           programId && canEditResidents ? api.get(`/residents?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
           programId && canEditAttending ? api.get(`/attending/roster?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
           api.get(`/flags?blockId=${currentBlockId}`, { signal }),
           api.get(`/blocks/${currentBlockId}/holidays`, { signal }),
+          canGenerate
+            ? api.get(`/blocks/${currentBlockId}/readiness`, { signal }).catch(() => ({ data: null }))
+            : Promise.resolve({ data: null }),
         ]);
 
         if (cancelled || latestBlockIdRef.current !== currentBlockId) return;
@@ -1368,6 +1428,7 @@ export default function Calendar() {
         setRoster(ros.data.map(r => ({ id: r.id, name: r.attendingName, activities: r.typicalActivities })));
         setFlags(fl.data);
         setHolidays(hol.data);
+        setReadiness(ready.data);
       } catch (err) {
         if (!cancelled && err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') {
           // Keep the existing silent failure behavior for transient API errors.
@@ -1382,7 +1443,7 @@ export default function Calendar() {
       cancelled = true;
       controller.abort();
     };
-  }, [blockId, canEditAttending, canEditResidents, programId]);
+  }, [blockId, canEditAttending, canEditResidents, canGenerate, programId]);
 
   const attendingMap = useMemo(() => {
     const map = {};
@@ -1597,10 +1658,10 @@ export default function Calendar() {
     setShowPublishModal(true);
   }, [blockId]);
 
-  const handleConfirmPublish = useCallback(async () => {
+  const handleConfirmPublish = useCallback(async (acknowledgeViolations = false) => {
     setPublishing(true);
     try {
-      const { data } = await api.post('/schedule/publish', { blockId });
+      const { data } = await api.post('/schedule/publish', { blockId, acknowledgeViolations });
       // Refresh context so isPublished + publicToken persist in AppContext
       await refreshContext();
       // Update currentBlock to the refreshed version with new publicToken
@@ -1610,13 +1671,50 @@ export default function Calendar() {
       setTimeout(() => setPublishPulsing(false), 1200);
       setShowPublishModal(false);
       setShowPublishSuccess(true);
+      setPublishBlockedBy(null);
       const publishedLabel = data.publishedAt ? new Date(data.publishedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'now';
       toast.success(`Schedule published ${publishedLabel}`);
-    } catch {
-      toast.error('Failed to publish');
-      setShowPublishModal(false);
+    } catch (err) {
+      // The server refuses to publish an unreviewed non-compliant schedule.
+      if (err.response?.status === 409 && err.response.data?.requiresViolationAcknowledgement) {
+        setShowPublishModal(false);
+        setPublishBlockedBy(err.response.data.violations ?? []);
+      } else {
+        toast.error(err.response?.data?.error ?? 'Failed to publish');
+        setShowPublishModal(false);
+      }
     } finally {
       setPublishing(false);
+    }
+  }, [blockId, refreshContext, setCurrentBlock]);
+
+  const handleUnpublish = useCallback(async () => {
+    setLinkControlBusy(true);
+    try {
+      await api.post('/schedule/unpublish', { blockId });
+      await refreshContext();
+      setCurrentBlock(prev => (prev ? { ...prev, isPublished: false } : prev));
+      setLinkControlMode(null);
+      toast.success('Schedule unpublished. The public link no longer works.');
+    } catch (err) {
+      toast.error(err.response?.data?.error ?? 'Failed to unpublish');
+    } finally {
+      setLinkControlBusy(false);
+    }
+  }, [blockId, refreshContext, setCurrentBlock]);
+
+  const handleRotateLink = useCallback(async () => {
+    setLinkControlBusy(true);
+    try {
+      const { data } = await api.post('/schedule/rotate-link', { blockId });
+      await refreshContext();
+      setCurrentBlock(prev => (prev ? { ...prev, publicToken: data.publicToken } : prev));
+      setLinkControlMode(null);
+      toast.success('New public link generated. The previous link no longer works.');
+    } catch (err) {
+      toast.error(err.response?.data?.error ?? 'Failed to generate a new link');
+    } finally {
+      setLinkControlBusy(false);
     }
   }, [blockId, refreshContext, setCurrentBlock]);
 
@@ -1724,6 +1822,8 @@ export default function Calendar() {
           publicToken={publicToken}
           publicUrl={publicUrl}
           onCopyLink={handleCopyLink}
+          onUnpublish={() => setLinkControlMode('unpublish')}
+          onRotateLink={() => setLinkControlMode('rotate')}
           onExportExcel={handleExportExcel}
           exportingExcel={exportingExcel}
           onPrintPdf={handlePrintPdf}
@@ -1739,6 +1839,13 @@ export default function Calendar() {
           canValidateSchedule={can('view_draft_schedule')}
         />
 
+        {canGenerate && readiness && !readiness.dismissed && (
+          <ReadinessPanel
+            readiness={readiness}
+            onDismiss={() => setReadiness(current => (current ? { ...current, dismissed: true } : current))}
+          />
+        )}
+
         {can('edit_block_settings') && (
           <details className="mb-4 rounded-xl" style={{ border: '1px solid #E8EFF6', background: '#fff' }}>
             <summary style={{ padding: '12px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#1A3A5C' }}>
@@ -1749,6 +1856,18 @@ export default function Calendar() {
               loading={settingsLoading}
               blockNum={blockNum}
             />
+          </details>
+        )}
+
+        {can('view_draft_schedule') && blockId && programId && (
+          <details className="mb-4 rounded-xl" data-testid="block-history"
+            style={{ border: '1px solid #E8EFF6', background: '#fff' }}>
+            <summary style={{ padding: '12px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#1A3A5C' }}>
+              Block history
+            </summary>
+            <div style={{ padding: '0 16px 16px' }}>
+              <AuditHistory programId={programId} blockId={blockId} limit={30} />
+            </div>
           </details>
         )}
 
@@ -1868,9 +1987,32 @@ export default function Calendar() {
         <AnimatePresence>
           {showPublishModal && (
             <PublishConfirmModal
-              onConfirm={handleConfirmPublish}
+              onConfirm={() => handleConfirmPublish(false)}
               onClose={() => setShowPublishModal(false)}
               publishing={publishing}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {linkControlMode && (
+            <LinkControlModal
+              mode={linkControlMode}
+              busy={linkControlBusy}
+              onConfirm={linkControlMode === 'unpublish' ? handleUnpublish : handleRotateLink}
+              onClose={() => setLinkControlMode(null)}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {publishBlockedBy && (
+            <PublishBlockedModal
+              violations={publishBlockedBy}
+              publishing={publishing}
+              onAcknowledge={() => handleConfirmPublish(true)}
+              onClose={() => setPublishBlockedBy(null)}
+              onEditDate={dateKey => { setPublishBlockedBy(null); setSelectedDateKey(dateKey); }}
             />
           )}
         </AnimatePresence>

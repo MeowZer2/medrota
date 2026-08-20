@@ -9,6 +9,8 @@ import api from '../api/axios';
 import { useBlock, useUser } from '../context/AppContext';
 import BlockSelector from '../components/BlockSelector';
 import { PlusIcon, PgyBadge, CallBadge, VacationRangePill, parseVacationRanges, labelStyle, inputStyle } from '../components/ResidentPanels';
+import BlockAvailabilityModal from '../components/BlockAvailabilityModal';
+import Modal from '../components/Modal';
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
@@ -62,15 +64,18 @@ function vacationDatesToFormRanges(dates = []) {
 
 // ── ServiceToggle — the "Available this block" pill toggle ───────────────────
 
-function ServiceToggle({ on, onChange, disabled }) {
+function ServiceToggle({ on, onChange, disabled, residentName }) {
   return (
     <button
       onClick={() => !disabled && onChange(!on)}
       disabled={disabled}
+      role="switch"
+      aria-checked={on}
+      aria-label={`Active this block${residentName ? `: ${residentName}` : ''}`}
       title={on ? 'Available this block — click to unenroll' : 'Not enrolled this block — click to enroll'}
       style={{
         display: 'flex', alignItems: 'center', gap: 5,
-        padding: '3px 8px 3px 4px', borderRadius: 99,
+        padding: '7px 10px 7px 6px', borderRadius: 99, minHeight: 34,
         border: `1px solid ${on ? '#BBF7D0' : '#E2E8F0'}`,
         background: on ? '#F0FDF4' : '#F8FAFC',
         cursor: disabled ? 'default' : 'pointer',
@@ -137,7 +142,8 @@ function ResidentCard({ resident, blockId, onToggleEnroll, onEdit, onRemove }) {
           <span style={{ fontSize: 13, fontWeight: 600, color: '#1A3A5C' }}>{resident.name}</span>
           {resident.email && (
             <a href={`mailto:${resident.email}`} onClick={e => e.stopPropagation()} title={resident.email}
-              style={{ color: '#94A3B8', display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+              aria-label={`Email ${resident.name}`}
+              style={{ color: '#94A3B8', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, minWidth: 32, minHeight: 32 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                 <polyline points="22,6 12,12 2,6" />
@@ -172,6 +178,7 @@ function ResidentCard({ resident, blockId, onToggleEnroll, onEdit, onRemove }) {
       {blockId && isService && (
         <ServiceToggle
           on={resident.isEnrolledThisBlock}
+          residentName={resident.name}
           onChange={() => onToggleEnroll(resident)}
         />
       )}
@@ -180,10 +187,11 @@ function ResidentCard({ resident, blockId, onToggleEnroll, onEdit, onRemove }) {
       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
         <button
           onClick={() => onEdit(resident)}
-          style={{ padding: '5px 6px', borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8' }}
+          style={{ padding: '5px 6px', borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 36, minHeight: 36 }}
           onMouseEnter={e => { e.currentTarget.style.background = '#F0F5FF'; e.currentTarget.style.color = '#2C5F8A'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#94A3B8'; }}
           title="Edit"
+          aria-label={`Edit ${resident.name}`}
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -192,10 +200,11 @@ function ResidentCard({ resident, blockId, onToggleEnroll, onEdit, onRemove }) {
         </button>
         <button
           onClick={() => onRemove(resident.id)}
-          style={{ padding: '5px 6px', borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8' }}
+          style={{ padding: '5px 6px', borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 36, minHeight: 36 }}
           onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#94A3B8'; }}
           title="Remove"
+          aria-label={`Remove ${resident.name}`}
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" />
@@ -251,34 +260,13 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
     set('vacationRanges', form.vacationRanges.filter((_, j) => j !== i));
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.34)' }}
+    <Modal
+      title={submitLabel === 'Save changes' ? 'Edit Resident' : 'Add Resident'}
+      onClose={onClose}
+      maxWidth="max-w-md"
+      closeLabel="Close resident form"
     >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.97, y: 8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.97, y: 8 }}
-        transition={{ duration: 0.14, ease: 'easeOut' }}
-        className="w-full max-w-md rounded-2xl overflow-hidden max-h-[90vh] flex flex-col"
-        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 shrink-0" style={{ borderBottom: '1px solid #E8EFF6' }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: '#1A3A5C' }}>
-            {submitLabel === 'Save changes' ? 'Edit Resident' : 'Add Resident'}
-          </h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg" style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#F0F5FF'}
-            onMouseLeave={e => e.currentTarget.style.background = ''}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-
-        <form onSubmit={onSubmit} className="px-6 py-5 space-y-4 overflow-y-auto">
+      <form onSubmit={onSubmit} className="space-y-4">
           {error && <p className="text-sm px-3 py-2 rounded-lg" style={{ background: '#FEF2F2', color: '#DC2626' }}>{error}</p>}
 
           {/* Service / Off-service toggle — hidden for med students (always off-service) */}
@@ -312,30 +300,30 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
 
           {/* Role */}
           <div>
-            <label style={labelStyle}>Role</label>
-            <select value={form.role} onChange={e => set('role', e.target.value)} style={inputStyle}>
+            <label htmlFor="rf-role" style={labelStyle}>Role</label>
+            <select id="rf-role" value={form.role} onChange={e => set('role', e.target.value)} style={inputStyle}>
               {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
 
           {/* Name */}
           <div>
-            <label style={labelStyle}>Full name</label>
-            <input required value={form.name} onChange={e => set('name', e.target.value)}
+            <label htmlFor="rf-name" style={labelStyle}>Full name</label>
+            <input id="rf-name" required value={form.name} onChange={e => set('name', e.target.value)}
               placeholder="Dr. Firstname Lastname" style={inputStyle} />
           </div>
 
           {/* Email (optional) */}
           <div>
-            <label style={labelStyle}>Email <span style={{ color: '#CBD5E1', fontWeight: 400 }}>(optional)</span></label>
-            <input type="email" value={form.email ?? ''} onChange={e => set('email', e.target.value)}
+            <label htmlFor="rf-email" style={labelStyle}>Email <span style={{ color: '#CBD5E1', fontWeight: 400 }}>(optional)</span></label>
+            <input id="rf-email" type="email" value={form.email ?? ''} onChange={e => set('email', e.target.value)}
               placeholder="dr.smith@hospital.org" style={inputStyle} />
           </div>
 
           {/* PGY level */}
           <div>
-            <label style={labelStyle}>PGY level</label>
-            <select value={form.pgyLevel}
+            <label htmlFor="rf-pgy" style={labelStyle}>PGY level</label>
+            <select id="rf-pgy" value={form.pgyLevel}
               onChange={e => {
                 const val = e.target.value;
                 if (val === 'Medical Student') setForm(f => ({ ...f, pgyLevel: val, role: 'med-student', isServiceResident: false }));
@@ -351,12 +339,12 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
               <label style={labelStyle}>Rotation dates (2-week)</label>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 4 }}>From</p>
-                  <input type="date" value={form.rotationFrom} onChange={e => set('rotationFrom', e.target.value)} style={inputStyle} />
+                  <label htmlFor="rf-rotation-from" style={{ display: 'block', fontSize: 11, color: '#94A3B8', marginBottom: 4 }}>From</label>
+                  <input id="rf-rotation-from" type="date" value={form.rotationFrom} onChange={e => set('rotationFrom', e.target.value)} style={inputStyle} />
                 </div>
                 <div>
-                  <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 4 }}>To</p>
-                  <input type="date" value={form.rotationTo} onChange={e => set('rotationTo', e.target.value)} style={inputStyle} />
+                  <label htmlFor="rf-rotation-to" style={{ display: 'block', fontSize: 11, color: '#94A3B8', marginBottom: 4 }}>To</label>
+                  <input id="rf-rotation-to" type="date" value={form.rotationTo} onChange={e => set('rotationTo', e.target.value)} style={inputStyle} />
                 </div>
               </div>
             </div>
@@ -365,8 +353,8 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
           {/* Academic day pref */}
           {!isMedStudent && (
             <div>
-              <label style={labelStyle}>Academic day preference</label>
-              <select value={form.academicDayPref} onChange={e => set('academicDayPref', e.target.value)} style={inputStyle}>
+              <label htmlFor="rf-academic-day" style={labelStyle}>Academic day preference</label>
+              <select id="rf-academic-day" value={form.academicDayPref} onChange={e => set('academicDayPref', e.target.value)} style={inputStyle}>
                 {ACADEMIC_DAY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </div>
@@ -395,15 +383,16 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
                 <div key={i} className="grid grid-cols-2 gap-2">
                   <div>
                     {i === 0 && <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 4 }}>From</p>}
-                    <input type="date" value={range.from} onChange={e => updateRange(i, 'from', e.target.value)} style={inputStyle} />
+                    <input type="date" aria-label={`Vacation range ${i + 1} start`} value={range.from} onChange={e => updateRange(i, 'from', e.target.value)} style={inputStyle} />
                   </div>
                   <div>
                     {i === 0 && <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 4 }}>To</p>}
-                    <input type="date" value={range.to} onChange={e => updateRange(i, 'to', e.target.value)} style={inputStyle} />
+                    <input type="date" aria-label={`Vacation range ${i + 1} end`} value={range.to} onChange={e => updateRange(i, 'to', e.target.value)} style={inputStyle} />
                   </div>
                 </div>
               ))}
-              <button type="button" onClick={addRange} className="text-xs font-medium" style={{ color: '#2C5F8A' }}>
+              <button type="button" onClick={addRange} className="text-xs font-medium"
+                style={{ color: '#2C5F8A', minHeight: 34, padding: '0 4px' }}>
                 + Add range
               </button>
             </div>
@@ -411,11 +400,11 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
 
           {/* Call cap override */}
           <div>
-            <label style={labelStyle}>
+            <label htmlFor="rf-call-cap" style={labelStyle}>
               Call cap override{' '}
               <span style={{ color: '#CBD5E1' }}>(optional, default: {isMedStudent ? 5 : 9})</span>
             </label>
-            <input type="number" min="1" max="15" value={form.callCapOverride}
+            <input id="rf-call-cap" type="number" min="1" max="15" value={form.callCapOverride}
               onChange={e => set('callCapOverride', e.target.value)}
               placeholder={isMedStudent ? '5' : '9'} style={inputStyle} />
           </div>
@@ -435,9 +424,8 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
               {isSaving ? 'Saving…' : submitLabel}
             </button>
           </div>
-        </form>
-      </motion.div>
-    </motion.div>
+      </form>
+    </Modal>
   );
 }
 
@@ -580,6 +568,7 @@ export default function Residents() {
   const [residents, setResidents]         = useState([]);
   const [loading, setLoading]             = useState(false);
   const [modalOpen, setModalOpen]         = useState(false);
+  const [availabilityOpen, setAvailabilityOpen] = useState(false);
   const [editingResident, setEditingResident] = useState(null);
   const latestBlockIdRef = useRef(blockId);
 
@@ -696,14 +685,27 @@ export default function Residents() {
               </div>
             )}
           </div>
-          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white"
-            style={{ background: '#1A3A5C', border: 'none', cursor: 'pointer', flexShrink: 0, alignSelf: 'flex-start' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#2C5F8A'}
-            onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}>
-            <PlusIcon /> Add Resident
-          </motion.button>
+          <div className="flex flex-wrap gap-2" style={{ flexShrink: 0, alignSelf: 'flex-start' }}>
+            {blockId && (
+              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
+                onClick={() => setAvailabilityOpen(true)}
+                data-testid="set-block-availability"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold"
+                style={{ background: '#fff', color: '#2C5F8A', border: '1px solid #BFD4EA', cursor: 'pointer' }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#F0F5FF'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}>
+                Set block availability
+              </motion.button>
+            )}
+            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
+              onClick={() => setModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white"
+              style={{ background: '#1A3A5C', border: 'none', cursor: 'pointer' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#2C5F8A'}
+              onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}>
+              <PlusIcon /> Add Resident
+            </motion.button>
+          </div>
         </motion.div>
 
         {!programId && (
@@ -767,6 +769,18 @@ export default function Residents() {
           {editingResident && (
             <EditModal resident={editingResident} blockId={blockId}
               onClose={() => setEditingResident(null)} onSaved={handleEdited} />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {availabilityOpen && blockId && (
+            <BlockAvailabilityModal
+              blockId={blockId}
+              blockNumber={currentBlock?.number}
+              residents={residents}
+              allYearBlocks={allYearBlocks}
+              onClose={() => setAvailabilityOpen(false)}
+              onApplied={fetchResidents}
+            />
           )}
         </AnimatePresence>
       </Layout>

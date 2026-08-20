@@ -46,6 +46,8 @@ async function cleanup(orgId) {
     await prisma.residentProfile.deleteMany({ where: { programId: { in: programIds } } });
     await prisma.invite.deleteMany({ where: { programId: { in: programIds } } });
     await prisma.programMember.deleteMany({ where: { programId: { in: programIds } } });
+    // The test's own audit rows must go before the program they reference.
+    await prisma.auditEvent.deleteMany({ where: { programId: { in: programIds } } });
     await prisma.program.deleteMany({ where: { id: { in: programIds } } });
   }
   await prisma.organization.delete({ where: { id: orgId } });
@@ -161,6 +163,24 @@ async function main() {
     const constrainedAssignments = await prisma.callAssignment.findMany({ where: { callDay: { blockId: constrainedBlock.id } } });
     assert(constrainedAssignments.filter(item => item.residentId === seniors[0].id).length <= 1);
     assert(constrainedAssignments.filter(item => item.residentId === juniors[0].id).length <= 1);
+
+    // Generation must be idempotent. Callers that do not pre-clear used to get a
+    // second resident written into an already-filled role slot, which is how
+    // legacy duplicate role rows were produced.
+    const before = await prisma.callAssignment.findMany({
+      where: { callDay: { blockId: block.id } },
+      select: { id: true, callDayId: true, residentId: true, roleOnDay: true, isOverride: true },
+      orderBy: { id: 'asc' },
+    });
+    await generateSchedule(block.id);
+    const after = await prisma.callAssignment.findMany({
+      where: { callDay: { blockId: block.id } },
+      select: { id: true, callDayId: true, residentId: true, roleOnDay: true, isOverride: true },
+      orderBy: { id: 'asc' },
+    });
+    assert.deepEqual(after, before, 'regenerating without clearing must not change stored assignments');
+    const slotKeys = after.map(item => `${item.callDayId}:${item.roleOnDay}`);
+    assert.equal(new Set(slotKeys).size, slotKeys.length, 'regeneration must not duplicate a role slot');
 
     console.log('[scheduler-integration] generation and stored-schedule validation checks passed');
   } finally {

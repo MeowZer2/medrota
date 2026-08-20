@@ -3,6 +3,8 @@ const prisma = require('../lib/prisma');
 const auth = require('../middleware/auth');
 const { assertResidentBelongsToBlockProgram, requireBlockPermission, requireBlockView } = require('../lib/roles');
 const { validateProposedDayAssignments } = require('../services/scheduleValidator');
+const { recordAuditEvent, recordAuditEventTx } = require('../services/auditLog');
+const { normalizeDateKey } = require('../services/paroRules');
 
 const router = express.Router();
 router.use(auth);
@@ -136,6 +138,17 @@ router.post('/', async (req, res) => {
         },
       });
 
+  await recordAuditEvent({
+    programId: ownership.blockAccess.programId,
+    blockId,
+    actorUserId: req.user?.userId,
+    action: 'ASSIGNMENT_CHANGED',
+    entityType: 'CallAssignment',
+    entityId: assignment.id,
+    summary: `${existing ? 'Changed' : 'Added'} the ${roleOnDay} assignment on ${normalizeDateKey(date)}`,
+    metadata: { date: normalizeDateKey(date), roleOnDay, residentId, isOverride: assignment.isOverride },
+  });
+
   res.status(201).json({ callDay, assignment });
 });
 
@@ -240,6 +253,28 @@ router.put('/day', async (req, res) => {
         include: { resident: { select: { id: true, name: true, residentRole: true } } },
         orderBy: { roleOnDay: 'desc' },
       });
+
+      const dateKey = normalizeDateKey(date);
+      const confirmedViolationCodes = validation.violations.map(item => item.code);
+      await recordAuditEventTx(tx, {
+        programId: membership.programId,
+        blockId,
+        actorUserId: req.user?.userId,
+        action: confirmedViolationCodes.length > 0 ? 'OVERRIDE_CONFIRMED' : 'ASSIGNMENT_CHANGED',
+        entityType: 'CallDay',
+        entityId: callDay.id,
+        summary: confirmedViolationCodes.length > 0
+          ? `Confirmed a rule override on ${dateKey}`
+          : `Saved the call assignments for ${dateKey}`,
+        metadata: {
+          date: dateKey,
+          previous: previousAssignments.map(item => ({ roleOnDay: item.roleOnDay, residentId: item.residentId })),
+          current: assignments.map(item => ({ roleOnDay: item.roleOnDay, residentId: item.residentId })),
+          violationCodes: confirmedViolationCodes,
+          overrideReason: confirmedViolationCodes.length > 0 ? overrideReason.trim() : null,
+        },
+      });
+
       return { callDay, assignments, validation: validation.proposed };
     });
 
@@ -254,12 +289,27 @@ router.put('/day', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   const assignment = await prisma.callAssignment.findUnique({
     where: { id: req.params.id },
-    select: { callDay: { select: { blockId: true } } },
+    select: { roleOnDay: true, residentId: true, callDay: { select: { blockId: true, date: true } } },
   });
   if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
   const membership = await requireBlockPermission(req, res, assignment.callDay.blockId, 'manual_assign_calls');
   if (!membership) return;
   await prisma.callAssignment.delete({ where: { id: req.params.id } });
+  await recordAuditEvent({
+    programId: membership.programId,
+    blockId: assignment.callDay.blockId,
+    actorUserId: req.user?.userId,
+    action: 'ASSIGNMENT_CHANGED',
+    entityType: 'CallAssignment',
+    entityId: req.params.id,
+    summary: `Removed the ${assignment.roleOnDay} assignment on ${normalizeDateKey(assignment.callDay.date)}`,
+    metadata: {
+      date: normalizeDateKey(assignment.callDay.date),
+      roleOnDay: assignment.roleOnDay,
+      residentId: assignment.residentId,
+      removed: true,
+    },
+  });
   res.json({ success: true });
 });
 

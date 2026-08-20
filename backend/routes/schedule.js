@@ -8,6 +8,7 @@ const { createPrintableScheduleHtml, buildPrintableFilename } = require('../serv
 const { requireBlockPermission, requireBlockView } = require('../lib/roles');
 const { hasPermission } = require('../lib/roles');
 const { validateSchedule } = require('../services/scheduleValidator');
+const { recordAuditEvent, recordAuditEventTx } = require('../services/auditLog');
 
 const router = express.Router();
 router.use(auth);
@@ -40,6 +41,23 @@ router.post('/generate', async (req, res) => {
 
     const summary = await generateSchedule(blockId);
     console.log(`[schedule/generate] done: assigned=${summary.assigned}/${summary.workDays} warnings=${summary.warnings.length}`);
+    await recordAuditEvent({
+      programId: membership.programId,
+      blockId,
+      actorUserId: req.user?.userId,
+      action: 'SCHEDULE_GENERATED',
+      entityType: 'Block',
+      entityId: blockId,
+      summary: `Auto-generated the schedule: ${summary.assigned} of ${summary.workDays} days covered`,
+      metadata: {
+        assigned: summary.assigned,
+        workDays: summary.workDays,
+        unassigned: summary.unassigned,
+        warningCount: summary.warnings.length,
+        availabilityComplete: summary.availabilityComplete,
+        excludedResidentCount: summary.excludedResidents.length,
+      },
+    });
     res.json(summary);
   } catch (err) {
     console.error('[schedule/generate] Error:', err.message);
@@ -64,6 +82,16 @@ router.delete('/clear', async (req, res) => {
     // Step 3: delete only empty CallDays.
     const { count } = await prisma.callDay.deleteMany({
       where: { blockId, assignments: { none: {} } },
+    });
+    await recordAuditEvent({
+      programId: membership.programId,
+      blockId,
+      actorUserId: req.user?.userId,
+      action: 'SCHEDULE_CLEARED',
+      entityType: 'Block',
+      entityId: blockId,
+      summary: `Cleared the generated schedule: ${count} empty call day${count === 1 ? '' : 's'} removed`,
+      metadata: { clearedCallDays: count, manualOverridesPreserved: true },
     });
     res.json({ cleared: count });
   } catch (err) {
@@ -90,11 +118,28 @@ router.get('/validate', async (req, res) => {
 
 // POST /api/schedule/publish â€” snapshot current schedule and mark block as published
 router.post('/publish', async (req, res) => {
-  const { blockId } = req.body;
+  const { blockId, acknowledgeViolations = false } = req.body;
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
   try {
     const membership = await requireBlockPermission(req, res, blockId, 'publish_schedule');
     if (!membership) return;
+
+    // Never publish a schedule whose compliance nobody has looked at. Violations
+    // that are already documented manual overrides are intentional exceptions
+    // and do not block; anything else needs an explicit acknowledgement from
+    // someone authorised to publish.
+    const preflight = await validateSchedule(blockId);
+    if (!preflight) return res.status(404).json({ error: 'Block not found' });
+    const undocumented = preflight.violations.filter(item => !item.isOverride);
+    if (undocumented.length > 0 && !acknowledgeViolations) {
+      return res.status(409).json({
+        requiresViolationAcknowledgement: true,
+        error: 'This schedule breaks scheduling rules that are not documented exceptions.',
+        violations: undocumented,
+        documentedOverrides: preflight.violations.filter(item => item.isOverride),
+      });
+    }
+
     // Fetch all current schedule data for the block
     const block = await prisma.block.findUnique({
       where: { id: blockId },
@@ -132,19 +177,37 @@ router.post('/publish', async (req, res) => {
     const publicToken = block.publicToken || crypto.randomUUID();
 
     // Update block + create version in a transaction
-    const [updatedBlock, version] = await prisma.$transaction([
-      prisma.block.update({
+    const { updatedBlock, version } = await prisma.$transaction(async tx => {
+      const block2 = await tx.block.update({
         where: { id: blockId },
         data: { isPublished: true, publicToken },
-      }),
-      prisma.scheduleVersion.create({
+      });
+      const version2 = await tx.scheduleVersion.create({
         data: {
           blockId,
           snapshotJson: snapshot,
           publishedBy: req.user?.userId ?? null,
         },
-      }),
-    ]);
+      });
+      await recordAuditEventTx(tx, {
+        programId: membership.programId,
+        blockId,
+        actorUserId: req.user?.userId,
+        action: 'SCHEDULE_PUBLISHED',
+        entityType: 'ScheduleVersion',
+        entityId: version2.id,
+        summary: undocumented.length > 0
+          ? `Published the schedule with ${undocumented.length} acknowledged rule violation${undocumented.length === 1 ? '' : 's'}`
+          : 'Published the schedule',
+        metadata: {
+          versionId: version2.id,
+          acknowledgedViolations: undocumented.map(item => ({ code: item.code, date: item.date })),
+          documentedOverrides: preflight.violations.filter(item => item.isOverride).length,
+          linkReused: Boolean(block.publicToken),
+        },
+      });
+      return { updatedBlock: block2, version: version2 };
+    });
 
     res.json({
       success: true,
@@ -152,10 +215,102 @@ router.post('/publish', async (req, res) => {
       publishedAt: version.publishedAt.toISOString(),
       publicToken: updatedBlock.publicToken,
       versionId: version.id,
+      publishedWithViolations: undocumented.length,
+      documentedOverrides: preflight.violations.filter(item => item.isOverride).length,
     });
   } catch (err) {
     console.error('[schedule/publish] Error:', err.message);
     res.status(500).json({ error: 'Failed to publish schedule' });
+  }
+});
+
+// POST /api/schedule/unpublish - retract a published schedule.
+//
+// The public URL stops resolving immediately because every public route checks
+// isPublished. Immutable ScheduleVersion history is left intact, and the draft
+// schedule is not touched at all.
+router.post('/unpublish', async (req, res) => {
+  const { blockId } = req.body;
+  if (!blockId) return res.status(400).json({ error: 'blockId required' });
+  try {
+    const membership = await requireBlockPermission(req, res, blockId, 'publish_schedule');
+    if (!membership) return;
+
+    const block = await prisma.block.findUnique({
+      where: { id: blockId },
+      select: { id: true, isPublished: true, number: true },
+    });
+    if (!block) return res.status(404).json({ error: 'Block not found' });
+    if (!block.isPublished) return res.status(409).json({ error: 'This schedule is not published' });
+
+    const versionCount = await prisma.scheduleVersion.count({ where: { blockId } });
+
+    await prisma.$transaction(async tx => {
+      await tx.block.update({ where: { id: blockId }, data: { isPublished: false } });
+      await recordAuditEventTx(tx, {
+        programId: membership.programId,
+        blockId,
+        actorUserId: req.user?.userId,
+        action: 'SCHEDULE_UNPUBLISHED',
+        entityType: 'Block',
+        entityId: blockId,
+        summary: 'Unpublished the schedule; the public link no longer resolves',
+        metadata: { retainedVersions: versionCount, draftUnchanged: true },
+      });
+    });
+
+    res.json({ success: true, blockId, isPublished: false, retainedVersions: versionCount });
+  } catch (err) {
+    console.error('[schedule/unpublish] Error:', err.message);
+    res.status(500).json({ error: 'Failed to unpublish schedule' });
+  }
+});
+
+// POST /api/schedule/rotate-link - mint a new public token.
+//
+// The old token stops working the moment it is replaced. The latest published
+// version remains available under the new link.
+router.post('/rotate-link', async (req, res) => {
+  const { blockId } = req.body;
+  if (!blockId) return res.status(400).json({ error: 'blockId required' });
+  try {
+    const membership = await requireBlockPermission(req, res, blockId, 'publish_schedule');
+    if (!membership) return;
+
+    const block = await prisma.block.findUnique({
+      where: { id: blockId },
+      select: { id: true, publicToken: true, isPublished: true },
+    });
+    if (!block) return res.status(404).json({ error: 'Block not found' });
+    if (!block.publicToken) return res.status(409).json({ error: 'This schedule has never been published' });
+
+    // 256 bits of randomness, URL-safe. Deliberately not derived from anything
+    // guessable about the block.
+    const nextToken = crypto.randomBytes(32).toString('base64url');
+
+    const updated = await prisma.$transaction(async tx => {
+      const next = await tx.block.update({
+        where: { id: blockId },
+        data: { publicToken: nextToken },
+      });
+      await recordAuditEventTx(tx, {
+        programId: membership.programId,
+        blockId,
+        actorUserId: req.user?.userId,
+        action: 'PUBLIC_LINK_ROTATED',
+        entityType: 'Block',
+        entityId: blockId,
+        // The tokens themselves are credentials and are never audited.
+        summary: 'Generated a new public link; the previous link no longer works',
+        metadata: { stillPublished: block.isPublished },
+      });
+      return next;
+    });
+
+    res.json({ success: true, blockId, publicToken: updated.publicToken, isPublished: updated.isPublished });
+  } catch (err) {
+    console.error('[schedule/rotate-link] Error:', err.message);
+    res.status(500).json({ error: 'Failed to rotate the public link' });
   }
 });
 

@@ -28,6 +28,7 @@ const {
   isAcademicDayLabel,
 } = require('./paroRules');
 const { minimumPositive, validateSchedule } = require('./scheduleValidator');
+const { checkEligibility } = require('./eligibility');
 
 function startOfLogicalDay(value) {
   const dateKey = normalizeDateKey(value);
@@ -111,52 +112,30 @@ function formatEligibilityReasons(reasons) {
     .join(', ');
 }
 
+// Eligibility lives in services/eligibility.js so the validator can explain an
+// unfilled slot using exactly the rule that rejected each candidate.
 function checkEligible(resident, dateKey, roleOnDay, programSettings, blockDateKeys) {
-  if (violatesVacation(dateKey, resident.vacationDateKeys)) return { ok: false, reason: 'vacation' };
-  if (violatesPostCallBeforeVacation(dateKey, resident.vacationDateKeys)) return { ok: false, reason: 'post-call-before-vacation' };
-  if (hasConsecutiveCall(dateKey, [...resident.assignedDateKeys])) return { ok: false, reason: 'consecutive-call' };
-
-  const callType = getAssignmentCallType(roleOnDay, programSettings);
-  const nextHomeCalls = resident.homeCalls + (callType === 'home' ? 1 : 0);
-  const nextInHouseCalls = resident.inHouseCalls + (callType === 'in_house' ? 1 : 0);
-  const nextTotalCalls = nextHomeCalls + nextInHouseCalls;
-
-  if (resident.totalCallCap !== null && nextTotalCalls > resident.totalCallCap) {
-    return { ok: false, reason: `block-call-cap(${totalCalls(resident)}/${resident.totalCallCap})` };
-  }
-
-  if (resident.medStudentCallCap !== null && nextTotalCalls > resident.medStudentCallCap) {
-    return { ok: false, reason: `med-student-cap(${totalCalls(resident)}/${resident.medStudentCallCap})` };
-  }
-
-  if (callType === 'in_house' && nextInHouseCalls > resident.inHouseMax) {
-    return { ok: false, reason: `in-house-cap(${resident.inHouseCalls}/${resident.inHouseMax})` };
-  }
-
-  if (callType === 'home' && nextHomeCalls > resident.homeMax) {
-    return { ok: false, reason: `home-call-cap(${resident.homeCalls}/${resident.homeMax})` };
-  }
-
-  if (callType === 'home' && hasConsecutiveHomeCallWeekend(dateKey, [...resident.homeCallDateKeys])) {
-    return { ok: false, reason: 'consecutive-home-call-weekends' };
-  }
-
-  if (!isBlendedCallLoadAllowed(nextHomeCalls, nextInHouseCalls)) {
-    return { ok: false, reason: 'blended-call-load' };
-  }
-
-  const requiredWeekendsOff = requiredCompleteWeekendsOff(blockDateKeys);
-  if (requiredWeekendsOff > 0 && isFridaySaturdaySunday(dateKey)) {
-    const weekendsOff = calculateCompleteWeekendsOff([...resident.assignedDateKeys, dateKey], blockDateKeys);
-    if (weekendsOff < requiredWeekendsOff) {
-      return { ok: false, reason: `complete-weekends-off(${weekendsOff}/${requiredWeekendsOff})` };
-    }
-  }
-
-  return { ok: true, callType };
+  return checkEligibility(resident, dateKey, roleOnDay, programSettings, blockDateKeys);
 }
 
-function sortCandidates(candidates) {
+// Ties are common: on most days several residents sit on the same call count.
+// Breaking them on raw roster index makes the generator prefer whoever the
+// database happens to return first, every single day, which concentrates the
+// leftover calls on a fixed roster position. Rotating the starting point by the
+// day's ordinal keeps the choice fully deterministic while giving each position
+// its turn at the front of the queue.
+//
+// The rotation is taken over the candidate's rank within its own role pool, not
+// over the whole roster: rotating a pool of 4 juniors modulo an 8-person roster
+// would advance their order unevenly and reintroduce the bias it is meant to
+// remove.
+function rotatedOrder(resident, rotation, poolSize) {
+  const rank = resident.poolRank ?? resident.sortOrder;
+  if (!poolSize) return rank;
+  return ((rank - rotation) % poolSize + poolSize) % poolSize;
+}
+
+function sortCandidates(candidates, rotation = 0, poolSize = 0) {
   return candidates.sort((a, b) => {
     const callDelta = totalCalls(a) - totalCalls(b);
     if (callDelta !== 0) return callDelta;
@@ -166,8 +145,25 @@ function sortCandidates(candidates) {
       - calculateWeightedCallPoints(b.homeCalls, b.inHouseCalls);
     if (weightDelta !== 0) return weightDelta;
 
+    const rotationDelta =
+      rotatedOrder(a, rotation, poolSize) - rotatedOrder(b, rotation, poolSize);
+    if (rotationDelta !== 0) return rotationDelta;
+
     return a.sortOrder - b.sortOrder;
   });
+}
+
+// Rank each resident within the pool they actually compete in.
+function assignPoolRanks(pool) {
+  const byRole = new Map();
+  for (const resident of [...pool].sort((a, b) => a.sortOrder - b.sortOrder)) {
+    const key = resident.role;
+    if (!byRole.has(key)) byRole.set(key, 0);
+    resident.poolRank = byRole.get(key);
+    resident.poolSize = 0;
+    byRole.set(key, byRole.get(key) + 1);
+  }
+  for (const resident of pool) resident.poolSize = byRole.get(resident.role) ?? 0;
 }
 
 function buildSummaryRow(resident) {
@@ -268,18 +264,20 @@ async function generateSchedule(blockId) {
   const medStudents = residents.filter(resident =>
     resident.isMedStudent && resident.isActive && resident.availabilityComplete
   );
+  assignPoolRanks(regularResidents);
+  assignPoolRanks(medStudents);
 
+  // Every stored assignment is loaded, not only manual overrides. Callers that
+  // want a fresh plan clear the generated rows first (POST /schedule/generate
+  // does). Treating an already-filled slot as filled keeps generation
+  // idempotent: running it twice is a no-op instead of writing a second
+  // resident into the same role slot.
   const existingCallDays = await prisma.callDay.findMany({
     where: { blockId },
-    include: {
-      assignments: {
-        where: { isOverride: true },
-        include: { resident: true },
-      },
-    },
+    include: { assignments: { include: { resident: true } } },
   });
 
-  const overrideByDateKey = new Map();
+  const existingByDateKey = new Map();
   const warnings = missingAvailabilityResidents.map(resident => ({
     code: 'MISSING_RESIDENT_AVAILABILITY',
     residentId: resident.id,
@@ -299,20 +297,24 @@ async function generateSchedule(blockId) {
       const resident = residentById.get(assignment.residentId);
       if (!resident) continue;
 
-      if (violatesVacation(dateKey, resident.vacationDateKeys)) {
-        warnings.push({ date: dateKey, message: `Manual override for ${resident.name} falls on vacation` });
-      }
-      if (violatesPostCallBeforeVacation(dateKey, resident.vacationDateKeys)) {
-        warnings.push({ date: dateKey, message: `Manual override for ${resident.name} is post-call before vacation` });
-      }
-      if (hasConsecutiveCall(dateKey, [...resident.assignedDateKeys])) {
-        warnings.push({ date: dateKey, message: `Manual override for ${resident.name} creates consecutive call` });
+      // Only a manual override deserves an override warning. A generated row
+      // that survived because the caller did not clear is simply carried over.
+      if (assignment.isOverride) {
+        if (violatesVacation(dateKey, resident.vacationDateKeys)) {
+          warnings.push({ date: dateKey, message: `Manual override for ${resident.name} falls on vacation` });
+        }
+        if (violatesPostCallBeforeVacation(dateKey, resident.vacationDateKeys)) {
+          warnings.push({ date: dateKey, message: `Manual override for ${resident.name} is post-call before vacation` });
+        }
+        if (hasConsecutiveCall(dateKey, [...resident.assignedDateKeys])) {
+          warnings.push({ date: dateKey, message: `Manual override for ${resident.name} creates consecutive call` });
+        }
       }
 
       incrementResidentCall(resident, dateKey, assignment.roleOnDay, programSettings);
     }
 
-    if (callDay.assignments.length > 0) overrideByDateKey.set(dateKey, info);
+    if (callDay.assignments.length > 0) existingByDateKey.set(dateKey, info);
   }
 
   const dayMap = new Map();
@@ -339,22 +341,25 @@ async function generateSchedule(blockId) {
       }
     }
 
-    return { eligible: sortCandidates(eligible), rejectedReasons };
+    // The day's ordinal in the block rotates which roster position wins a tie.
+    const rotation = blockDateKeys.indexOf(dateKey);
+    const poolSize = eligible[0]?.poolSize ?? 0;
+    return { eligible: sortCandidates(eligible, rotation, poolSize), rejectedReasons };
   }
 
   for (const dateKey of blockDateKeys) {
     const date = dateFromDateKey(dateKey);
     const isHoliday = holidaySet.has(dateKey);
     const isAcademicDay = cfg.avoidAcademicDays && academicDaySet.has(dateKey);
-    const overrideInfo = overrideByDateKey.get(dateKey);
-    const callDay = overrideInfo?.callDay ?? await prisma.callDay.upsert({
+    const existingInfo = existingByDateKey.get(dateKey);
+    const callDay = existingInfo?.callDay ?? await prisma.callDay.upsert({
       where: { blockId_date: { blockId, date } },
       update: { isHoliday },
       create: { blockId, date, isHoliday },
     });
 
-    let hasSenior = overrideInfo?.hasSenior ?? false;
-    let hasJunior = overrideInfo?.hasJunior ?? false;
+    let hasSenior = existingInfo?.hasSenior ?? false;
+    let hasJunior = existingInfo?.hasJunior ?? false;
     dayMap.set(dateKey, { callDayId: callDay.id, hasSenior, hasJunior, skipped: false });
 
     if (isHoliday) {

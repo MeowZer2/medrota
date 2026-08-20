@@ -5,6 +5,8 @@ import { toast } from 'react-hot-toast';
 import Layout from '../components/Layout';
 import PageWrapper from '../components/PageWrapper';
 import api from '../api/axios';
+import AuditHistory from '../components/AuditHistory';
+import Modal from '../components/Modal';
 import { useBlock, useUser } from '../context/AppContext';
 import { ROLE_OPTIONS } from '../constants/roles';
 import { MEDICAL_SPECIALTIES } from '../constants/medicalSpecialties';
@@ -29,8 +31,12 @@ const inputStyle = {
   background: '#F8FAFC', outline: 'none', boxSizing: 'border-box',
 };
 
-function Label({ children }) {
-  return <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#64748B', marginBottom: 5 }}>{children}</label>;
+function Label({ htmlFor, children }) {
+  return (
+    <label htmlFor={htmlFor} style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#64748B', marginBottom: 5 }}>
+      {children}
+    </label>
+  );
 }
 
 // â”€â”€ main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -218,12 +224,12 @@ export default function ProgramSettings() {
           <Card title="Program Info" subtitle="Update the program name and specialty.">
             <div className="space-y-4">
               <div>
-                <Label>Program name</Label>
-                <input value={name} onChange={e => setName(e.target.value)} style={inputStyle} placeholder="e.g. Internal Medicine Residency" />
+                <Label htmlFor="ps-program-name">Program name</Label>
+                <input id="ps-program-name" value={name} onChange={e => setName(e.target.value)} style={inputStyle} placeholder="e.g. Internal Medicine Residency" />
               </div>
               <div>
-                <Label>Specialty</Label>
-                <select value={specialty} onChange={e => setSpecialty(e.target.value)} style={inputStyle}>
+                <Label htmlFor="ps-specialty">Specialty</Label>
+                <select id="ps-specialty" value={specialty} onChange={e => setSpecialty(e.target.value)} style={inputStyle}>
                   {MEDICAL_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
                   {specialty && !MEDICAL_SPECIALTIES.includes(specialty) && <option value={specialty}>{specialty}</option>}
                 </select>
@@ -330,8 +336,8 @@ export default function ProgramSettings() {
           <Card title="Invite Link" subtitle="Share a link so others can join this program with a defined role.">
             <div className="space-y-3">
               <div>
-                <Label>Invite role</Label>
-                <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} style={inputStyle} disabled={!canManageUsers}>
+                <Label htmlFor="ps-invite-role">Invite role</Label>
+                <select id="ps-invite-role" value={inviteRole} onChange={e => setInviteRole(e.target.value)} style={inputStyle} disabled={!canManageUsers}>
                   {ROLE_OPTIONS.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
                 </select>
               </div>
@@ -339,6 +345,7 @@ export default function ProgramSettings() {
                 <div style={{ display: 'flex', gap: 8 }}>
                   <input
                     readOnly
+                    aria-label="Invite link"
                     value={inviteLink}
                     style={{ ...inputStyle, flex: 1, background: '#F0F5FF', color: '#2C5F8A', fontFamily: 'monospace', fontSize: 12 }}
                   />
@@ -422,45 +429,26 @@ export default function ProgramSettings() {
               </div>
             )}
           </Card>
+
+          {/* Program history */}
+          <Card
+            title="Program History"
+            subtitle="Read-only record of who changed what. Program Admins and Directors see everything; Chief Residents see scheduling changes only."
+          >
+            <AuditHistory programId={programId} limit={50} />
+          </Card>
         </motion.div>
 
         {/* Snapshot modal */}
         <AnimatePresence>
           {snapshotModal && (
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
-              style={{ background: 'rgba(15,23,42,0.34)' }}
-              onClick={() => setSnapshotModal(null)}
+            <Modal
+              title={`Snapshot - ${fmtVersionDate(snapshotModal.publishedAt)}`}
+              description={`${snapshotModal.publishedBy ? `Published by ${snapshotModal.publishedBy} - ` : ''}${snapshotModal.assignedDays} assigned days`}
+              onClose={() => setSnapshotModal(null)}
+              maxWidth="max-w-2xl"
+              closeLabel="Close snapshot"
             >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 16 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 16 }}
-                transition={{ duration: 0.14, ease: 'easeOut' }}
-                className="w-full max-w-2xl max-h-[80vh] rounded-2xl overflow-hidden flex flex-col"
-                style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
-                onClick={e => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
-                  <div>
-                    <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1A3A5C', margin: 0 }}>
-                      Snapshot - {fmtVersionDate(snapshotModal.publishedAt)}
-                    </h2>
-                    <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>
-                      {snapshotModal.publishedBy ? `Published by ${snapshotModal.publishedBy}` : ''} - {snapshotModal.assignedDays} assigned days
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setSnapshotModal(null)}
-                    style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto px-6 py-4">
                   {(() => {
                     const snap = snapshotModal.snapshotJson;
                     const callDays = snap?.callDays ?? [];
@@ -498,9 +486,7 @@ export default function ProgramSettings() {
                       </div>
                     );
                   })()}
-                </div>
-              </motion.div>
-            </motion.div>
+            </Modal>
           )}
         </AnimatePresence>
       </Layout>

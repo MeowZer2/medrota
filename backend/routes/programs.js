@@ -3,6 +3,7 @@ const prisma = require('../lib/prisma');
 const auth = require('../middleware/auth');
 const { ROLES, normalizeRole, isValidRole, requireProgramPermission, requireBlockView } = require('../lib/roles');
 const { isAllowedSpecialty } = require('../lib/medicalSpecialties');
+const { recordAuditEvent } = require('../services/auditLog');
 
 const router = express.Router();
 router.use(auth);
@@ -295,6 +296,20 @@ router.put('/:id', async (req, res) => {
         seniorInHouseCall: true,
       },
     });
+    if (juniorInHouseCall !== undefined || seniorInHouseCall !== undefined) {
+      await recordAuditEvent({
+        programId: id,
+        actorUserId: req.user?.userId,
+        action: 'PROGRAM_CALL_TYPES_CHANGED',
+        entityType: 'Program',
+        entityId: id,
+        summary: `Set junior call to ${program.juniorInHouseCall ? 'in-house' : 'home'} and senior call to ${program.seniorInHouseCall ? 'in-house' : 'home'}`,
+        metadata: {
+          juniorInHouseCall: program.juniorInHouseCall,
+          seniorInHouseCall: program.seniorInHouseCall,
+        },
+      });
+    }
     res.json(program);
   } catch (err) {
     console.error('[programs PUT /:id] Error:', err.message);
@@ -351,6 +366,15 @@ router.put('/:id/members/:userId', async (req, res) => {
       where: { id: member.id },
       data:  { role: nextRole },
     });
+    await recordAuditEvent({
+      programId: id,
+      actorUserId: req.user?.userId,
+      action: 'MEMBER_ROLE_CHANGED',
+      entityType: 'ProgramMember',
+      entityId: member.id,
+      summary: `Changed a member role from ${normalizeRole(member.role)} to ${nextRole}`,
+      metadata: { memberUserId: userId, previousRole: normalizeRole(member.role), newRole: nextRole },
+    });
     res.json(updated);
   } catch (err) {
     console.error('[programs/:id/members/:userId PUT] Error:', err.message);
@@ -404,6 +428,16 @@ router.post('/:id/invite', async (req, res) => {
 
     const invite = await prisma.invite.create({
       data: { programId: id, role: inviteRole },
+    });
+    // The invite token itself is a credential and is deliberately not audited.
+    await recordAuditEvent({
+      programId: id,
+      actorUserId: req.user?.userId,
+      action: 'MEMBER_INVITED',
+      entityType: 'Invite',
+      entityId: invite.id,
+      summary: `Created an invite for the ${inviteRole} role`,
+      metadata: { inviteId: invite.id, role: inviteRole },
     });
     const appBaseUrl = (process.env.APP_BASE_URL || 'http://localhost:5173').replace(/\/$/, '');
     res.json({ inviteLink: `${appBaseUrl}/join/${invite.token}`, token: invite.token });

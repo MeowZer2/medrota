@@ -1,22 +1,17 @@
 import { useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
-import { ROLE_OPTIONS, PROGRAM_ROLES } from '../constants/roles';
-import { MEDICAL_SPECIALTIES } from '../constants/medicalSpecialties';
+import { useUser } from '../context/AppContext';
 
+// Registration asks for a name, an email and a password. Everything else about
+// a user comes from their invitation or from the program they create, so it is
+// not guessed at here.
 export default function Register() {
   const navigate = useNavigate();
+  const { refreshContext } = useUser();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get('invite') ?? '';
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    category: 'physician_trainee',
-    desiredRole: PROGRAM_ROLES.CHIEF_RESIDENT,
-    clinicalIdentity: 'resident',
-    homeSpecialty: 'Internal Medicine',
-  });
+  const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -31,8 +26,11 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      await api.post('/auth/register', { ...form, ...(inviteToken ? { inviteToken } : {}) });
-      navigate('/login');
+      const { data } = await api.post('/auth/register', { ...form, ...(inviteToken ? { inviteToken } : {}) });
+      // Sign straight in rather than asking for the same credentials again.
+      localStorage.setItem('token', data.token);
+      const hasProgram = await refreshContext();
+      navigate(hasProgram ? '/dashboard' : '/setup');
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed');
     } finally {
@@ -49,8 +47,9 @@ export default function Register() {
         {error && <p style={styles.error}>{error}</p>}
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          <label style={styles.label}>Name</label>
+          <label htmlFor="rg-name" style={styles.label}>Name</label>
           <input
+            id="rg-name"
             style={styles.input}
             type="text"
             name="name"
@@ -60,8 +59,9 @@ export default function Register() {
             autoComplete="name"
           />
 
-          <label style={styles.label}>Email</label>
+          <label htmlFor="rg-email" style={styles.label}>Email</label>
           <input
+            id="rg-email"
             style={styles.input}
             type="email"
             name="email"
@@ -71,8 +71,9 @@ export default function Register() {
             autoComplete="email"
           />
 
-          <label style={styles.label}>Password</label>
+          <label htmlFor="rg-password" style={styles.label}>Password</label>
           <input
+            id="rg-password"
             style={styles.input}
             type="password"
             name="password"
@@ -84,35 +85,15 @@ export default function Register() {
           />
           <p style={styles.note}>Use at least 10 characters.</p>
 
-          <label style={styles.label}>User category</label>
-          <select style={styles.input} name="category" value={form.category} onChange={handleChange}>
-            <option value="admin_leadership">Admin/leadership</option>
-            <option value="physician_trainee">Physician/trainee</option>
-            <option value="other">Other</option>
-          </select>
-
-          <label style={styles.label}>Desired app role</label>
-          <select style={styles.input} name="desiredRole" value={form.desiredRole} onChange={handleChange}>
-            {ROLE_OPTIONS.map(role => (
-              <option key={role.value} value={role.value}>{role.label}</option>
-            ))}
-          </select>
-
-          <label style={styles.label}>Clinical identity</label>
-          <select style={styles.input} name="clinicalIdentity" value={form.clinicalIdentity} onChange={handleChange}>
-            <option value="resident">Resident</option>
-            <option value="medical_student">Medical Student</option>
-            <option value="attending">Attending</option>
-            <option value="other">Other</option>
-          </select>
-
-          <label style={styles.label}>Home specialty</label>
-          <select style={styles.input} name="homeSpecialty" value={form.homeSpecialty} onChange={handleChange}>
-            {MEDICAL_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-
-          {inviteToken && (
-            <p style={styles.note}>Your program access will be set by the invite link.</p>
+          {inviteToken ? (
+            <p style={styles.note} data-testid="invite-note">
+              You are joining an existing program. Your access level is set by the invitation.
+            </p>
+          ) : (
+            <p style={styles.note} data-testid="no-invite-note">
+              No invitation? You can create a new program after registering, or ask your Program Admin to
+              send you an invite link.
+            </p>
           )}
 
           <button style={styles.button} type="submit" disabled={loading}>

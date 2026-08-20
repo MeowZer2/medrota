@@ -37,6 +37,8 @@ async function cleanup(orgIds, userIds) {
     await prisma.residentProfile.deleteMany({ where: { programId: { in: programIds } } });
     await prisma.invite.deleteMany({ where: { programId: { in: programIds } } });
     await prisma.programMember.deleteMany({ where: { programId: { in: programIds } } });
+    // The test's own audit rows must go before the program they reference.
+    await prisma.auditEvent.deleteMany({ where: { programId: { in: programIds } } });
     await prisma.program.deleteMany({ where: { id: { in: programIds } } });
   }
   if (userIds.length) await prisma.user.deleteMany({ where: { id: { in: userIds } } });
@@ -160,6 +162,47 @@ async function main() {
       where: { programId_userId: { programId: programA.id, userId: invitedRegistration.body.user.id } },
     });
     assert.equal(invitedMembership.role, 'viewer', 'invite role must override self-selected desired role');
+    assert.equal(invitedRegistration.body.joinedProgramId, programA.id, 'an invited registration must report the program joined');
+
+    // Registration signs the user in rather than making them retype credentials.
+    assert.ok(invitedRegistration.body.token, 'registration must return a session token');
+    const autoLoggedIn = await request('/programs/mine', invitedRegistration.body.token);
+    assert.equal(autoLoggedIn.status, 200, 'the token returned by registration must work immediately');
+
+    // The deprecated registration metadata is ignored, not merely unused.
+    const invitedRow = await prisma.user.findUnique({ where: { id: invitedRegistration.body.user.id } });
+    assert.equal(invitedRow.desiredRole, null, 'desiredRole must not be stored');
+    assert.equal(invitedRow.category, null, 'category must not be stored');
+    assert.equal(invitedRow.clinicalIdentity, null, 'clinicalIdentity must not be stored');
+    assert.equal(invitedRow.homeSpecialty, null, 'homeSpecialty must not be stored');
+
+    // Registering without an invite creates an account with no program at all.
+    const soloEmail = `${tag.toLowerCase()}_solo@example.test`;
+    const soloRegistration = await request('/auth/register', null, {
+      method: 'POST',
+      body: JSON.stringify({ name: `${tag}_SOLO`, email: soloEmail, password: 'long-enough-password' }),
+    });
+    assert.equal(soloRegistration.status, 201);
+    userIds.push(soloRegistration.body.user.id);
+    assert.equal(soloRegistration.body.joinedProgramId, null, 'registering without an invite joins no program');
+    assert.equal(
+      await prisma.programMember.count({ where: { userId: soloRegistration.body.user.id } }), 0,
+      'registering without an invite must not create a membership',
+    );
+    const soloPrograms = await request('/programs/mine', soloRegistration.body.token);
+    assert.equal(soloPrograms.status, 404, 'a new user without an invite belongs to no program');
+
+    // A used invite cannot be redeemed twice.
+    const reusedInvite = await request('/auth/register', null, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: `${tag}_REUSE`,
+        email: `${tag.toLowerCase()}_reuse@example.test`,
+        password: 'long-enough-password',
+        inviteToken: invite.token,
+      }),
+    });
+    assert.equal(reusedInvite.status, 400, 'a used invite must be refused');
 
     const caseInsensitiveLogin = await request('/auth/login', null, {
       method: 'POST',

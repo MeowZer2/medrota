@@ -31,7 +31,16 @@ QA organization: `MedRota QA`
 
 QA program: `QA Vascular Surgery`
 
-QA block: Block 1, `2026-06-15` to `2026-06-28`
+QA blocks:
+
+| Block | Dates | State |
+|---|---|---|
+| Block 1 | 2026-06-15 to 2026-06-28 | Published, seeded assignments, attending, holiday and flag |
+| Block 2 | 2026-06-29 to 2026-07-12 | Draft with **no resident availability**, reset on every seed run |
+
+Block 2 exists so the availability workflow and the pre-generation readiness
+check have something deterministic to act on. Its enrollments are cleared each
+time the seed runs, so the availability tests can be re-run.
 
 ## Expected Role Behavior
 
@@ -76,7 +85,19 @@ If browsers have not been installed on the machine yet, run once from `frontend`
 npx playwright install chromium
 ```
 
-Current E2E coverage includes logged-out route guards, public routes, Chief Resident calendar prefill/save/reload, duplicate-resident rejection without data loss, manual override confirmation/reason, stored-schedule validation, holiday visibility, Viewer restrictions and direct mutation rejection, Program Admin call-type settings, password visibility, publishing, public unauthenticated viewing, and mojibake checks across login, registration, calendar, dashboard, and public surfaces.
+Current E2E coverage is 39 tests across six spec files:
+
+| Spec | Covers |
+|---|---|
+| `core-calendar.spec.js` | Route guards, calendar prefill/save/reload, duplicate-resident rejection, override confirmation and reason, actionable validation detail, unfilled-slot explanations, publishing with documented overrides, holidays, Viewer restrictions and direct mutation rejection, call-type settings, password visibility, public access, mojibake checks |
+| `availability.spec.js` | Readiness before generation, bulk enrollment, copy-forward, dialog keyboard behaviour, block history visible to a Chief Resident and hidden from a Viewer |
+| `publishing.spec.js` | Public link rotation invalidating the old link, unpublish and republish, Viewer sees no revocation controls |
+| `onboarding.spec.js` | Registration fields, auto-login, the no-invite explanation, invited registration joining at the invited role |
+| `responsive.spec.js` | No horizontal scroll at 375/768/1024/1440, dialogs fit a phone, touch-target sizes |
+| `accessibility.spec.js` | Named controls, labelled modal dialogs, Escape and focus restore, keyboard-only login, calendar and program settings, role conveyed by text |
+
+The onboarding tests create accounts with unique throwaway emails. They join no
+program unless the test explicitly does so, and they are inert.
 
 On Windows, Playwright's owned `webServer` teardown may hang after tests have completed. A reliable local alternative is to start backend and frontend normally, then run:
 
@@ -89,6 +110,8 @@ npm run e2e
 ```
 
 The explicit seed is required because reused servers bypass Playwright's embedded seed command. Stop the manually started local servers afterward. This runner limitation does not change test assertions or browser behavior.
+
+Running the suite repeatedly on Windows can also exhaust ephemeral sockets, which surfaces as `net::ERR_NO_BUFFER_SPACE` on a `page.goto`. It is a host limitation, not a product failure: wait a few seconds and re-run. If it recurs, use the server-reuse procedure above.
 
 After running E2E manually, run the seed again if you want to restore the default QA assignment state:
 

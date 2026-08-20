@@ -16,6 +16,86 @@ const {
   violatesPostCallBeforeVacation,
   isAcademicDayLabel,
 } = require('./paroRules');
+const { buildResidentState, applyAssignment, checkEligibility } = require('./eligibility');
+
+// What each violation code means in plain language. The code stays the
+// machine-readable contract; `rule`, `why` and `remedy` are what a Chief
+// Resident actually needs in order to decide what to do.
+const RULE_INFO = Object.freeze({
+  DUPLICATE_RESIDENT_ON_DAY: {
+    rule: 'One resident in two slots',
+    why: 'The same person cannot cover both the senior and the junior slot on one day.',
+    remedy: 'Open the day and give one of the two slots to someone else.',
+  },
+  DUPLICATE_ROLE_ON_DAY: {
+    rule: 'Two residents in one slot',
+    why: 'A call day has exactly one senior and one junior slot, so a duplicate makes the schedule ambiguous.',
+    remedy: 'Open the day and remove the resident who should not be on call.',
+  },
+  MISSING_RESIDENT_AVAILABILITY: {
+    rule: 'No block availability',
+    why: 'This resident has no availability record for the block, so their vacation and call ceiling are unknown and cannot be respected.',
+    remedy: 'Set block availability for them on the Residents page, then validate again.',
+  },
+  VACATION_CONFLICT: {
+    rule: 'On vacation',
+    why: 'The resident is on approved vacation on this date.',
+    remedy: 'Assign someone else, or correct the vacation dates if they are wrong.',
+  },
+  POST_CALL_BEFORE_VACATION: {
+    rule: 'Post-call into vacation',
+    why: 'Being on call the night before vacation starts means the first vacation day is spent post-call.',
+    remedy: 'Move this call a day earlier, or give it to another resident.',
+  },
+  CONSECUTIVE_CALL: {
+    rule: 'Consecutive call',
+    why: 'PARO does not allow call on two days in a row.',
+    remedy: 'Move one of the two calls to a non-adjacent day.',
+  },
+  IN_HOUSE_MAX_EXCEEDED: {
+    rule: 'Over the in-house call maximum',
+    why: 'PARO caps in-house call by the number of days the resident is on service in the block.',
+    remedy: 'Reassign one of their calls, or check whether their vacation dates are correct.',
+  },
+  HOME_CALL_MAX_EXCEEDED: {
+    rule: 'Over the home-call maximum',
+    why: 'PARO caps home call by the number of days the resident is on service in the block.',
+    remedy: 'Reassign one of their calls, or check whether their vacation dates are correct.',
+  },
+  BLENDED_CALL_MAX_EXCEEDED: {
+    rule: 'Over the blended call limit',
+    why: 'Mixed home and in-house call is weighted 3 and 4 points and may not exceed 30 points in a block.',
+    remedy: 'Reduce the resident total, especially their in-house calls, which weigh most.',
+  },
+  LOCAL_CALL_CAP_EXCEEDED: {
+    rule: 'Over the program call ceiling',
+    why: 'This is your own limit from block settings or this resident call cap, not a PARO rule.',
+    remedy: 'Reassign a call, or raise the ceiling in Block Settings if the limit is wrong.',
+  },
+  MED_STUDENT_CALL_CAP_EXCEEDED: {
+    rule: 'Over the medical-student call ceiling',
+    why: 'Medical students have a separate, lower call limit set in block settings.',
+    remedy: 'Reassign a call, or adjust the medical-student ceiling in Block Settings.',
+  },
+  INSUFFICIENT_WEEKENDS_OFF: {
+    rule: 'Not enough weekends off',
+    why: 'Every resident must keep a minimum number of complete weekends free in the block.',
+    remedy: 'Free up a full Friday-to-Sunday weekend for this resident.',
+  },
+  CONSECUTIVE_HOME_WEEKENDS: {
+    rule: 'Home call on consecutive weekends',
+    why: 'Home call may not fall on two weekends in a row.',
+    remedy: 'Move one of the two weekend calls to another resident or another weekend.',
+  },
+});
+
+function describeRule(code) {
+  return RULE_INFO[code] ?? {
+    rule: code.replaceAll('_', ' ').toLowerCase(),
+    why: 'This assignment breaks a scheduling rule.',
+    remedy: 'Open the day and adjust the assignment.',
+  };
+}
 
 function buildDateKeys(startDate, endDate) {
   const keys = [];
@@ -45,6 +125,7 @@ function minimumPositive(...values) {
 
 function violation(code, resident, date, message, details = {}, assignments = []) {
   const overrideAssignments = assignments.filter(item => item.isOverride);
+  const info = describeRule(code);
   return {
     code,
     severity: 'error',
@@ -53,12 +134,16 @@ function violation(code, resident, date, message, details = {}, assignments = []
     date: date ?? null,
     message,
     details,
+    rule: info.rule,
+    why: info.why,
+    remedy: info.remedy,
     isOverride: overrideAssignments.length > 0,
     overrideReasons: [...new Set(overrideAssignments.map(item => item.overrideReason).filter(Boolean))],
   };
 }
 
 function warning(code, resident, date, message, details = {}) {
+  const info = describeRule(code);
   return {
     code,
     severity: 'warning',
@@ -67,6 +152,9 @@ function warning(code, resident, date, message, details = {}) {
     date: date ?? null,
     message,
     details,
+    rule: info.rule,
+    why: info.why,
+    remedy: info.remedy,
   };
 }
 
@@ -125,6 +213,87 @@ function buildVirtualAssignments(block, dayReplacement) {
   }));
 
   return [...retained, ...replacements];
+}
+
+/**
+ * For each uncovered slot, work out which residents were considered and why
+ * each one could not take it.
+ *
+ * The rules are replayed in date order against the stored schedule using the
+ * same evaluator the generator uses, so the reasons shown are the reasons the
+ * generator actually had, not a separate re-derivation of them.
+ */
+function analyzeUnfilledSlots(block, assignments, blockDateKeys, programSettings) {
+  const settings = {
+    maxCallsPerResident: block.settings?.maxCallsPerResident ?? 9,
+    maxCallsMedStudent: block.settings?.maxCallsMedStudent ?? 5,
+  };
+  const enrollmentByResident = new Map((block.enrollments ?? []).map(item => [item.residentId, item]));
+  const residentsById = new Map();
+  for (const enrollment of block.enrollments ?? []) residentsById.set(enrollment.resident.id, enrollment.resident);
+  for (const resident of block.activeServiceResidents ?? []) residentsById.set(resident.id, resident);
+
+  const states = new Map();
+  for (const resident of residentsById.values()) {
+    states.set(resident.id, buildResidentState({
+      resident,
+      enrollment: enrollmentByResident.get(resident.id) ?? null,
+      blockDateKeys,
+      settings,
+    }));
+  }
+
+  const assignmentsByDate = new Map();
+  for (const assignment of assignments) {
+    if (!assignmentsByDate.has(assignment.dateKey)) assignmentsByDate.set(assignment.dateKey, []);
+    assignmentsByDate.get(assignment.dateKey).push(assignment);
+  }
+
+  const holidaySet = new Set((block.academicYear?.holidays ?? []).map(item => normalizeDateKey(item.date)));
+  const academicDaySet = new Set(
+    (block.flags ?? []).filter(item => isAcademicDayLabel(item.label)).map(item => normalizeDateKey(item.date))
+  );
+  const avoidAcademicDays = block.settings?.avoidAcademicDays ?? true;
+
+  const unfilled = [];
+  for (const dateKey of blockDateKeys) {
+    const dayAssignments = assignmentsByDate.get(dateKey) ?? [];
+    const filledRoles = new Set(dayAssignments.map(item => item.roleOnDay));
+    const skipDay = holidaySet.has(dateKey) || (avoidAcademicDays && academicDaySet.has(dateKey));
+
+    if (!skipDay) {
+      for (const roleOnDay of ['senior', 'junior']) {
+        if (filledRoles.has(roleOnDay)) continue;
+
+        const candidates = [];
+        for (const state of states.values()) {
+          const isCandidateRole = state.role === roleOnDay || (roleOnDay === 'junior' && state.isMedStudent);
+          if (!isCandidateRole) continue;
+          const check = checkEligibility(state, dateKey, roleOnDay, programSettings, blockDateKeys);
+          if (check.ok) continue;
+          candidates.push({
+            residentId: state.id,
+            residentName: state.name,
+            code: check.code,
+            reason: check.label,
+          });
+        }
+        unfilled.push({
+          date: dateKey,
+          roleOnDay,
+          unavailableCount: candidates.length,
+          candidates: candidates.sort((a, b) => a.residentName.localeCompare(b.residentName)),
+        });
+      }
+    }
+
+    // Advance state past this day so later days see the correct running load.
+    for (const assignment of dayAssignments) {
+      const state = states.get(assignment.residentId);
+      if (state) applyAssignment(state, dateKey, assignment.roleOnDay, programSettings);
+    }
+  }
+  return unfilled;
 }
 
 function validateLoadedSchedule(block, options = {}) {
@@ -351,6 +520,7 @@ function validateLoadedSchedule(block, options = {}) {
     warnings,
     residents: residents.sort((a, b) => a.residentName.localeCompare(b.residentName)),
     days,
+    unfilledSlots: analyzeUnfilledSlots(block, assignments, blockDateKeys, programSettings),
   };
 }
 

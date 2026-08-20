@@ -19,3 +19,6 @@ playwright/.cache/
 # Local scratch
 *.local
 *.log
+
+# Local data-repair archives (contain resident names)
+backend/data-repair-archive/

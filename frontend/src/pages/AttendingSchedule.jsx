@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import Layout from '../components/Layout';
 import PageWrapper from '../components/PageWrapper';
+import Modal from '../components/Modal';
 import BlockSelector from '../components/BlockSelector';
 import api from '../api/axios';
 import { useBlock, useUser } from '../context/AppContext';
@@ -893,7 +894,7 @@ export default function AttendingSchedule() {
   return (
     <Layout>
       <PageWrapper>
-        <div style={{ maxWidth: 900, margin: '0 auto', paddingBottom: 32 }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 12px 32px', minWidth: 0 }}>
 
           {/* Page header */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
@@ -911,7 +912,7 @@ export default function AttendingSchedule() {
             </div>
 
             {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0, alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', minWidth: 0, alignItems: 'flex-start' }}>
 
               {/* Copy previous block */}
               <motion.button
@@ -962,7 +963,7 @@ export default function AttendingSchedule() {
               </motion.button>
 
               {/* Apply template button + scope chooser */}
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative', minWidth: 0 }}>
               <motion.button
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                 onClick={() => setApplyScope(v => !v)}
@@ -970,7 +971,7 @@ export default function AttendingSchedule() {
                 style={{
                   padding: '9px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
                   background: '#7C3AED', color: '#fff', fontSize: 13, fontWeight: 600,
-                  opacity: (applying || !blockId) ? 0.5 : 1,
+                  opacity: (applying || !blockId) ? 0.5 : 1, maxWidth: '100%',
                 }}
                 onMouseEnter={e => { if (!applying && blockId) e.currentTarget.style.background = '#6D28D9'; }}
                 onMouseLeave={e => e.currentTarget.style.background = '#7C3AED'}
@@ -1048,56 +1049,56 @@ export default function AttendingSchedule() {
 
         {/* Reset block confirmation modal */}
         {showResetModal && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(15,23,42,0.34)' }}
-            onClick={() => setShowResetModal(false)}>
-            <div style={{ background: '#fff', borderRadius: 16, maxWidth: 400, width: '100%', overflow: 'hidden', boxShadow: '0 14px 36px rgba(26,58,92,0.16)' }}
-              onClick={e => e.stopPropagation()}>
-              <div style={{ height: 4, background: '#C2410C' }} />
-              <div style={{ padding: '24px 24px 20px' }}>
-                <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1A3A5C', margin: '0 0 8px' }}>Reset block to template</h2>
-                <p style={{ fontSize: 13, color: '#64748B', marginBottom: 20, lineHeight: 1.5 }}>
-                  This will clear all attending entries for Block {blockNum} and reapply the weekly pattern. Any manual changes will be lost.
-                </p>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={() => setShowResetModal(false)} disabled={resetting}
-                    style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#F8FAFC', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
-                    Cancel
-                  </button>
-                  <button onClick={handleResetBlock} disabled={resetting}
-                    style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#C2410C', color: '#fff', fontSize: 13, fontWeight: 600, cursor: resetting ? 'not-allowed' : 'pointer', opacity: resetting ? 0.7 : 1 }}>
-                    {resetting ? 'Resetting…' : 'Reset to template'}
-                  </button>
-                </div>
+          <Modal
+            title="Reset block to template"
+            onClose={() => setShowResetModal(false)}
+            maxWidth="max-w-sm"
+            closeLabel="Close reset confirmation"
+            footer={(
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="button" onClick={() => setShowResetModal(false)} disabled={resetting}
+                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#fff', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: resetting ? 'not-allowed' : 'pointer' }}>
+                  Cancel
+                </button>
+                <button type="button" onClick={handleResetBlock} disabled={resetting}
+                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#C2410C', color: '#fff', fontSize: 13, fontWeight: 600, cursor: resetting ? 'not-allowed' : 'pointer', opacity: resetting ? 0.7 : 1 }}>
+                  {resetting ? 'Resetting…' : 'Reset to template'}
+                </button>
               </div>
-            </div>
-          </div>
+            )}
+          >
+            <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
+              This will clear all attending entries for Block {blockNum} and reapply the weekly pattern. Any
+              manual changes will be lost.
+            </p>
+          </Modal>
         )}
 
         {/* Clear block confirmation modal */}
         {showClearModal && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(15,23,42,0.34)' }}
-            onClick={() => setShowClearModal(false)}>
-            <div style={{ background: '#fff', borderRadius: 16, maxWidth: 400, width: '100%', overflow: 'hidden', boxShadow: '0 14px 36px rgba(26,58,92,0.16)' }}
-              onClick={e => e.stopPropagation()}>
-              <div style={{ height: 4, background: '#DC2626' }} />
-              <div style={{ padding: '24px 24px 20px' }}>
-                <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1A3A5C', margin: '0 0 8px' }}>Clear block</h2>
-                <p style={{ fontSize: 13, color: '#64748B', marginBottom: 20, lineHeight: 1.5 }}>
-                  This will delete all attending entries for Block {blockNum}. The weekly template pattern will not be affected. This cannot be undone.
-                </p>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={() => setShowClearModal(false)} disabled={resetting}
-                    style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#F8FAFC', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
-                    Cancel
-                  </button>
-                  <button onClick={handleClearBlock} disabled={resetting}
-                    style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#DC2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: resetting ? 'not-allowed' : 'pointer', opacity: resetting ? 0.7 : 1 }}>
-                    {resetting ? 'Clearing…' : 'Clear all entries'}
-                  </button>
-                </div>
+          <Modal
+            title="Clear block"
+            onClose={() => setShowClearModal(false)}
+            maxWidth="max-w-sm"
+            closeLabel="Close clear confirmation"
+            footer={(
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="button" onClick={() => setShowClearModal(false)} disabled={resetting}
+                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#fff', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: resetting ? 'not-allowed' : 'pointer' }}>
+                  Cancel
+                </button>
+                <button type="button" onClick={handleClearBlock} disabled={resetting}
+                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#DC2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: resetting ? 'not-allowed' : 'pointer', opacity: resetting ? 0.7 : 1 }}>
+                  {resetting ? 'Clearing…' : 'Clear all entries'}
+                </button>
               </div>
-            </div>
-          </div>
+            )}
+          >
+            <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
+              This will delete all attending entries for Block {blockNum}. The weekly template pattern will not
+              be affected. This cannot be undone.
+            </p>
+          </Modal>
         )}
 
       </PageWrapper>

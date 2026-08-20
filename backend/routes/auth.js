@@ -2,14 +2,11 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
-const { normalizeRole, isValidRole } = require('../lib/roles');
-const { isAllowedSpecialty } = require('../lib/medicalSpecialties');
+const { normalizeRole } = require('../lib/roles');
 const { createRateLimiter } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
-const USER_CATEGORIES = new Set(['admin_leadership', 'physician_trainee', 'other']);
-const CLINICAL_IDENTITIES = new Set(['resident', 'medical_student', 'attending', 'other']);
 const MIN_PASSWORD_LENGTH = 10;
 const authLimit = process.env.NODE_ENV === 'production' ? 10 : 50;
 const loginLimiter = createRateLimiter({ max: authLimit, message: 'Too many login attempts. Try again later.' });
@@ -17,35 +14,20 @@ const registrationLimiter = createRateLimiter({ max: authLimit, message: 'Too ma
 const requestAccessLimiter = createRateLimiter({ max: authLimit });
 
 // POST /api/auth/register
+// Registration asks for a name, an email and a password, and nothing else.
+//
+// The user columns category, clinicalIdentity, desiredRole and homeSpecialty are
+// deprecated: they were collected but never read anywhere in the product, and a
+// self-declared desiredRole must never influence privileges. They are no longer
+// accepted or written; the columns remain so existing rows are not disturbed.
 router.post('/register', registrationLimiter, async (req, res) => {
-  const {
-    name,
-    email,
-    password,
-    inviteToken,
-    category,
-    clinicalIdentity,
-    desiredRole,
-    homeSpecialty,
-  } = req.body;
+  const { name, email, password, inviteToken } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'name, email, and password are required' });
   }
   if (password.length < MIN_PASSWORD_LENGTH) {
     return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
-  }
-  if (category && !USER_CATEGORIES.has(category)) {
-    return res.status(400).json({ error: 'Invalid user category' });
-  }
-  if (clinicalIdentity && !CLINICAL_IDENTITIES.has(clinicalIdentity)) {
-    return res.status(400).json({ error: 'Invalid clinical identity' });
-  }
-  if (desiredRole && !isValidRole(desiredRole)) {
-    return res.status(400).json({ error: 'Invalid desired role' });
-  }
-  if (homeSpecialty && !isAllowedSpecialty(homeSpecialty)) {
-    return res.status(400).json({ error: 'Invalid home specialty' });
   }
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -62,33 +44,43 @@ router.post('/register', registrationLimiter, async (req, res) => {
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await prisma.$transaction(async tx => {
+  const { user, joinedProgramId } = await prisma.$transaction(async tx => {
     const created = await tx.user.create({
       data: {
         name: name.trim(),
         email: normalizedEmail,
         passwordHash,
-        category: category ?? null,
-        clinicalIdentity: clinicalIdentity ?? null,
-        desiredRole: desiredRole ?? null,
-        homeSpecialty: homeSpecialty ?? null,
       },
-      select: { id: true, name: true, email: true, createdAt: true },
+      select: { id: true, name: true, email: true, orgId: true, createdAt: true },
     });
-    if (invite) {
-      await tx.programMember.create({
-        data: { programId: invite.programId, userId: created.id, role: normalizeRole(invite.role) },
-      });
-      const claimed = await tx.invite.updateMany({
-        where: { id: invite.id, usedAt: null },
-        data: { usedAt: new Date() },
-      });
-      if (claimed.count !== 1) throw new Error('Invite link has already been used');
-    }
-    return created;
+    if (!invite) return { user: created, joinedProgramId: null };
+
+    // The invitation is authoritative for the role. Nothing the registrant
+    // supplies can change it.
+    await tx.programMember.create({
+      data: { programId: invite.programId, userId: created.id, role: normalizeRole(invite.role) },
+    });
+    const claimed = await tx.invite.updateMany({
+      where: { id: invite.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+    if (claimed.count !== 1) throw new Error('Invite link has already been used');
+    return { user: created, joinedProgramId: invite.programId };
   });
 
-  res.status(201).json({ user });
+  // Sign the new user straight in rather than making them retype what they just
+  // typed. The token is identical to the one /login issues.
+  const token = jwt.sign(
+    { userId: user.id, email: user.email, name: user.name },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+
+  res.status(201).json({
+    token,
+    user: { id: user.id, name: user.name, email: user.email, orgId: user.orgId },
+    joinedProgramId,
+  });
 });
 
 // POST /api/auth/login

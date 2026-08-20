@@ -1,0 +1,176 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# No deployment credentials are needed or accepted by this workflow.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: medrota
+          POSTGRES_PASSWORD: medrota_ci
+          POSTGRES_DB: medrota_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U medrota"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://medrota:medrota_ci@localhost:5432/medrota_ci?schema=public
+      JWT_SECRET: ci-only-secret-not-used-anywhere-else
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install
+        working-directory: backend
+        run: npm ci
+
+      - name: Validate Prisma schema
+        working-directory: backend
+        run: npx prisma validate --schema prisma/schema.prisma
+
+      # Proves every migration applies to an empty database in order, which is
+      # exactly what a private-beta deployment does.
+      - name: Apply migrations
+        working-directory: backend
+        run: npx prisma migrate deploy
+
+      - name: Confirm migration state
+        working-directory: backend
+        run: npx prisma migrate status
+
+      - name: Behavioral checks
+        working-directory: backend
+        run: |
+          npm run roles:audit
+          npm run roles:smoke
+          npm run authz:smoke
+          npm run phase5:smoke
+          npm run phase5:db
+          npm run phase6:smoke
+          npm run paro:smoke
+          npm run scheduler:integration
+          npm run scheduler:acceptance
+          npm run schedule:validate-smoke
+          npm run data:integrity-audit
+          npm run data:integrity-smoke
+          npm run availability:smoke
+          npm run publish:safety-smoke
+          npm run publish:revocation-smoke
+          npm run audit:smoke
+          npm run deploy:smoke
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      - name: Performance guard
+        working-directory: frontend
+        run: npm run perf:guard
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: medrota
+          POSTGRES_PASSWORD: medrota_ci
+          POSTGRES_DB: medrota_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U medrota"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://medrota:medrota_ci@localhost:5432/medrota_ci?schema=public
+      JWT_SECRET: ci-only-secret-not-used-anywhere-else
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install backend
+        working-directory: backend
+        run: npm ci
+
+      - name: Apply migrations
+        working-directory: backend
+        run: npx prisma migrate deploy
+
+      - name: Install frontend
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      # playwright.config.js starts the QA seed, the API and Vite itself.
+      - name: Run Playwright
+        working-directory: frontend
+        run: npm run e2e
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: frontend/test-results
+          retention-days: 7

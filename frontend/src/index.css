@@ -122,13 +122,16 @@ button:active:not([disabled]) {
   background: rgba(0, 0, 0, 0.4);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 200ms ease;
+  /* Hidden from the accessibility tree while closed, not merely invisible. */
+  visibility: hidden;
+  transition: opacity 200ms ease, visibility 200ms ease;
   z-index: 50;
 }
 
 .modal-backdrop.open {
   opacity: 1;
   pointer-events: auto;
+  visibility: visible;
 }
 
 .modal-panel {
