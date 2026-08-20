@@ -346,7 +346,7 @@ export default function Setup() {
                   style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
                 >
                   <div>
-                    <label style={labelStyle}>Program name</label>
+                    <label style={labelStyle}>Program display name</label>
                     <input
                       style={inputStyle}
                       value={programName}
@@ -356,19 +356,27 @@ export default function Setup() {
                       onFocus={e => { e.target.style.border = '1.5px solid #2C5F8A'; e.target.style.boxShadow = '0 0 0 3px rgba(44,95,138,0.12)'; }}
                       onBlur={e => { e.target.style.border = '1.5px solid #E2E8F0'; e.target.style.boxShadow = 'none'; }}
                     />
+                    <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
+                      The name used throughout MedRota, such as “McMaster Vascular Surgery Residency.”
+                    </p>
                   </div>
                   <div>
-                    <label style={labelStyle}>Specialty</label>
+                    <label style={labelStyle}>Primary specialty</label>
                     <select
                       style={{ ...inputStyle, appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' strokeWidth='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
                       value={specialty}
-                      onChange={e => setSpecialty(e.target.value)}
+                      onChange={e => {
+                        const value = e.target.value;
+                        setSpecialty(value);
+                        if (!programName.trim() && value) setProgramName(`${value} Residency`);
+                      }}
                       onFocus={e => { e.target.style.border = '1.5px solid #2C5F8A'; e.target.style.boxShadow = '0 0 0 3px rgba(44,95,138,0.12)'; }}
                       onBlur={e => { e.target.style.border = '1.5px solid #E2E8F0'; e.target.style.boxShadow = 'none'; }}
                     >
                       <option value="">Select specialty…</option>
                       {MEDICAL_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
+                    <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>The program’s main specialty.</p>
                   </div>
                   <div>
                     <label style={labelStyle}>Academic year start date</label>

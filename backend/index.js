@@ -21,6 +21,7 @@ const blocksRoutes = require('./routes/blocks');
 const attendingTemplateRoutes = require('./routes/attendingTemplate');
 const flagsRoutes = require('./routes/flags');
 const auditRoutes = require('./routes/audit');
+const programConfigurationRoutes = require('./routes/programConfiguration');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -89,6 +90,7 @@ app.use('/api/blocks', blocksRoutes);
 app.use('/api/attending-template', attendingTemplateRoutes);
 app.use('/api/flags', flagsRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/program-configuration', programConfigurationRoutes);
 
 // Liveness: is the process up? Deliberately says nothing about the database or
 // the environment, so it is safe to expose to a load balancer.

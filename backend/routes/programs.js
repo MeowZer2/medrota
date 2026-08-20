@@ -1,7 +1,7 @@
 ﻿const express = require('express');
 const prisma = require('../lib/prisma');
 const auth = require('../middleware/auth');
-const { ROLES, normalizeRole, isValidRole, requireProgramPermission, requireBlockView } = require('../lib/roles');
+const { ROLES, normalizeRole, isValidRole, resolvePermissions, requireProgramPermission, requireBlockView } = require('../lib/roles');
 const { isAllowedSpecialty } = require('../lib/medicalSpecialties');
 const { recordAuditEvent } = require('../services/auditLog');
 
@@ -56,6 +56,7 @@ router.get('/mine', async (req, res) => {
       await prisma.programMember.update({ where: { id: membership.id }, data: { role } });
     }
     const allBlocks = program.academicYears.flatMap(ay => ay.blocks);
+    const permissions = await resolvePermissions(program.id, role);
     const today = new Date();
     const currentBlock =
       allBlocks.find(b => today >= new Date(b.startDate) && today <= new Date(b.endDate))
@@ -69,6 +70,7 @@ router.get('/mine', async (req, res) => {
       juniorInHouseCall: program.juniorInHouseCall,
       seniorInHouseCall: program.seniorInHouseCall,
       role,
+      permissions,
       academicYears: program.academicYears,
       blocks: allBlocks,
       currentBlock,

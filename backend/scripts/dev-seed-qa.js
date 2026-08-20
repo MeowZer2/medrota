@@ -203,9 +203,18 @@ async function upsertEnrollment(blockId, residentId) {
 async function upsertRoster(programId, attendingName, typicalActivities) {
   const existing = await prisma.attendingRoster.findFirst({ where: { programId, attendingName } });
   if (existing) {
-    return prisma.attendingRoster.update({ where: { id: existing.id }, data: { typicalActivities } });
+    return prisma.attendingRoster.update({ where: { id: existing.id }, data: { typicalActivities, isActive: true } });
   }
   return prisma.attendingRoster.create({ data: { programId, attendingName, typicalActivities } });
+}
+
+async function upsertActivityType(programId, name, sortOrder) {
+  const normalizedName = name.trim().replace(/\s+/g, ' ').toLowerCase();
+  return prisma.attendingActivityType.upsert({
+    where: { programId_normalizedName: { programId, normalizedName } },
+    update: { name, isActive: true, sortOrder },
+    create: { programId, name, normalizedName, sortOrder },
+  });
 }
 
 async function upsertAttendingEntry(blockId, date, attendingName, activityLabel, isCallDay) {
@@ -277,6 +286,8 @@ async function main() {
 
   const org = await findOrCreateOrganization();
   const program = await findOrCreateProgram(org.id);
+  await prisma.programRolePermission.deleteMany({ where: { programId: program.id, role: ROLES.CHIEF_RESIDENT } });
+  await Promise.all(['Clinic', 'OR', 'Ward'].map((name, index) => upsertActivityType(program.id, name, index)));
   const academicYear = await findOrCreateAcademicYear(program.id);
   const block = await findOrCreateBlock(academicYear.id);
   await upsertBlockSettings(block.id);

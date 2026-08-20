@@ -54,7 +54,7 @@ router.get('/:id/holidays', async (req, res) => {
 router.get('/:id/settings', async (req, res) => {
   const { id } = req.params;
   try {
-    const membership = await requireBlockPermission(req, res, id, 'edit_block_settings');
+    const membership = await requireBlockPermission(req, res, id, 'manage_block_settings');
     if (!membership) return;
     const settings = await prisma.blockSettings.findUnique({ where: { blockId: id } });
     // Return defaults if no settings record yet
@@ -85,7 +85,7 @@ router.put('/:id/settings', async (req, res) => {
   }
 
   try {
-    const membership = await requireBlockPermission(req, res, id, 'edit_block_settings');
+    const membership = await requireBlockPermission(req, res, id, 'manage_block_settings');
     if (!membership) return;
     const settings = await prisma.blockSettings.upsert({
       where:  { blockId: id },
@@ -146,7 +146,7 @@ router.post('/:id/availability/bulk', async (req, res) => {
     return res.status(400).json({ error: 'residentIds must contain resident ids' });
   }
   try {
-    const membership = await requireBlockPermission(req, res, id, 'edit_residents');
+    const membership = await requireBlockPermission(req, res, id, 'manage_block_availability');
     if (!membership) return;
     const result = await bulkEnroll(id, residentIds);
     if (result.error) return res.status(result.status).json({ error: result.error });
@@ -179,7 +179,7 @@ router.post('/:id/availability/copy', async (req, res) => {
   }
   try {
     // Both blocks are checked: copying reads the source and writes the target.
-    const target = await requireBlockPermission(req, res, id, 'edit_residents');
+    const target = await requireBlockPermission(req, res, id, 'manage_block_availability');
     if (!target) return;
     const source = await requireBlockPermission(req, res, fromBlockId, 'view_draft_schedule');
     if (!source) return;

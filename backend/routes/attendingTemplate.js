@@ -2,6 +2,7 @@ const express = require('express');
 const prisma  = require('../lib/prisma');
 const auth    = require('../middleware/auth');
 const { getProgramIdForBlock, requireProgramPermission, requireBlockPermission } = require('../lib/roles');
+const { resolveActivityType } = require('../lib/activityRegistry');
 
 const router = express.Router();
 router.use(auth);
@@ -32,7 +33,7 @@ router.get('/', async (req, res) => {
   const { programId } = req.query;
   if (!programId) return res.status(400).json({ error: 'programId required' });
   try {
-    const membership = await requireProgramPermission(req, res, programId, 'edit_attendings');
+    const membership = await requireProgramPermission(req, res, programId, 'manage_attending_schedule');
     if (!membership) return;
     const entries = await prisma.attendingScheduleTemplate.findMany({
       where: { programId },
@@ -55,7 +56,7 @@ router.get('/', async (req, res) => {
 // GET /api/attending-template/:programId  (legacy — flat list, ordered by dayOfWeek)
 router.get('/:programId', async (req, res) => {
   try {
-    const membership = await requireProgramPermission(req, res, req.params.programId, 'edit_attendings');
+    const membership = await requireProgramPermission(req, res, req.params.programId, 'manage_attending_schedule');
     if (!membership) return;
     const entries = await prisma.attendingScheduleTemplate.findMany({
       where: { programId: req.params.programId },
@@ -72,14 +73,15 @@ router.get('/:programId', async (req, res) => {
 router.post('/:programId', async (req, res) => {
   const { attendingName, dayOfWeek, activityLabel } = req.body;
   try {
-    const membership = await requireProgramPermission(req, res, req.params.programId, 'edit_attendings');
+    const membership = await requireProgramPermission(req, res, req.params.programId, 'manage_attending_schedule');
     if (!membership) return;
+    const resolvedActivity = await resolveActivityType(req.params.programId, activityLabel);
     const entry = await prisma.attendingScheduleTemplate.create({
       data: {
         programId: req.params.programId,
         attendingName,
         dayOfWeek: Number(dayOfWeek),
-        activityLabel,
+        ...resolvedActivity,
       },
     });
     res.json(entry);
@@ -93,13 +95,14 @@ router.post('/:programId', async (req, res) => {
 router.put('/entry/:id', async (req, res) => {
   const { activityLabel } = req.body;
   try {
-    const existing = await prisma.attendingScheduleTemplate.findUnique({ where: { id: req.params.id }, select: { programId: true } });
+    const existing = await prisma.attendingScheduleTemplate.findUnique({ where: { id: req.params.id }, select: { programId: true, activityTypeId: true } });
     if (!existing) return res.status(404).json({ error: 'Template entry not found' });
-    const membership = await requireProgramPermission(req, res, existing.programId, 'edit_attendings');
+    const membership = await requireProgramPermission(req, res, existing.programId, 'manage_attending_schedule');
     if (!membership) return;
+    const resolvedActivity = await resolveActivityType(existing.programId, activityLabel, { allowInactiveId: existing.activityTypeId });
     const entry = await prisma.attendingScheduleTemplate.update({
       where: { id: req.params.id },
-      data: { activityLabel },
+      data: resolvedActivity,
     });
     res.json(entry);
   } catch (err) {
@@ -113,7 +116,7 @@ router.delete('/entry/:id', async (req, res) => {
   try {
     const existing = await prisma.attendingScheduleTemplate.findUnique({ where: { id: req.params.id }, select: { programId: true } });
     if (!existing) return res.status(404).json({ error: 'Template entry not found' });
-    const membership = await requireProgramPermission(req, res, existing.programId, 'edit_attendings');
+    const membership = await requireProgramPermission(req, res, existing.programId, 'manage_attending_schedule');
     if (!membership) return;
     await prisma.attendingScheduleTemplate.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
@@ -133,12 +136,12 @@ router.post('/:programId/apply/:blockId', async (req, res) => {
   if (!Array.isArray(extraBlockIds) || extraBlockIds.some(id => typeof id !== 'string' || !id)) {
     return res.status(400).json({ error: 'extraBlockIds must be an array of block IDs' });
   }
-  const programMembership = await requireProgramPermission(req, res, programId, 'edit_attendings');
+  const programMembership = await requireProgramPermission(req, res, programId, 'manage_attending_schedule');
   if (!programMembership) return;
 
   const requestedBlockIds = [...new Set([blockId, ...extraBlockIds])];
   for (const requestedBlockId of requestedBlockIds) {
-    const blockMembership = await requireBlockPermission(req, res, requestedBlockId, 'edit_attendings');
+    const blockMembership = await requireBlockPermission(req, res, requestedBlockId, 'manage_attending_schedule');
     if (!blockMembership) return;
     const blockAccess = await getProgramIdForBlock(requestedBlockId);
     if (blockAccess?.programId !== programId) {
@@ -178,7 +181,7 @@ router.post('/:programId/apply/:blockId', async (req, res) => {
         if (existing) {
           await tx.attendingEntry.update({
             where: { id: existing.id },
-            data: { activityLabel: t.activityLabel },
+            data: { activityLabel: t.activityLabel, activityTypeId: t.activityTypeId ?? null },
           });
           updated++;
         } else {
@@ -188,6 +191,7 @@ router.post('/:programId/apply/:blockId', async (req, res) => {
               date: startOfDay,
               attendingName: t.attendingName,
               activityLabel: t.activityLabel,
+              activityTypeId: t.activityTypeId ?? null,
               isCallDay: false,
             },
           });

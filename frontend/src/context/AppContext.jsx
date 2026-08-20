@@ -35,6 +35,7 @@ export function AppProvider({ children }) {
         seniorInHouseCall: data.seniorInHouseCall ?? false,
         role: normalizeRole(data.role),
         roleLabel: roleLabel(data.role),
+        permissions: data.permissions ?? [],
         blocks: data.blocks,
       });
 
@@ -145,7 +146,7 @@ export function AppProvider({ children }) {
     currentProgram,
     currentRole: currentProgram?.role ?? null,
     currentRoleLabel: currentProgram?.roleLabel ?? null,
-    can: (permission) => hasPermission(currentProgram?.role, permission),
+    can: (permission) => hasPermission(currentProgram?.role, permission, currentProgram?.permissions),
     hasProgram,
     loading,
     refreshContext,

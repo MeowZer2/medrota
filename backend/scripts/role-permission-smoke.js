@@ -15,6 +15,9 @@ assert.strictEqual(hasPermission(ROLES.VIEWER, 'view_published_schedule'), true)
 assert.strictEqual(hasPermission(ROLES.VIEWER, 'view_draft_schedule'), false);
 assert.strictEqual(hasPermission(ROLES.VIEWER, 'manual_assign_calls'), false);
 assert.strictEqual(hasPermission(ROLES.CHIEF_RESIDENT, 'manual_assign_calls'), true);
+assert.strictEqual(hasPermission(ROLES.CHIEF_RESIDENT, 'manage_scheduling_rules'), false);
+assert.strictEqual(hasPermission(ROLES.PROGRAM_ADMIN, 'manage_scheduling_rules'), true);
+assert.strictEqual(hasPermission(ROLES.PROGRAM_DIRECTOR, 'configure_role_permissions'), true);
 assert.strictEqual(hasPermission(normalizeRole('builder'), 'manual_assign_calls'), true);
 
 console.log('[role-permission-smoke] role mapping and permission checks passed');

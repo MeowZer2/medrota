@@ -14,6 +14,7 @@
     "phase6:smoke": "node scripts/phase6-smoke.js",
     "paro:smoke": "node scripts/paro-scheduler-smoke.js",
     "roles:smoke": "node scripts/role-permission-smoke.js",
+    "program-config:smoke": "node scripts/program-configuration-smoke.js",
     "roles:audit": "node scripts/role-audit.js",
     "authz:smoke": "node scripts/authz-smoke.js",
     "scheduler:integration": "node scripts/scheduler-integration.js",

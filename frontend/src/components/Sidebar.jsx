@@ -540,7 +540,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
           </div>
 
           {/* Settings */}
-          {can('edit_program_settings') && (
+          {(can('view_draft_schedule') || can('edit_program_settings') || can('manage_clinical_services') || can('manage_attending_roster')) && (
           <div className="relative shrink-0">
             <button
               aria-label="Program settings"

@@ -1,6 +1,6 @@
 const express = require('express');
 const auth = require('../middleware/auth');
-const { getMembership, getProgramIdForBlock } = require('../lib/roles');
+const { getProgramIdForBlock, requireProgramPermission } = require('../lib/roles');
 const { listAuditEvents, readableCategories } = require('../services/auditLog');
 
 const router = express.Router();
@@ -29,12 +29,8 @@ router.get('/', async (req, res) => {
       }
     }
 
-    const membership = await getMembership(req.user?.userId, resolvedProgramId);
-    if (!membership) return res.status(403).json({ error: 'Not a member of this program' });
-
-    if (readableCategories(membership.role).length === 0) {
-      return res.status(403).json({ error: 'Your role cannot view program history' });
-    }
+    const membership = await requireProgramPermission(req, res, resolvedProgramId, 'view_audit_history');
+    if (!membership) return;
 
     const result = await listAuditEvents({
       programId: resolvedProgramId,

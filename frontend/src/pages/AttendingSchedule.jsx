@@ -53,6 +53,7 @@ function DayActivityInput({ value, activities, onChange }) {
       <select value={local} onChange={e => handle(e.target.value)} style={{ ...baseStyle, cursor: 'pointer' }}>
         <option value="">—</option>
         {activities.map(a => <option key={a} value={a}>{a}</option>)}
+        {value && !activities.includes(value) && <option value={value}>{value} (inactive)</option>}
       </select>
     );
   }
@@ -64,7 +65,7 @@ function DayActivityInput({ value, activities, onChange }) {
 
 // ── AttendingTemplateRow — one row in the roster + pattern table ──────────────
 
-function AttendingTemplateRow({ attending, template, onUpdateTemplate, onRemove }) {
+function AttendingTemplateRow({ attending, activities, template, onUpdateTemplate, onRemove }) {
   const [dotStatus, setDotStatus] = useState({});
 
   const handleChange = async (dowIndex, value) => {
@@ -102,7 +103,7 @@ function AttendingTemplateRow({ attending, template, onUpdateTemplate, onRemove 
           <div style={{ position: 'relative' }}>
             <DayActivityInput
               value={template[di]?.activityLabel ?? ''}
-              activities={attending.activities}
+              activities={activities}
               onChange={val => handleChange(di, val)}
             />
             {dotStatus[di] && (
@@ -133,7 +134,7 @@ function AttendingTemplateRow({ attending, template, onUpdateTemplate, onRemove 
 
 function RosterTemplatePanel({
   open, onToggle,
-  roster, template,
+  roster, template, activities,
   onAddAttending, onRemoveAttending,
   onUpdateTemplate,
 }) {
@@ -231,6 +232,7 @@ function RosterTemplatePanel({
                     <AttendingTemplateRow
                       key={att.id}
                       attending={att}
+                      activities={activities}
                       template={template[att.name] ?? {}}
                       onUpdateTemplate={onUpdateTemplate}
                       onRemove={() => onRemoveAttending(att.id)}
@@ -248,7 +250,7 @@ function RosterTemplatePanel({
 
 // ── EntryRow — one attending entry in an expanded day ────────────────────────
 
-function EntryRow({ entry, roster, dow, template, onSave, onDelete }) {
+function EntryRow({ entry, roster, activities, dow, template, onSave, onDelete }) {
   const [localName,     setLocalName]     = useState(entry.attendingName);
   const [localActivity, setLocalActivity] = useState(entry.activityLabel ?? '');
   const [localCall,     setLocalCall]     = useState(entry.isCallDay ?? false);
@@ -285,8 +287,6 @@ function EntryRow({ entry, roster, dow, template, onSave, onDelete }) {
       .catch(() => setStatus('error'));
   };
 
-  const attendingInfo  = roster.find(r => r.name === localName);
-  const activities     = attendingInfo?.activities ?? [];
   const templateAct    = template[localName]?.[dow]?.activityLabel ?? '';
 
   return (
@@ -318,6 +318,7 @@ function EntryRow({ entry, roster, dow, template, onSave, onDelete }) {
         >
           <option value="">— Activity —</option>
           {activities.map(a => <option key={a} value={a}>{a}</option>)}
+          {localActivity && !activities.includes(localActivity) && <option value={localActivity}>{localActivity} (inactive)</option>}
         </select>
       ) : (
         <input
@@ -367,7 +368,7 @@ function EntryRow({ entry, roster, dow, template, onSave, onDelete }) {
 
 // ── DayRow — one collapsible day in the day list ──────────────────────────────
 
-function DayRow({ day, entries, roster, template, isExpanded, isLast, onToggle, onAddEntry, onSaveEntry, onDeleteEntry, onResetRow }) {
+function DayRow({ day, entries, roster, activities, template, isExpanded, isLast, onToggle, onAddEntry, onSaveEntry, onDeleteEntry, onResetRow }) {
   const weekend  = isWeekend(day);
   const isOnCall = entries.some(e => e.isCallDay);
   const dow      = monBasedDow(day);
@@ -440,6 +441,7 @@ function DayRow({ day, entries, roster, template, isExpanded, isLast, onToggle, 
               key={entry.id ?? `new-${i}`}
               entry={entry}
               roster={roster}
+              activities={activities}
               dow={dow}
               template={template}
               onSave={(updates) => onSaveEntry(i, updates)}
@@ -483,7 +485,7 @@ function DayRow({ day, entries, roster, template, isExpanded, isLast, onToggle, 
 
 // ── Section 2: Day list (accordion) ──────────────────────────────────────────
 
-function DayList({ days, schedule, roster, template, onAddEntry, onSaveEntry, onDeleteEntry, onResetRow }) {
+function DayList({ days, schedule, roster, activities, template, onAddEntry, onSaveEntry, onDeleteEntry, onResetRow }) {
   const [expandedDays, setExpandedDays] = useState(new Set());
 
   const toggleDay = (iso) => setExpandedDays(prev => {
@@ -503,6 +505,7 @@ function DayList({ days, schedule, roster, template, onAddEntry, onSaveEntry, on
             iso={iso}
             entries={schedule[iso] ?? []}
             roster={roster}
+            activities={activities}
             template={template}
             isExpanded={expandedDays.has(iso)}
             isLast={idx === days.length - 1}
@@ -603,6 +606,7 @@ export default function AttendingSchedule() {
   // ── State ──────────────────────────────────────────────────────────────────
   // roster: { id, name, activities: string[] }[]
   const [roster, setRoster] = useState([]);
+  const [activityTypes, setActivityTypes] = useState([]);
   // template: { attendingName: { dowIndex: { id, activityLabel } } }
   const [template, setTemplate] = useState({});
   // schedule: { iso: { id, attendingName, activityLabel, isCallDay }[] }
@@ -659,15 +663,17 @@ export default function AttendingSchedule() {
 
     async function fetchAll() {
       try {
-        const [rosterRes, templateRes, scheduleRes] = await Promise.all([
+        const [rosterRes, templateRes, scheduleRes, activitiesRes] = await Promise.all([
           programId ? api.get(`/attending/roster?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
           programId ? api.get(`/attending-template?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
           currentBlockId ? api.get(`/attending?blockId=${currentBlockId}`, { signal }) : Promise.resolve({ data: [] }),
+          programId ? api.get(`/program-configuration/${programId}/attending-activities`, { signal }) : Promise.resolve({ data: [] }),
         ]);
 
         if (cancelled || latestBlockIdRef.current !== currentBlockId) return;
 
         setRoster(rosterRes.data.map(r => ({ id: r.id, name: r.attendingName, activities: r.typicalActivities })));
+        setActivityTypes(activitiesRes.data.filter(activity => activity.isActive).map(activity => activity.name));
 
         const templateMap = {};
         for (const att of templateRes.data) {
@@ -1013,6 +1019,7 @@ export default function AttendingSchedule() {
             onToggle={() => setRosterOpen(o => !o)}
             roster={roster}
             template={template}
+            activities={activityTypes}
             onAddAttending={handleAddAttending}
             onRemoveAttending={handleRemoveAttending}
             onUpdateTemplate={handleUpdateTemplate}
@@ -1033,6 +1040,7 @@ export default function AttendingSchedule() {
               schedule={schedule}
               roster={roster}
               template={template}
+              activities={activityTypes}
               onAddEntry={handleAddEntry}
               onSaveEntry={handleSaveEntry}
               onDeleteEntry={handleDeleteEntry}

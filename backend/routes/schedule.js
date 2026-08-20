@@ -70,7 +70,7 @@ router.delete('/clear', async (req, res) => {
   const blockId = req.body?.blockId ?? req.query?.blockId;
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
   try {
-    const membership = await requireBlockPermission(req, res, blockId, 'clear_schedule');
+    const membership = await requireBlockPermission(req, res, blockId, 'clear_generated_schedule');
     if (!membership) return;
     // Step 1: find all CallDay ids for this block
     const callDays = await prisma.callDay.findMany({ where: { blockId } });
@@ -105,7 +105,7 @@ router.get('/validate', async (req, res) => {
   const { blockId } = req.query;
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
   try {
-    const membership = await requireBlockPermission(req, res, blockId, 'view_draft_schedule');
+    const membership = await requireBlockPermission(req, res, blockId, 'validate_schedule');
     if (!membership) return;
     const result = await validateSchedule(blockId);
     if (!result) return res.status(404).json({ error: 'Block not found' });
@@ -320,7 +320,7 @@ router.get('/diagnostics', async (req, res) => {
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
 
   try {
-    const membership = await requireBlockPermission(req, res, blockId, 'view_draft_schedule');
+    const membership = await requireBlockPermission(req, res, blockId, 'validate_schedule');
     if (!membership) return;
     const [callDays, attendingEntries] = await Promise.all([
       prisma.callDay.findMany({

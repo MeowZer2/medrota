@@ -12,6 +12,28 @@ export const ROLE_LABELS = Object.freeze({
   [PROGRAM_ROLES.VIEWER]: 'Viewer',
 });
 
+export const PERMISSIONS = Object.freeze({
+  VIEW_DRAFT_SCHEDULE: 'view_draft_schedule',
+  MANAGE_RESIDENTS: 'manage_residents',
+  MANAGE_BLOCK_AVAILABILITY: 'manage_block_availability',
+  MANAGE_ATTENDING_ROSTER: 'manage_attending_roster',
+  MANAGE_ATTENDING_SCHEDULE: 'manage_attending_schedule',
+  MANAGE_BLOCK_SETTINGS: 'manage_block_settings',
+  MANAGE_SCHEDULING_RULES: 'manage_scheduling_rules',
+  MANUAL_ASSIGN_CALLS: 'manual_assign_calls',
+  GENERATE_SCHEDULE: 'generate_schedule',
+  CLEAR_GENERATED_SCHEDULE: 'clear_generated_schedule',
+  VALIDATE_SCHEDULE: 'validate_schedule',
+  PUBLISH_SCHEDULE: 'publish_schedule',
+  EXPORT_DRAFT_SCHEDULE: 'export_draft_schedule',
+  VIEW_AUDIT_HISTORY: 'view_audit_history',
+  MANAGE_CLINICAL_SERVICES: 'manage_clinical_services',
+  EDIT_PROGRAM_SETTINGS: 'edit_program_settings',
+  MANAGE_USERS: 'manage_users',
+  CREATE_ACADEMIC_YEAR: 'create_academic_year',
+  CONFIGURE_ROLE_PERMISSIONS: 'configure_role_permissions',
+});
+
 const LEGACY_ROLE_MAP = Object.freeze({
   coordinator: PROGRAM_ROLES.PROGRAM_DIRECTOR,
   admin: PROGRAM_ROLES.PROGRAM_ADMIN,
@@ -20,48 +42,15 @@ const LEGACY_ROLE_MAP = Object.freeze({
   viewer: PROGRAM_ROLES.VIEWER,
 });
 
-const ROLE_PERMISSIONS = Object.freeze({
-  [PROGRAM_ROLES.CHIEF_RESIDENT]: new Set([
-    'view_draft_schedule',
-    'edit_residents',
-    'edit_attendings',
-    'manual_assign_calls',
-    'generate_schedule',
-    'clear_schedule',
-    'publish_schedule',
-    'export_draft_schedule',
-    'edit_block_settings',
-  ]),
-  [PROGRAM_ROLES.PROGRAM_ADMIN]: new Set([
-    'view_draft_schedule',
-    'edit_residents',
-    'edit_attendings',
-    'manual_assign_calls',
-    'generate_schedule',
-    'clear_schedule',
-    'publish_schedule',
-    'export_draft_schedule',
-    'edit_block_settings',
-    'edit_program_settings',
-    'manage_users',
-    'create_academic_year',
-  ]),
-  [PROGRAM_ROLES.PROGRAM_DIRECTOR]: new Set([
-    'view_draft_schedule',
-    'edit_residents',
-    'edit_attendings',
-    'manual_assign_calls',
-    'generate_schedule',
-    'clear_schedule',
-    'publish_schedule',
-    'export_draft_schedule',
-    'edit_block_settings',
-    'edit_program_settings',
-    'manage_users',
-    'create_academic_year',
-  ]),
-  [PROGRAM_ROLES.VIEWER]: new Set(['view_published_schedule', 'export_published_schedule']),
+const PERMISSION_ALIASES = Object.freeze({
+  edit_residents: PERMISSIONS.MANAGE_RESIDENTS,
+  edit_attendings: PERMISSIONS.MANAGE_ATTENDING_SCHEDULE,
+  edit_block_settings: PERMISSIONS.MANAGE_BLOCK_SETTINGS,
+  clear_schedule: PERMISSIONS.CLEAR_GENERATED_SCHEDULE,
 });
+
+const FULL_ACCESS_ROLES = new Set([PROGRAM_ROLES.PROGRAM_ADMIN, PROGRAM_ROLES.PROGRAM_DIRECTOR]);
+const VIEWER_PERMISSIONS = new Set(['view_published_schedule', 'export_published_schedule']);
 
 export const ROLE_OPTIONS = Object.freeze([
   { value: PROGRAM_ROLES.CHIEF_RESIDENT, label: ROLE_LABELS[PROGRAM_ROLES.CHIEF_RESIDENT] },
@@ -73,7 +62,7 @@ export const ROLE_OPTIONS = Object.freeze([
 export function normalizeRole(role) {
   if (!role || typeof role !== 'string') return PROGRAM_ROLES.VIEWER;
   const raw = role.trim().toLowerCase();
-  if (ROLE_PERMISSIONS[raw]) return raw;
+  if (Object.values(PROGRAM_ROLES).includes(raw)) return raw;
   return LEGACY_ROLE_MAP[raw] ?? PROGRAM_ROLES.VIEWER;
 }
 
@@ -81,6 +70,11 @@ export function roleLabel(role) {
   return ROLE_LABELS[normalizeRole(role)] ?? 'Viewer';
 }
 
-export function hasPermission(role, permission) {
-  return Boolean(ROLE_PERMISSIONS[normalizeRole(role)]?.has(permission));
+export function hasPermission(role, permission, resolvedPermissions) {
+  const normalizedRole = normalizeRole(role);
+  const canonical = PERMISSION_ALIASES[permission] ?? permission;
+  if (Array.isArray(resolvedPermissions)) return resolvedPermissions.includes(canonical);
+  if (FULL_ACCESS_ROLES.has(normalizedRole)) return Object.values(PERMISSIONS).includes(canonical);
+  if (normalizedRole === PROGRAM_ROLES.VIEWER) return VIEWER_PERMISSIONS.has(canonical);
+  return false;
 }

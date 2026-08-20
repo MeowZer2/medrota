@@ -22,47 +22,70 @@ const LEGACY_ROLE_MAP = Object.freeze({
   viewer: ROLES.VIEWER,
 });
 
+const PERMISSIONS = Object.freeze({
+  VIEW_DRAFT_SCHEDULE: 'view_draft_schedule',
+  VIEW_PUBLISHED_SCHEDULE: 'view_published_schedule',
+  EXPORT_PUBLISHED_SCHEDULE: 'export_published_schedule',
+  MANAGE_RESIDENTS: 'manage_residents',
+  MANAGE_BLOCK_AVAILABILITY: 'manage_block_availability',
+  MANAGE_ATTENDING_ROSTER: 'manage_attending_roster',
+  MANAGE_ATTENDING_SCHEDULE: 'manage_attending_schedule',
+  MANAGE_BLOCK_SETTINGS: 'manage_block_settings',
+  MANAGE_SCHEDULING_RULES: 'manage_scheduling_rules',
+  MANUAL_ASSIGN_CALLS: 'manual_assign_calls',
+  GENERATE_SCHEDULE: 'generate_schedule',
+  CLEAR_GENERATED_SCHEDULE: 'clear_generated_schedule',
+  VALIDATE_SCHEDULE: 'validate_schedule',
+  PUBLISH_SCHEDULE: 'publish_schedule',
+  EXPORT_DRAFT_SCHEDULE: 'export_draft_schedule',
+  VIEW_AUDIT_HISTORY: 'view_audit_history',
+  MANAGE_CLINICAL_SERVICES: 'manage_clinical_services',
+  EDIT_PROGRAM_SETTINGS: 'edit_program_settings',
+  MANAGE_USERS: 'manage_users',
+  CREATE_ACADEMIC_YEAR: 'create_academic_year',
+  CONFIGURE_ROLE_PERMISSIONS: 'configure_role_permissions',
+});
+
+const CONFIGURABLE_CHIEF_PERMISSIONS = Object.freeze([
+  PERMISSIONS.MANAGE_RESIDENTS,
+  PERMISSIONS.MANAGE_BLOCK_AVAILABILITY,
+  PERMISSIONS.MANAGE_ATTENDING_ROSTER,
+  PERMISSIONS.MANAGE_ATTENDING_SCHEDULE,
+  PERMISSIONS.MANAGE_BLOCK_SETTINGS,
+  PERMISSIONS.MANAGE_SCHEDULING_RULES,
+  PERMISSIONS.MANUAL_ASSIGN_CALLS,
+  PERMISSIONS.GENERATE_SCHEDULE,
+  PERMISSIONS.CLEAR_GENERATED_SCHEDULE,
+  PERMISSIONS.VALIDATE_SCHEDULE,
+  PERMISSIONS.PUBLISH_SCHEDULE,
+  PERMISSIONS.EXPORT_DRAFT_SCHEDULE,
+  PERMISSIONS.VIEW_AUDIT_HISTORY,
+  PERMISSIONS.MANAGE_CLINICAL_SERVICES,
+]);
+
+const CHIEF_FIXED_PERMISSIONS = Object.freeze([PERMISSIONS.VIEW_DRAFT_SCHEDULE]);
+const DEFAULT_CHIEF_PERMISSIONS = Object.freeze([
+  ...CHIEF_FIXED_PERMISSIONS,
+  ...CONFIGURABLE_CHIEF_PERMISSIONS.filter(permission => permission !== PERMISSIONS.MANAGE_SCHEDULING_RULES),
+]);
+const VIEWER_PERMISSIONS = Object.freeze([
+  PERMISSIONS.VIEW_PUBLISHED_SCHEDULE,
+  PERMISSIONS.EXPORT_PUBLISHED_SCHEDULE,
+]);
+const FULL_PROGRAM_PERMISSIONS = Object.freeze(Object.values(PERMISSIONS));
+
+const PERMISSION_ALIASES = Object.freeze({
+  edit_residents: PERMISSIONS.MANAGE_RESIDENTS,
+  edit_attendings: PERMISSIONS.MANAGE_ATTENDING_SCHEDULE,
+  edit_block_settings: PERMISSIONS.MANAGE_BLOCK_SETTINGS,
+  clear_schedule: PERMISSIONS.CLEAR_GENERATED_SCHEDULE,
+});
+
 const ROLE_PERMISSIONS = Object.freeze({
-  [ROLES.CHIEF_RESIDENT]: new Set([
-    'view_draft_schedule',
-    'edit_residents',
-    'edit_attendings',
-    'manual_assign_calls',
-    'generate_schedule',
-    'clear_schedule',
-    'publish_schedule',
-    'export_draft_schedule',
-    'edit_block_settings',
-  ]),
-  [ROLES.PROGRAM_ADMIN]: new Set([
-    'view_draft_schedule',
-    'edit_residents',
-    'edit_attendings',
-    'manual_assign_calls',
-    'generate_schedule',
-    'clear_schedule',
-    'publish_schedule',
-    'export_draft_schedule',
-    'edit_block_settings',
-    'edit_program_settings',
-    'manage_users',
-    'create_academic_year',
-  ]),
-  [ROLES.PROGRAM_DIRECTOR]: new Set([
-    'view_draft_schedule',
-    'edit_residents',
-    'edit_attendings',
-    'manual_assign_calls',
-    'generate_schedule',
-    'clear_schedule',
-    'publish_schedule',
-    'export_draft_schedule',
-    'edit_block_settings',
-    'edit_program_settings',
-    'manage_users',
-    'create_academic_year',
-  ]),
-  [ROLES.VIEWER]: new Set(['view_published_schedule', 'export_published_schedule']),
+  [ROLES.CHIEF_RESIDENT]: new Set(DEFAULT_CHIEF_PERMISSIONS),
+  [ROLES.PROGRAM_ADMIN]: new Set(FULL_PROGRAM_PERMISSIONS),
+  [ROLES.PROGRAM_DIRECTOR]: new Set(FULL_PROGRAM_PERMISSIONS),
+  [ROLES.VIEWER]: new Set(VIEWER_PERMISSIONS),
 });
 
 function normalizeRole(role) {
@@ -72,12 +95,38 @@ function normalizeRole(role) {
   return LEGACY_ROLE_MAP[raw] ?? ROLES.VIEWER;
 }
 
+function normalizePermission(permission) {
+  return PERMISSION_ALIASES[permission] ?? permission;
+}
+
 function isValidRole(role) {
   return Boolean(ROLE_PERMISSIONS[role]);
 }
 
+function isCanonicalPermission(permission) {
+  return FULL_PROGRAM_PERMISSIONS.includes(permission);
+}
+
 function hasPermission(role, permission) {
-  return Boolean(ROLE_PERMISSIONS[normalizeRole(role)]?.has(permission));
+  return Boolean(ROLE_PERMISSIONS[normalizeRole(role)]?.has(normalizePermission(permission)));
+}
+
+async function resolvePermissions(programId, role) {
+  const normalizedRole = normalizeRole(role);
+  if (normalizedRole === ROLES.PROGRAM_ADMIN || normalizedRole === ROLES.PROGRAM_DIRECTOR) {
+    return [...FULL_PROGRAM_PERMISSIONS];
+  }
+  if (normalizedRole === ROLES.VIEWER) return [...VIEWER_PERMISSIONS];
+
+  const rows = await prisma.programRolePermission.findMany({
+    where: { programId, role: ROLES.CHIEF_RESIDENT },
+    select: { permission: true, enabled: true },
+  });
+  if (rows.length === 0) return [...DEFAULT_CHIEF_PERMISSIONS];
+  const configured = rows
+    .filter(row => row.enabled && CONFIGURABLE_CHIEF_PERMISSIONS.includes(row.permission))
+    .map(row => row.permission);
+  return [...new Set([...CHIEF_FIXED_PERMISSIONS, ...configured])];
 }
 
 async function getMembership(userId, programId) {
@@ -108,7 +157,6 @@ async function assertResidentBelongsToBlockProgram(res, residentId, blockId) {
     res.status(400).json({ error: 'residentId and blockId are required' });
     return null;
   }
-
   const [resident, blockAccess] = await Promise.all([
     prisma.residentProfile.findUnique({
       where: { id: residentId },
@@ -116,7 +164,6 @@ async function assertResidentBelongsToBlockProgram(res, residentId, blockId) {
     }),
     getProgramIdForBlock(blockId),
   ]);
-
   if (!resident) {
     res.status(404).json({ error: 'Resident not found' });
     return null;
@@ -129,7 +176,6 @@ async function assertResidentBelongsToBlockProgram(res, residentId, blockId) {
     res.status(400).json({ error: 'Resident and block must belong to the same program' });
     return null;
   }
-
   return { resident, blockAccess };
 }
 
@@ -139,11 +185,17 @@ async function requireProgramPermission(req, res, programId, permission) {
     res.status(403).json({ error: 'Not a member of this program' });
     return null;
   }
-  if (!hasPermission(membership.role, permission)) {
+  const canonicalPermission = normalizePermission(permission);
+  if (!isCanonicalPermission(canonicalPermission)) {
+    res.status(403).json({ error: 'Unknown program permission' });
+    return null;
+  }
+  const permissions = await resolvePermissions(programId, membership.role);
+  if (!permissions.includes(canonicalPermission)) {
     res.status(403).json({ error: 'Insufficient program permissions' });
     return null;
   }
-  return membership;
+  return { ...membership, permissions };
 }
 
 async function requireBlockPermission(req, res, blockId, permission) {
@@ -166,8 +218,9 @@ async function requireBlockView(req, res, blockId) {
     res.status(403).json({ error: 'Not a member of this program' });
     return null;
   }
-  if (hasPermission(membership.role, 'view_draft_schedule')) return membership;
-  if (blockAccess.isPublished && hasPermission(membership.role, 'view_published_schedule')) return membership;
+  const permissions = await resolvePermissions(blockAccess.programId, membership.role);
+  if (permissions.includes(PERMISSIONS.VIEW_DRAFT_SCHEDULE)) return { ...membership, permissions };
+  if (blockAccess.isPublished && permissions.includes(PERMISSIONS.VIEW_PUBLISHED_SCHEDULE)) return { ...membership, permissions };
   res.status(403).json({ error: 'Schedule is not published for viewer access' });
   return null;
 }
@@ -175,9 +228,16 @@ async function requireBlockView(req, res, blockId) {
 module.exports = {
   ROLES,
   ROLE_LABELS,
+  PERMISSIONS,
+  CONFIGURABLE_CHIEF_PERMISSIONS,
+  DEFAULT_CHIEF_PERMISSIONS,
+  FULL_PROGRAM_PERMISSIONS,
   normalizeRole,
+  normalizePermission,
   isValidRole,
+  isCanonicalPermission,
   hasPermission,
+  resolvePermissions,
   getMembership,
   getProgramIdForBlock,
   assertResidentBelongsToBlockProgram,

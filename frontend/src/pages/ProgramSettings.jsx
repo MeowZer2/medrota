@@ -39,9 +39,47 @@ function Label({ htmlFor, children }) {
   );
 }
 
+function RegistryRow({ item, canManage, onSave }) {
+  const [name, setName] = useState(item.name);
+  useEffect(() => setName(item.name), [item.name]);
+  const references = (item._count?.attendingEntries ?? 0) + (item._count?.attendingTemplates ?? 0);
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center', padding: '9px 0', borderBottom: '1px solid #F1F5F9' }}>
+      <div>
+        <input
+          aria-label={`${item.name} name`}
+          value={name}
+          onChange={event => setName(event.target.value)}
+          disabled={!canManage}
+          style={{ ...inputStyle, background: canManage ? '#F8FAFC' : '#fff', opacity: item.isActive ? 1 : 0.65 }}
+        />
+        {references > 0 && <span style={{ display: 'block', fontSize: 11, color: '#94A3B8', marginTop: 3 }}>{references} schedule reference{references === 1 ? '' : 's'} preserved</span>}
+      </div>
+      {canManage && name.trim() !== item.name && (
+        <button onClick={() => onSave(item.id, { name })} style={{ padding: '6px 10px', border: '1px solid #D6E4F7', borderRadius: 7, background: '#EEF4FF', color: '#2C5F8A', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Save</button>
+      )}
+      {canManage ? (
+        <button
+          onClick={() => onSave(item.id, { isActive: !item.isActive })}
+          style={{ padding: '6px 10px', border: '1px solid #E2E8F0', borderRadius: 7, background: item.isActive ? '#fff' : '#F0FDF4', color: item.isActive ? '#64748B' : '#15803D', fontSize: 12, cursor: 'pointer' }}
+        >
+          {item.isActive ? 'Deactivate' : 'Restore'}
+        </button>
+      ) : <span style={{ fontSize: 11, color: item.isActive ? '#15803D' : '#94A3B8' }}>{item.isActive ? 'Active' : 'Inactive'}</span>}
+    </div>
+  );
+}
+
+const PERMISSION_GROUPS = Object.freeze([
+  { title: 'Residents', items: [['manage_residents', 'Manage residents'], ['manage_block_availability', 'Manage block availability'], ['manage_clinical_services', 'Manage clinical services']] },
+  { title: 'Attendings', items: [['manage_attending_roster', 'Manage attending roster'], ['manage_attending_schedule', 'Edit attending schedule']] },
+  { title: 'Scheduling', items: [['manage_block_settings', 'Manage block settings'], ['manage_scheduling_rules', 'Edit scheduling rules'], ['manual_assign_calls', 'Assign calls manually'], ['generate_schedule', 'Generate schedules'], ['clear_generated_schedule', 'Clear generated schedules'], ['validate_schedule', 'Validate schedules'], ['publish_schedule', 'Publish schedules']] },
+  { title: 'Exports / history', items: [['export_draft_schedule', 'Export draft schedules'], ['view_audit_history', 'View scheduling audit history']] },
+]);
+
 // â”€â”€ main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-function CallTypeToggle({ id, label, description, checked, onChange }) {
+function CallTypeToggle({ id, label, description, checked, onChange, disabled = false }) {
   return (
     <label htmlFor={id} style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '12px 0', cursor: 'pointer' }}>
       <input
@@ -49,6 +87,7 @@ function CallTypeToggle({ id, label, description, checked, onChange }) {
         type="checkbox"
         checked={checked}
         onChange={e => onChange(e.target.checked)}
+        disabled={disabled}
         style={{ width: 18, height: 18, marginTop: 1, accentColor: '#1A3A5C' }}
       />
       <span>
@@ -66,6 +105,9 @@ export default function ProgramSettings() {
   const programId = currentProgram?.programId;
   const canEditProgramSettings = can('edit_program_settings');
   const canManageUsers = can('manage_users');
+  const canManageServices = can('manage_clinical_services');
+  const canManageActivities = can('manage_attending_roster');
+  const canConfigurePermissions = can('configure_role_permissions');
 
   // â”€â”€ Section 1: Program info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [name,      setName]      = useState(currentProgram?.programName ?? '');
@@ -105,13 +147,16 @@ export default function ProgramSettings() {
   const [loadingMembers, setLoadingMembers] = useState(true);
 
   const loadMembers = useCallback(() => {
-    if (!programId) return;
+    if (!programId || !canManageUsers) {
+      setLoadingMembers(false);
+      return;
+    }
     setLoadingMembers(true);
     api.get(`/programs/${programId}/members`)
       .then(({ data }) => setMembers(data))
       .catch(() => toast.error('Failed to load members'))
       .finally(() => setLoadingMembers(false));
-  }, [programId]);
+  }, [programId, canManageUsers]);
 
   useEffect(() => { loadMembers(); }, [loadMembers]);
 
@@ -193,14 +238,104 @@ export default function ProgramSettings() {
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
+  const [clinicalServices, setClinicalServices] = useState([]);
+  const [attendingActivities, setAttendingActivities] = useState([]);
+  const [attendingRoster, setAttendingRoster] = useState([]);
+  const [newAttending, setNewAttending] = useState({ attendingName: '', email: '', phone: '', officeLocation: '' });
+  const [newServiceName, setNewServiceName] = useState('');
+  const [newActivityName, setNewActivityName] = useState('');
+  const [chiefPermissions, setChiefPermissions] = useState([]);
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [savingPermissions, setSavingPermissions] = useState(false);
+
+  const loadProgramConfiguration = useCallback(async () => {
+    if (!programId) return;
+    const requests = [
+      api.get(`/program-configuration/${programId}/clinical-services`),
+      api.get(`/program-configuration/${programId}/attending-activities`),
+    ];
+    if (canConfigurePermissions) requests.push(api.get(`/program-configuration/${programId}/role-permissions`));
+    const [servicesResult, activitiesResult, permissionsResult] = await Promise.allSettled(requests);
+    if (servicesResult.status === 'fulfilled') setClinicalServices(servicesResult.value.data);
+    if (activitiesResult.status === 'fulfilled') setAttendingActivities(activitiesResult.value.data);
+    if (canManageActivities) {
+      try {
+        const { data } = await api.get(`/attending/roster?programId=${programId}&includeInactive=true`);
+        setAttendingRoster(data);
+      } catch { /* registry sections remain independently usable */ }
+    }
+    if (permissionsResult?.status === 'fulfilled') {
+      setChiefPermissions(permissionsResult.value.data.roles.chief_resident.permissions.filter(item => item.enabled).map(item => item.permission));
+      setPermissionsLoaded(true);
+    }
+  }, [programId, canConfigurePermissions, canManageActivities]);
+
+  useEffect(() => { loadProgramConfiguration(); }, [loadProgramConfiguration]);
+
+  const addRegistryItem = async (kind, name, clear) => {
+    if (!name.trim()) return;
+    try {
+      await api.post(`/program-configuration/${programId}/${kind}`, { name });
+      clear('');
+      await loadProgramConfiguration();
+      toast.success(kind === 'clinical-services' ? 'Clinical service added' : 'Attending activity added');
+    } catch (err) {
+      toast.error(err.response?.data?.error ?? 'Unable to add item');
+    }
+  };
+
+  const updateRegistryItem = async (kind, id, changes) => {
+    try {
+      await api.put(`/program-configuration/${programId}/${kind}/${id}`, changes);
+      await loadProgramConfiguration();
+      toast.success('Saved');
+    } catch (err) {
+      toast.error(err.response?.data?.error ?? 'Unable to save item');
+    }
+  };
+
+  const addAttending = async () => {
+    if (!newAttending.attendingName.trim()) return;
+    try {
+      await api.post('/attending/roster', { programId, ...newAttending, typicalActivities: [] });
+      setNewAttending({ attendingName: '', email: '', phone: '', officeLocation: '' });
+      await loadProgramConfiguration();
+      toast.success('Attending added to the program roster');
+    } catch (err) {
+      toast.error(err.response?.data?.error ?? 'Unable to add attending');
+    }
+  };
+
+  const setAttendingActive = async (item, isActive) => {
+    try {
+      await api.put(`/attending/roster/${item.id}`, { isActive });
+      await loadProgramConfiguration();
+      toast.success(isActive ? 'Attending restored' : 'Attending deactivated');
+    } catch (err) {
+      toast.error(err.response?.data?.error ?? 'Unable to update attending');
+    }
+  };
+
+  const saveChiefPermissions = async () => {
+    setSavingPermissions(true);
+    try {
+      await api.put(`/program-configuration/${programId}/role-permissions`, { role: 'chief_resident', permissions: chiefPermissions });
+      toast.success('Chief Resident permissions updated');
+    } catch (err) {
+      toast.error(err.response?.data?.error ?? 'Unable to update permissions');
+    } finally {
+      setSavingPermissions(false);
+    }
+  };
+
   // â”€â”€ render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  if (!canEditProgramSettings) {
+  if (!can('view_draft_schedule') && !canEditProgramSettings && !canManageServices && !canManageActivities) {
     return (
       <PageWrapper>
         <Layout>
           <div style={{ background: '#fff', border: '1px solid #E8EFF6', borderRadius: 12, padding: 24, color: '#64748B' }}>
-            Program settings are available to Program Admins and Program Directors.
+            You do not have access to program configuration.
           </div>
         </Layout>
       </PageWrapper>
@@ -221,18 +356,20 @@ export default function ProgramSettings() {
           </div>
 
           {/* â”€â”€ Program info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-          <Card title="Program Info" subtitle="Update the program name and specialty.">
+          <Card title="Program" subtitle="Program identity and call configuration.">
             <div className="space-y-4">
               <div>
-                <Label htmlFor="ps-program-name">Program name</Label>
-                <input id="ps-program-name" value={name} onChange={e => setName(e.target.value)} style={inputStyle} placeholder="e.g. Internal Medicine Residency" />
+                <Label htmlFor="ps-program-name">Program display name</Label>
+                <input id="ps-program-name" value={name} onChange={e => setName(e.target.value)} style={inputStyle} placeholder="e.g. Internal Medicine Residency" disabled={!canEditProgramSettings} />
+                <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>The name used throughout MedRota, such as “McMaster Vascular Surgery Residency.”</p>
               </div>
               <div>
-                <Label htmlFor="ps-specialty">Specialty</Label>
-                <select id="ps-specialty" value={specialty} onChange={e => setSpecialty(e.target.value)} style={inputStyle}>
+                <Label htmlFor="ps-specialty">Primary specialty</Label>
+                <select id="ps-specialty" value={specialty} onChange={e => setSpecialty(e.target.value)} style={inputStyle} disabled={!canEditProgramSettings}>
                   {MEDICAL_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
                   {specialty && !MEDICAL_SPECIALTIES.includes(specialty) && <option value={specialty}>{specialty}</option>}
                 </select>
+                <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>The program’s main specialty.</p>
               </div>
               <div style={{ borderTop: '1px solid #E8EFF6', paddingTop: 4 }}>
                 <CallTypeToggle
@@ -241,6 +378,7 @@ export default function ProgramSettings() {
                   description="Junior resident call assignments count as in-house call for PARO maximums."
                   checked={juniorInHouseCall}
                   onChange={setJuniorInHouseCall}
+                  disabled={!canEditProgramSettings}
                 />
                 <CallTypeToggle
                   id="senior-in-house-call"
@@ -248,9 +386,10 @@ export default function ProgramSettings() {
                   description="Senior resident call assignments count as in-house call for PARO maximums."
                   checked={seniorInHouseCall}
                   onChange={setSeniorInHouseCall}
+                  disabled={!canEditProgramSettings}
                 />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              {canEditProgramSettings && <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <motion.button
                   whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                   onClick={handleSaveInfo}
@@ -265,11 +404,52 @@ export default function ProgramSettings() {
                 >
                   {savingInfo ? 'Saving...' : 'Save'}
                 </motion.button>
-              </div>
+              </div>}
             </div>
           </Card>
 
+          <Card title="Clinical services" subtitle="Optional program-defined services or subspecialty rotations. No specialty defaults are imposed.">
+            {canManageServices && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                <input aria-label="New clinical service" value={newServiceName} onChange={event => setNewServiceName(event.target.value)} onKeyDown={event => event.key === 'Enter' && addRegistryItem('clinical-services', newServiceName, setNewServiceName)} style={inputStyle} placeholder="e.g. Acute Care Surgery" />
+                <button onClick={() => addRegistryItem('clinical-services', newServiceName, setNewServiceName)} style={{ padding: '8px 14px', border: 0, borderRadius: 8, background: '#1A3A5C', color: '#fff', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer' }}>Add service</button>
+              </div>
+            )}
+            {clinicalServices.length === 0 ? <p style={{ fontSize: 13, color: '#94A3B8' }}>No clinical services configured. This feature is optional.</p> : clinicalServices.map(item => <RegistryRow key={item.id} item={item} canManage={canManageServices} onSave={(id, changes) => updateRegistryItem('clinical-services', id, changes)} />)}
+          </Card>
+
+          {canManageActivities && <Card title="Attending roster" subtitle="Persistent program staff. Contact details stay inside authenticated program settings and are never added to the public schedule.">
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'end', marginBottom: 14 }}>
+              {[['attendingName', 'Name', 'Dr. Smith'], ['email', 'Email', 'name@example.org'], ['phone', 'Phone', 'Optional'], ['officeLocation', 'Office / location', 'Optional']].map(([field, label, placeholder]) => <div key={field}><Label htmlFor={`new-attending-${field}`}>{label}</Label><input id={`new-attending-${field}`} value={newAttending[field]} onChange={event => setNewAttending(previous => ({ ...previous, [field]: event.target.value }))} placeholder={placeholder} style={inputStyle} /></div>)}
+              <button onClick={addAttending} style={{ padding: '9px 14px', border: 0, borderRadius: 8, background: '#1A3A5C', color: '#fff', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer' }}>Add attending</button>
+            </div>
+            {attendingRoster.length === 0 ? <p style={{ fontSize: 13, color: '#94A3B8' }}>No attending staff configured.</p> : attendingRoster.map(item => <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr auto', gap: 8, padding: '9px 0', borderBottom: '1px solid #F1F5F9', alignItems: 'center', opacity: item.isActive ? 1 : 0.65 }}><strong style={{ fontSize: 13, color: '#1A3A5C' }}>{item.attendingName}</strong><span style={{ fontSize: 12, color: '#64748B' }}>{item.email || '—'}</span><span style={{ fontSize: 12, color: '#64748B' }}>{item.phone || '—'}</span><span style={{ fontSize: 12, color: '#64748B' }}>{item.officeLocation || '—'}</span><button onClick={() => setAttendingActive(item, !item.isActive)} style={{ padding: '6px 10px', border: '1px solid #E2E8F0', borderRadius: 7, background: item.isActive ? '#fff' : '#F0FDF4', color: item.isActive ? '#64748B' : '#15803D', fontSize: 12, cursor: 'pointer' }}>{item.isActive ? 'Deactivate' : 'Restore'}</button></div>)}
+          </Card>}
+
+          <Card title="Attending activities" subtitle="Activity types used by weekly patterns and attending schedules. Inactive types remain on historical schedules.">
+            {canManageActivities && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                <input aria-label="New attending activity" value={newActivityName} onChange={event => setNewActivityName(event.target.value)} onKeyDown={event => event.key === 'Enter' && addRegistryItem('attending-activities', newActivityName, setNewActivityName)} style={inputStyle} placeholder="e.g. Endoscopy" />
+                <button onClick={() => addRegistryItem('attending-activities', newActivityName, setNewActivityName)} style={{ padding: '8px 14px', border: 0, borderRadius: 8, background: '#1A3A5C', color: '#fff', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer' }}>Add activity</button>
+              </div>
+            )}
+            {attendingActivities.length === 0 ? <p style={{ fontSize: 13, color: '#94A3B8' }}>No activity types configured yet.</p> : attendingActivities.map(item => <RegistryRow key={item.id} item={item} canManage={canManageActivities} onSave={(id, changes) => updateRegistryItem('attending-activities', id, changes)} />)}
+          </Card>
+
+          {canConfigurePermissions && <Card title="Role permissions" subtitle="Program Admins and Directors always retain full access. Viewers always remain read-only.">
+            <div style={{ display: 'grid', gap: 12 }}>
+              <div style={{ padding: 12, borderRadius: 8, background: '#F8FAFC', fontSize: 13, color: '#475569' }}><strong style={{ color: '#1A3A5C' }}>Program Admin / Program Director</strong><br />Full program access</div>
+              <div style={{ padding: 12, borderRadius: 8, border: '1px solid #D6E4F7' }}>
+                <strong style={{ color: '#1A3A5C', fontSize: 14 }}>Chief Resident</strong>
+                {!permissionsLoaded ? <p style={{ fontSize: 13, color: '#94A3B8', marginTop: 10 }}>Loading permissions…</p> : PERMISSION_GROUPS.map(group => <div key={group.title} style={{ marginTop: 14 }}><p style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginBottom: 6 }}>{group.title}</p>{group.items.map(([permission, label]) => <label key={permission} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '5px 0', fontSize: 13, color: '#374151' }}><input type="checkbox" checked={chiefPermissions.includes(permission)} onChange={event => setChiefPermissions(previous => event.target.checked ? [...previous, permission] : previous.filter(item => item !== permission))} />{label}</label>)}</div>)}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}><button onClick={saveChiefPermissions} disabled={savingPermissions || !permissionsLoaded} style={{ padding: '8px 14px', border: 0, borderRadius: 8, background: '#1A3A5C', color: '#fff', fontSize: 12, fontWeight: 600, cursor: permissionsLoaded ? 'pointer' : 'not-allowed', opacity: permissionsLoaded ? 1 : 0.6 }}>{savingPermissions ? 'Saving…' : 'Save permissions'}</button></div>
+              </div>
+              <div style={{ padding: 12, borderRadius: 8, background: '#F8FAFC', fontSize: 13, color: '#475569' }}><strong style={{ color: '#1A3A5C' }}>Viewer</strong><br />Published schedule access only</div>
+            </div>
+          </Card>}
+
           {/* â”€â”€ Team members â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {canManageUsers && <>
           <Card title="Team Members" subtitle="View and manage who has access to this program.">
             {loadingMembers ? (
               <p style={{ fontSize: 13, color: '#94A3B8' }}>Loading...</p>
@@ -381,6 +561,8 @@ export default function ProgramSettings() {
           </Card>
 
           {/* â”€â”€ Published versions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          </>}
+
           <Card
             title="Published Versions"
             subtitle={currentBlock ? `Version history for Block ${currentBlock.number}` : 'Select a block to see published versions.'}
@@ -431,12 +613,12 @@ export default function ProgramSettings() {
           </Card>
 
           {/* Program history */}
-          <Card
+          {can('view_audit_history') && <Card
             title="Program History"
             subtitle="Read-only record of who changed what. Program Admins and Directors see everything; Chief Residents see scheduling changes only."
           >
             <AuditHistory programId={programId} limit={50} />
-          </Card>
+          </Card>}
         </motion.div>
 
         {/* Snapshot modal */}

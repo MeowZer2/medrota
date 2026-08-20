@@ -176,11 +176,11 @@ test('program settings is operable from the keyboard', async ({ page }) => {
   await page.goto('/settings');
   await page.waitForLoadState('networkidle');
 
-  const nameField = page.getByLabel('Program name');
+  const nameField = page.getByLabel('Program display name');
   await nameField.focus();
   await expect(nameField).toBeFocused();
 
-  const specialty = page.getByLabel('Specialty');
+  const specialty = page.getByLabel('Primary specialty');
   await specialty.focus();
   await expect(specialty).toBeFocused();
 

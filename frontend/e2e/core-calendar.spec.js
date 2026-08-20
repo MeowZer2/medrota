@@ -281,7 +281,7 @@ test('program admin can persist program call-type settings', async ({ page }) =>
 
 test('viewer cannot edit program call-type settings', async ({ page }) => {
   await login(page, 'qa-viewer@medrota.local', '/settings');
-  await expect(page.getByText('Program settings are available to Program Admins and Program Directors.')).toBeVisible();
+  await expect(page.getByText('You do not have access to program configuration.')).toBeVisible();
   await expect(page.getByRole('checkbox', { name: /Junior in-house call/i })).toHaveCount(0);
   await expect(page.getByRole('checkbox', { name: /Senior in-house call/i })).toHaveCount(0);
 });

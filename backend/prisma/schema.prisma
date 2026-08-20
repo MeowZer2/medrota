@@ -30,6 +30,9 @@ model Program {
   residents      ResidentProfile[]
   attendingRoster AttendingRoster[]
   attendingTemplates AttendingScheduleTemplate[]
+  clinicalServices ProgramService[]
+  attendingActivityTypes AttendingActivityType[]
+  rolePermissions ProgramRolePermission[]
   invites        Invite[]
   auditEvents    AuditEvent[]
 
@@ -188,7 +191,12 @@ model AttendingRoster {
   program           Program  @relation(fields: [programId], references: [id])
   attendingName     String
   typicalActivities String[]
+  email             String?
+  phone             String?
+  officeLocation    String?
+  isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([programId])
 }
@@ -200,11 +208,14 @@ model AttendingEntry {
   attendingName String
   date          DateTime
   activityLabel String
+  activityTypeId String?
+  activityType  AttendingActivityType? @relation(fields: [activityTypeId], references: [id], onDelete: SetNull)
   notes         String?
   isCallDay     Boolean  @default(false)
   callDays      CallDay[]
 
   @@index([blockId, date])
+  @@index([activityTypeId])
 }
 
 model CallDay {
@@ -256,8 +267,58 @@ model AttendingScheduleTemplate {
   attendingName String
   dayOfWeek     Int     // 0=Mon, 1=Tue, ..., 6=Sun
   activityLabel String
+  activityTypeId String?
+  activityType  AttendingActivityType? @relation(fields: [activityTypeId], references: [id], onDelete: SetNull)
 
   @@index([programId])
+  @@index([activityTypeId])
+}
+
+model ProgramService {
+  id             String   @id @default(uuid())
+  programId      String
+  program        Program  @relation(fields: [programId], references: [id])
+  name           String
+  normalizedName String
+  description    String?
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([programId, normalizedName])
+  @@index([programId, isActive, sortOrder])
+}
+
+model AttendingActivityType {
+  id             String   @id @default(uuid())
+  programId      String
+  program        Program  @relation(fields: [programId], references: [id])
+  name           String
+  normalizedName String
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  attendingEntries AttendingEntry[]
+  attendingTemplates AttendingScheduleTemplate[]
+
+  @@unique([programId, normalizedName])
+  @@index([programId, isActive, sortOrder])
+}
+
+model ProgramRolePermission {
+  id         String   @id @default(uuid())
+  programId  String
+  program    Program  @relation(fields: [programId], references: [id])
+  role       String
+  permission String
+  enabled    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([programId, role, permission])
+  @@index([programId, role])
 }
 
 // Append-only record of who changed what. Written alongside the mutation it

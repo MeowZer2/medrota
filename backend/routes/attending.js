@@ -1,7 +1,8 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const auth = require('../middleware/auth');
-const { getProgramIdForBlock, requireProgramPermission, requireBlockPermission, requireBlockView } = require('../lib/roles');
+const { getMembership, resolvePermissions, getProgramIdForBlock, requireProgramPermission, requireBlockPermission, requireBlockView } = require('../lib/roles');
+const { resolveActivityType } = require('../lib/activityRegistry');
 
 const router = express.Router();
 router.use(auth);
@@ -33,10 +34,14 @@ function addDays(date, count) {
 router.get('/roster', async (req, res) => {
   const { programId } = req.query;
   if (!programId) return res.status(400).json({ error: 'programId required' });
-  const membership = await requireProgramPermission(req, res, programId, 'edit_attendings');
-  if (!membership) return;
+  const membership = await getMembership(req.user?.userId, programId);
+  if (!membership) return res.status(403).json({ error: 'Not a member of this program' });
+  const permissions = await resolvePermissions(programId, membership.role);
+  if (!permissions.includes('manage_attending_roster') && !permissions.includes('manage_attending_schedule')) {
+    return res.status(403).json({ error: 'Insufficient program permissions' });
+  }
   const roster = await prisma.attendingRoster.findMany({
-    where: { programId },
+    where: { programId, ...(req.query.includeInactive === 'true' ? {} : { isActive: true }) },
     orderBy: { createdAt: 'asc' },
   });
   res.json(roster);
@@ -44,16 +49,16 @@ router.get('/roster', async (req, res) => {
 
 // POST /api/attending/roster
 router.post('/roster', async (req, res) => {
-  const { programId, attendingName, typicalActivities } = req.body;
+  const { programId, attendingName, typicalActivities, email, phone, officeLocation } = req.body;
   if (!programId || !attendingName) {
     console.warn('[attending/roster POST] missing fields', { programId, attendingName });
     return res.status(400).json({ error: 'programId and attendingName required' });
   }
-  const membership = await requireProgramPermission(req, res, programId, 'edit_attendings');
+  const membership = await requireProgramPermission(req, res, programId, 'manage_attending_roster');
   if (!membership) return;
   try {
     const entry = await prisma.attendingRoster.create({
-      data: { programId, attendingName, typicalActivities: typicalActivities ?? [] },
+      data: { programId, attendingName: attendingName.trim(), typicalActivities: typicalActivities ?? [], email: email || null, phone: phone || null, officeLocation: officeLocation || null },
     });
     console.log(`[attending/roster POST] created id=${entry.id} programId=${programId} name=${attendingName}`);
     res.status(201).json(entry);
@@ -65,17 +70,21 @@ router.post('/roster', async (req, res) => {
 
 // PUT /api/attending/roster/:id — update name and/or activities
 router.put('/roster/:id', async (req, res) => {
-  const { attendingName, typicalActivities } = req.body;
+  const { attendingName, typicalActivities, email, phone, officeLocation, isActive } = req.body;
   try {
     const existing = await prisma.attendingRoster.findUnique({ where: { id: req.params.id }, select: { programId: true } });
     if (!existing) return res.status(404).json({ error: 'Roster entry not found' });
-    const membership = await requireProgramPermission(req, res, existing.programId, 'edit_attendings');
+    const membership = await requireProgramPermission(req, res, existing.programId, 'manage_attending_roster');
     if (!membership) return;
     const entry = await prisma.attendingRoster.update({
       where: { id: req.params.id },
       data: {
         ...(attendingName     !== undefined && { attendingName }),
         ...(typicalActivities !== undefined && { typicalActivities }),
+        ...(email !== undefined && { email: email || null }),
+        ...(phone !== undefined && { phone: phone || null }),
+        ...(officeLocation !== undefined && { officeLocation: officeLocation || null }),
+        ...(typeof isActive === 'boolean' && { isActive }),
       },
     });
     res.json(entry);
@@ -89,10 +98,10 @@ router.put('/roster/:id', async (req, res) => {
 router.delete('/roster/:id', async (req, res) => {
   const existing = await prisma.attendingRoster.findUnique({ where: { id: req.params.id }, select: { programId: true } });
   if (!existing) return res.status(404).json({ error: 'Roster entry not found' });
-  const membership = await requireProgramPermission(req, res, existing.programId, 'edit_attendings');
+  const membership = await requireProgramPermission(req, res, existing.programId, 'manage_attending_roster');
   if (!membership) return;
-  await prisma.attendingRoster.delete({ where: { id: req.params.id } });
-  res.json({ success: true });
+  const entry = await prisma.attendingRoster.update({ where: { id: req.params.id }, data: { isActive: false } });
+  res.json({ success: true, entry });
 });
 
 // POST /api/attending/copy - copy entries from one block to another by relative day index
@@ -113,7 +122,7 @@ router.post('/copy', async (req, res) => {
     if (!sourceBlock || !targetBlock) {
       return res.status(404).json({ error: 'Source or target block not found' });
     }
-    const targetMembership = await requireBlockPermission(req, res, targetBlockId, 'edit_attendings');
+    const targetMembership = await requireBlockPermission(req, res, targetBlockId, 'manage_attending_schedule');
     if (!targetMembership) return;
     const sourceMembership = await requireBlockView(req, res, sourceBlockId);
     if (!sourceMembership) return;
@@ -158,6 +167,7 @@ router.post('/copy', async (req, res) => {
 
       const data = {
         activityLabel: entry.activityLabel ?? '',
+        activityTypeId: entry.activityTypeId ?? null,
         notes: entry.notes ?? null,
         isCallDay: entry.isCallDay ?? false,
       };
@@ -212,11 +222,11 @@ router.post('/', async (req, res) => {
     console.warn('[attending POST] missing required fields', { blockId, attendingName, date });
     return res.status(400).json({ error: 'blockId, attendingName, and date are required' });
   }
-  const membership = await requireBlockPermission(req, res, blockId, 'edit_attendings');
+  const membership = await requireBlockPermission(req, res, blockId, 'manage_attending_schedule');
   if (!membership) return;
 
   // Verify the block exists before writing
-  const block = await prisma.block.findUnique({ where: { id: blockId }, select: { id: true } });
+  const block = await prisma.block.findUnique({ where: { id: blockId }, select: { id: true, academicYear: { select: { programId: true } } } });
   if (!block) {
     console.error(`[attending POST] Block not found: blockId=${blockId}`);
     return res.status(404).json({ error: 'Block not found' });
@@ -224,8 +234,9 @@ router.post('/', async (req, res) => {
 
   try {
     const day = startOfLogicalDay(date);
+    const resolvedActivity = await resolveActivityType(block.academicYear.programId, activityLabel ?? '');
     const entryData = {
-      activityLabel: activityLabel ?? '',
+      ...resolvedActivity,
       notes: notes ?? null,
       isCallDay: isCallDay ?? false,
     };
@@ -251,7 +262,7 @@ router.post('/', async (req, res) => {
     res.status(existing ? 200 : 201).json(entry);
   } catch (err) {
     console.error('[attending POST] Prisma error:', err.message);
-    res.status(500).json({ error: 'Failed to create attending entry' });
+    res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : 'Failed to create attending entry' });
   }
 });
 
@@ -259,28 +270,39 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const { attendingName, date, activityLabel, notes, isCallDay } = req.body;
-  const existing = await prisma.attendingEntry.findUnique({ where: { id }, select: { blockId: true } });
-  if (!existing) return res.status(404).json({ error: 'Attending entry not found' });
-  const membership = await requireBlockPermission(req, res, existing.blockId, 'edit_attendings');
-  if (!membership) return;
-  const entry = await prisma.attendingEntry.update({
+  const existing = await prisma.attendingEntry.findUnique({
     where: { id },
-    data: {
-      ...(attendingName  !== undefined && { attendingName }),
-      ...(date           !== undefined && { date: startOfLogicalDay(date) }),
-      ...(activityLabel  !== undefined && { activityLabel }),
-      ...(notes          !== undefined && { notes }),
-      ...(isCallDay      !== undefined && { isCallDay }),
-    },
+    select: { blockId: true, activityTypeId: true },
   });
-  res.json(entry);
+  if (!existing) return res.status(404).json({ error: 'Attending entry not found' });
+  const membership = await requireBlockPermission(req, res, existing.blockId, 'manage_attending_schedule');
+  if (!membership) return;
+  try {
+    const blockAccess = await getProgramIdForBlock(existing.blockId);
+    const resolvedActivity = activityLabel === undefined
+      ? null
+      : await resolveActivityType(blockAccess.programId, activityLabel, { allowInactiveId: existing.activityTypeId });
+    const entry = await prisma.attendingEntry.update({
+      where: { id },
+      data: {
+        ...(attendingName  !== undefined && { attendingName }),
+        ...(date           !== undefined && { date: startOfLogicalDay(date) }),
+        ...(resolvedActivity && resolvedActivity),
+        ...(notes          !== undefined && { notes }),
+        ...(isCallDay      !== undefined && { isCallDay }),
+      },
+    });
+    res.json(entry);
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : 'Failed to update attending entry' });
+  }
 });
 
 // DELETE /api/attending?blockId= — delete ALL entries for a block
 router.delete('/', async (req, res) => {
   const { blockId } = req.query;
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
-  const membership = await requireBlockPermission(req, res, blockId, 'edit_attendings');
+  const membership = await requireBlockPermission(req, res, blockId, 'manage_attending_schedule');
   if (!membership) return;
   try {
     const deleted = await prisma.attendingEntry.deleteMany({ where: { blockId } });
@@ -295,7 +317,7 @@ router.delete('/', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   const existing = await prisma.attendingEntry.findUnique({ where: { id: req.params.id }, select: { blockId: true } });
   if (!existing) return res.status(404).json({ error: 'Attending entry not found' });
-  const membership = await requireBlockPermission(req, res, existing.blockId, 'edit_attendings');
+  const membership = await requireBlockPermission(req, res, existing.blockId, 'manage_attending_schedule');
   if (!membership) return;
   await prisma.attendingEntry.delete({ where: { id: req.params.id } });
   res.json({ success: true });
@@ -304,7 +326,7 @@ router.delete('/:id', async (req, res) => {
 // DELETE /api/attending/block/:blockId
 router.delete('/block/:blockId', async (req, res) => {
   const { blockId } = req.params;
-  const membership = await requireBlockPermission(req, res, blockId, 'edit_attendings');
+  const membership = await requireBlockPermission(req, res, blockId, 'manage_attending_schedule');
   if (!membership) return;
   try {
     const deleted = await prisma.attendingEntry.deleteMany({ where: { blockId } });

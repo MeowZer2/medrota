@@ -75,10 +75,10 @@ router.get('/', async (req, res) => {
   // ── programId path ─────────────────────────────────────────────────────────
   if (programId) {
     try {
-      const membership = await requireProgramPermission(req, res, programId, 'edit_residents');
+      const membership = await requireProgramPermission(req, res, programId, 'manage_residents');
       if (!membership) return;
       if (blockId) {
-        const blockMembership = await requireBlockPermission(req, res, blockId, 'edit_residents');
+        const blockMembership = await requireBlockPermission(req, res, blockId, 'manage_residents');
         if (!blockMembership) return;
         const blockAccess = await getProgramIdForBlock(blockId);
         if (blockAccess?.programId !== programId) {
@@ -144,7 +144,7 @@ router.get('/', async (req, res) => {
   // ── blockId path (for BlockPage and scheduler fallback) ───────────────────
   if (blockId) {
     try {
-      const membership = await requireBlockPermission(req, res, blockId, 'edit_residents');
+      const membership = await requireBlockPermission(req, res, blockId, 'manage_residents');
       if (!membership) return;
       // Find programId via block
       const block = await prisma.block.findUnique({
@@ -208,10 +208,10 @@ router.post('/', async (req, res) => {
   if (!programId || !name || !pgyLevel || !residentRole) {
     return res.status(400).json({ error: 'programId, name, pgyLevel, residentRole are required' });
   }
-  const membership = await requireProgramPermission(req, res, programId, 'edit_residents');
+  const membership = await requireProgramPermission(req, res, programId, 'manage_residents');
   if (!membership) return;
   if (blockId) {
-    const blockMembership = await requireBlockPermission(req, res, blockId, 'edit_residents');
+    const blockMembership = await requireBlockPermission(req, res, blockId, 'manage_residents');
     if (!blockMembership) return;
     const blockAccess = await getProgramIdForBlock(blockId);
     if (blockAccess?.programId !== programId) {
@@ -300,7 +300,7 @@ router.post('/:id/enroll', async (req, res) => {
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
 
   try {
-    const membership = await requireBlockPermission(req, res, blockId, 'edit_residents');
+    const membership = await requireBlockPermission(req, res, blockId, 'manage_residents');
     if (!membership) return;
     const ownership = await assertResidentBelongsToBlockProgram(res, id, blockId);
     if (!ownership) return;
@@ -339,7 +339,7 @@ router.post('/:id/enroll', async (req, res) => {
 router.delete('/:id/enroll/:blockId', async (req, res) => {
   const { id, blockId } = req.params;
   try {
-    const membership = await requireBlockPermission(req, res, blockId, 'edit_residents');
+    const membership = await requireBlockPermission(req, res, blockId, 'manage_residents');
     if (!membership) return;
     const ownership = await assertResidentBelongsToBlockProgram(res, id, blockId);
     if (!ownership) return;
@@ -378,8 +378,8 @@ router.put('/:id', async (req, res) => {
     const existingResident = await prisma.residentProfile.findUnique({ where: { id }, select: { programId: true, name: true } });
     if (!existingResident) return res.status(404).json({ error: 'Resident not found' });
     const membership = blockId
-      ? await requireBlockPermission(req, res, blockId, 'edit_residents')
-      : await requireProgramPermission(req, res, existingResident.programId, 'edit_residents');
+      ? await requireBlockPermission(req, res, blockId, 'manage_residents')
+      : await requireProgramPermission(req, res, existingResident.programId, 'manage_residents');
     if (!membership) return;
     if (blockId) {
       const ownership = await assertResidentBelongsToBlockProgram(res, id, blockId);
@@ -444,7 +444,7 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
   const existingResident = await prisma.residentProfile.findUnique({ where: { id }, select: { programId: true, name: true } });
   if (!existingResident) return res.status(404).json({ error: 'Resident not found' });
-  const membership = await requireProgramPermission(req, res, existingResident.programId, 'edit_residents');
+  const membership = await requireProgramPermission(req, res, existingResident.programId, 'manage_residents');
   if (!membership) return;
   await prisma.callAssignment.deleteMany({ where: { residentId: id } });
   await prisma.blockEnrollment.deleteMany({ where: { residentId: id } });
