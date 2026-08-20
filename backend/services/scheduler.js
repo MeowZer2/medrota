@@ -269,17 +269,17 @@ async function generateSchedule(blockId) {
     resident.isMedStudent && resident.isActive && resident.availabilityComplete
   );
 
+  // Every stored assignment is loaded, not only manual overrides. Callers that
+  // want a fresh plan clear the generated rows first (POST /schedule/generate
+  // does). Treating an already-filled slot as filled keeps generation
+  // idempotent: running it twice is a no-op instead of writing a second
+  // resident into the same role slot.
   const existingCallDays = await prisma.callDay.findMany({
     where: { blockId },
-    include: {
-      assignments: {
-        where: { isOverride: true },
-        include: { resident: true },
-      },
-    },
+    include: { assignments: { include: { resident: true } } },
   });
 
-  const overrideByDateKey = new Map();
+  const existingByDateKey = new Map();
   const warnings = missingAvailabilityResidents.map(resident => ({
     code: 'MISSING_RESIDENT_AVAILABILITY',
     residentId: resident.id,
@@ -299,20 +299,24 @@ async function generateSchedule(blockId) {
       const resident = residentById.get(assignment.residentId);
       if (!resident) continue;
 
-      if (violatesVacation(dateKey, resident.vacationDateKeys)) {
-        warnings.push({ date: dateKey, message: `Manual override for ${resident.name} falls on vacation` });
-      }
-      if (violatesPostCallBeforeVacation(dateKey, resident.vacationDateKeys)) {
-        warnings.push({ date: dateKey, message: `Manual override for ${resident.name} is post-call before vacation` });
-      }
-      if (hasConsecutiveCall(dateKey, [...resident.assignedDateKeys])) {
-        warnings.push({ date: dateKey, message: `Manual override for ${resident.name} creates consecutive call` });
+      // Only a manual override deserves an override warning. A generated row
+      // that survived because the caller did not clear is simply carried over.
+      if (assignment.isOverride) {
+        if (violatesVacation(dateKey, resident.vacationDateKeys)) {
+          warnings.push({ date: dateKey, message: `Manual override for ${resident.name} falls on vacation` });
+        }
+        if (violatesPostCallBeforeVacation(dateKey, resident.vacationDateKeys)) {
+          warnings.push({ date: dateKey, message: `Manual override for ${resident.name} is post-call before vacation` });
+        }
+        if (hasConsecutiveCall(dateKey, [...resident.assignedDateKeys])) {
+          warnings.push({ date: dateKey, message: `Manual override for ${resident.name} creates consecutive call` });
+        }
       }
 
       incrementResidentCall(resident, dateKey, assignment.roleOnDay, programSettings);
     }
 
-    if (callDay.assignments.length > 0) overrideByDateKey.set(dateKey, info);
+    if (callDay.assignments.length > 0) existingByDateKey.set(dateKey, info);
   }
 
   const dayMap = new Map();
@@ -346,15 +350,15 @@ async function generateSchedule(blockId) {
     const date = dateFromDateKey(dateKey);
     const isHoliday = holidaySet.has(dateKey);
     const isAcademicDay = cfg.avoidAcademicDays && academicDaySet.has(dateKey);
-    const overrideInfo = overrideByDateKey.get(dateKey);
-    const callDay = overrideInfo?.callDay ?? await prisma.callDay.upsert({
+    const existingInfo = existingByDateKey.get(dateKey);
+    const callDay = existingInfo?.callDay ?? await prisma.callDay.upsert({
       where: { blockId_date: { blockId, date } },
       update: { isHoliday },
       create: { blockId, date, isHoliday },
     });
 
-    let hasSenior = overrideInfo?.hasSenior ?? false;
-    let hasJunior = overrideInfo?.hasJunior ?? false;
+    let hasSenior = existingInfo?.hasSenior ?? false;
+    let hasJunior = existingInfo?.hasJunior ?? false;
     dayMap.set(dateKey, { callDayId: callDay.id, hasSenior, hasJunior, skipped: false });
 
     if (isHoliday) {
