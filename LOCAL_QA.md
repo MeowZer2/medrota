@@ -85,7 +85,7 @@ If browsers have not been installed on the machine yet, run once from `frontend`
 npx playwright install chromium
 ```
 
-Current E2E coverage is 47 tests across seven spec files:
+Current E2E coverage is 48 tests across seven spec files:
 
 | Spec | Covers |
 |---|---|
@@ -95,7 +95,7 @@ Current E2E coverage is 47 tests across seven spec files:
 | `onboarding.spec.js` | Registration fields, auto-login, the no-invite explanation, invited registration joining at the invited role |
 | `responsive.spec.js` | No horizontal scroll at 375/768/1024/1440, dialogs fit a phone, touch-target sizes |
 | `accessibility.spec.js` | Named controls, labelled modal dialogs, Escape and focus restore, keyboard-only login, calendar and every program settings section, role conveyed by text |
-| `settings-registries.spec.js` | Program Settings section navigation and URL persistence, attending and activity deactivate/restore, Viewer denial, and pointer reachability of registry actions at 375/768/1280px |
+| `settings-registries.spec.js` | Program Settings section navigation and URL persistence, per-role section visibility, attending and activity deactivate/restore, Viewer denial, and pointer reachability of registry actions at 375/768/1280px |
 
 The onboarding tests create accounts with unique throwaway emails. They join no
 program unless the test explicitly does so, and they are inert.
