@@ -120,6 +120,27 @@ cd backend
 npm run dev:seed-qa
 ```
 
+## Program configuration QA
+
+Run the focused backend behavior suite after applying migrations:
+
+```bash
+cd backend
+npm run program-config:smoke
+```
+
+It covers Admin/Director service management, normalized duplicate rejection, registry activity lifecycle and historical preservation, custom weekly-pattern activities, legacy Chief defaults, configurable Chief authorization, fixed Viewer read-only behavior, and cross-program denial.
+
+Program Settings browser QA should confirm:
+
+1. `Program display name` and `Primary specialty` are separately labelled with helper text.
+2. An Admin can add/deactivate a Clinical service and Attending activity.
+3. A custom active activity appears in the Attending Roster & Weekly Pattern selectors.
+4. Removing and restoring `Manage residents` changes the Chief Resident sidebar and backend access after a new login.
+5. Viewer mutation requests still return 403.
+
+`manage_scheduling_rules` is only a permission toggle in this milestone; there is no custom rule-builder UI yet.
+
 ## Current Milestone Status
 
 - Phase 5 scheduling smoke coverage is closed and passing.

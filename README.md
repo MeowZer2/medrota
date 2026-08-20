@@ -137,6 +137,14 @@ Install Chromium once if needed with `npx playwright install chromium`. See `LOC
 
 Continuous integration runs the same checks on every push and pull request; see `.github/workflows/ci.yml`.
 
+## Program configuration
+
+MedRota keeps two separate program identity fields: **Program display name** is the local name shown throughout the product, while **Primary specialty** is the program's medical specialty/category. Existing `Program.name` and `Program.specialty` data remain unchanged; the update clarifies their labels rather than migrating values.
+
+Program Settings now includes optional program-defined **Clinical services** and **Attending activities**. Neither registry is populated from a hard-coded specialty tree. Activity types drive weekly attending-pattern selectors, while stored activity text remains on historical schedules after an activity is renamed or deactivated. The persistent attending roster also supports optional email, phone, office/location, and active status; contact details are excluded from public schedule responses.
+
+The canonical roles remain Program Admin, Program Director, Chief Resident, and Viewer. Admins and Directors always resolve to full program-management access, and Viewers always remain read-only. Admins and Directors may configure a bounded canonical set of Chief Resident operational permissions. `manage_scheduling_rules` is included for the future rule builder, but this release does not add that builder.
+
 ## Current limitations
 
 - MVP scope is one active program per user experience, although backend resources are program-isolated.

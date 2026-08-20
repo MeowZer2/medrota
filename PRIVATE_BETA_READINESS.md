@@ -197,13 +197,20 @@ Full commands in `DEPLOYMENT.md`.
 | Privacy and exports | `npm run phase6:smoke` | Public shape, Excel, printable |
 | Deployment | `npm run deploy:smoke` | Headers, body limits, health, shutdown wiring |
 | Frontend | `npm run perf:guard`, `npm run lint`, `npm run build` | Performance patterns, lint, build |
-| Browser | `npm run e2e` | 39 Playwright tests: calendar, overrides, validation, availability, audit, publishing, onboarding, responsive, accessibility |
+| Program configuration | `npm run program-config:smoke` | Clinical services, activity lifecycle, history preservation, dynamic Chief authorization, fixed role hierarchy |
+| Browser | `npm run e2e` | 40 Playwright tests: calendar, overrides, validation, availability, audit, publishing, onboarding, program configuration, responsive, accessibility |
 
 **What the tests do not cover:** real clinician data, a real program's rule
 interpretation, concurrent multi-user editing, load or soak, browsers other than
 Chromium, and assistive technology beyond keyboard and accessible-name checks.
 
-## 8. Deployment prerequisites
+## 8. Program configuration safety
+
+Program display name identifies the local residency program; Primary specialty remains its medical category. Clinical services and attending activity types are optional program-level registries, not global specialty defaults. Deactivation is non-destructive and historical attending labels remain stored and readable.
+
+Program Admin and Program Director always receive the full canonical program permission set. Only those roles can change the Chief Resident's bounded operational permission configuration. Viewer permissions are fixed to published, read-only access; permission payloads cannot promote a Viewer. The future rules capability is represented by `manage_scheduling_rules`, with no rule engine included in this release.
+
+## 9. Deployment prerequisites
 
 1. Node.js 22+, PostgreSQL 15+ (CI uses 17).
 2. TLS terminated in front of the API.
@@ -220,7 +227,7 @@ Chromium, and assistive technology beyond keyboard and accessible-name checks.
 
 Procedure in `DEPLOYMENT.md`.
 
-## 9. Readiness verdict
+## 10. Readiness verdict
 
 **Ready for a supervised private beta with a program that keeps its previous
 scheduling method available as a fallback.**

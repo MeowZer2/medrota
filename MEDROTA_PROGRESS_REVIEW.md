@@ -121,6 +121,19 @@ Seventeen backend suites and 39 Playwright tests. The full matrix is in
   emergency clauses and formal approvals remain unsupported.
 * "Print / PDF" is printable HTML for browser Save-as-PDF.
 
+## Program structure and access update
+
+The program configuration milestone is implemented on top of the private-beta baseline:
+
+* Program display name and Primary specialty are clearly distinguished without changing existing stored values.
+* Optional Clinical services are program-defined, normalized for safe per-program uniqueness, orderable, and non-destructively deactivated.
+* Attending activities are program-defined and used by weekly patterns. Migration imports distinct historical labels and keeps original schedule text readable.
+* The attending roster remains program-level and now supports private optional contact/location fields plus active status.
+* Backend authorization resolves program-level Chief Resident permission configuration. Program Admin and Program Director remain full-access; Viewer remains fixed read-only.
+* `manage_scheduling_rules` prepares authorization for a later custom-rule project only.
+
+No resident composition redesign, specialty-specific subspecialty tree, or custom scheduling-rule engine was added.
+
 ## Next Priorities
 
 1. Run a real anonymized program block through the generator and validator with
