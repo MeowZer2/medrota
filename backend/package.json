@@ -28,7 +28,8 @@
     "availability:smoke": "node scripts/block-availability-smoke.js",
     "publish:safety-smoke": "node scripts/publish-safety-smoke.js",
     "audit:smoke": "node scripts/audit-smoke.js",
-    "publish:revocation-smoke": "node scripts/publish-revocation-smoke.js"
+    "publish:revocation-smoke": "node scripts/publish-revocation-smoke.js",
+    "deploy:smoke": "node scripts/deployment-smoke.js"
   },
   "keywords": [],
   "author": "",
@@ -42,6 +43,7 @@
     "dotenv": "^17.4.1",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "prisma": "^7.6.0"
   },
