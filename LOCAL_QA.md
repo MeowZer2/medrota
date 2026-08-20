@@ -85,7 +85,7 @@ If browsers have not been installed on the machine yet, run once from `frontend`
 npx playwright install chromium
 ```
 
-Current E2E coverage is 39 tests across six spec files:
+Current E2E coverage is 47 tests across seven spec files:
 
 | Spec | Covers |
 |---|---|
@@ -94,7 +94,8 @@ Current E2E coverage is 39 tests across six spec files:
 | `publishing.spec.js` | Public link rotation invalidating the old link, unpublish and republish, Viewer sees no revocation controls |
 | `onboarding.spec.js` | Registration fields, auto-login, the no-invite explanation, invited registration joining at the invited role |
 | `responsive.spec.js` | No horizontal scroll at 375/768/1024/1440, dialogs fit a phone, touch-target sizes |
-| `accessibility.spec.js` | Named controls, labelled modal dialogs, Escape and focus restore, keyboard-only login, calendar and program settings, role conveyed by text |
+| `accessibility.spec.js` | Named controls, labelled modal dialogs, Escape and focus restore, keyboard-only login, calendar and every program settings section, role conveyed by text |
+| `settings-registries.spec.js` | Program Settings section navigation and URL persistence, attending and activity deactivate/restore, Viewer denial, and pointer reachability of registry actions at 375/768/1280px |
 
 The onboarding tests create accounts with unique throwaway emails. They join no
 program unless the test explicitly does so, and they are inert.
@@ -112,6 +113,19 @@ npm run e2e
 The explicit seed is required because reused servers bypass Playwright's embedded seed command. Stop the manually started local servers afterward. This runner limitation does not change test assertions or browser behavior.
 
 Running the suite repeatedly on Windows can also exhaust ephemeral sockets, which surfaces as `net::ERR_NO_BUFFER_SPACE` on a `page.goto`. It is a host limitation, not a product failure: wait a few seconds and re-run. If it recurs, use the server-reuse procedure above.
+
+The API rate-limits sign-in attempts per IP in a fifteen-minute window. One full
+suite run signs in around fifty times, so running it two or three times back to
+back against a single long-lived backend starts returning `429`, which surfaces
+as `waitForURL` timeouts on the login page across unrelated specs. The limiter
+holds its buckets in memory, so restarting the API clears them:
+
+```bash
+# stop the running API, then from backend:
+npm start
+```
+
+CI is unaffected because every run starts a fresh API process.
 
 After running E2E manually, run the seed again if you want to restore the default QA assignment state:
 
@@ -131,13 +145,25 @@ npm run program-config:smoke
 
 It covers Admin/Director service management, normalized duplicate rejection, registry activity lifecycle and historical preservation, custom weekly-pattern activities, legacy Chief defaults, configurable Chief authorization, fixed Viewer read-only behavior, and cross-program denial.
 
+Run the registry lifecycle suite alongside it:
+
+```bash
+cd backend
+npm run registry:lifecycle-smoke
+```
+
+It covers deactivating and restoring attending roster entries, activity types and clinical services; the active-only default of the roster endpoint that feeds scheduling selectors; refusal of inactive activities for new daily entries and new weekly-pattern days; continued readability and editability of history that already references an inactive activity; and the permissions that gate deactivate and restore for Admin, Director, configurable Chief, Viewer and cross-program callers.
+
 Program Settings browser QA should confirm:
 
-1. `Program display name` and `Primary specialty` are separately labelled with helper text.
-2. An Admin can add/deactivate a Clinical service and Attending activity.
-3. A custom active activity appears in the Attending Roster & Weekly Pattern selectors.
-4. Removing and restoring `Manage residents` changes the Chief Resident sidebar and backend access after a new login.
-5. Viewer mutation requests still return 403.
+1. Settings open on **General**, and the section navigation lists General, Clinical Structure, Attendings, Scheduling, Access & Permissions and History. It is a side-nav from 1024px up and a scrolling strip below.
+2. Selecting a section updates `?tab=`, and a refresh stays on that section.
+3. `Program display name` and `Primary specialty` are separately labelled with helper text on **General**.
+4. On **Clinical Structure** and **Attendings**, an Admin can add a Clinical service, an Attending and an Attending activity.
+5. Deactivating any of them removes it from the default list and leaves a `Show inactive ... (n)` disclosure. Opening the disclosure shows the record with an **Inactive** badge and a working **Restore**.
+6. A custom active activity appears in the Attending Roster & Weekly Pattern selectors; a deactivated one does not, while entries already using it still display its label.
+7. On **Access & Permissions**, removing and restoring `Manage residents` changes the Chief Resident sidebar and backend access after a new login.
+8. Viewer mutation requests still return 403, and a Viewer sees the no-access message instead of the sections.
 
 `manage_scheduling_rules` is only a permission toggle in this milestone; there is no custom rule-builder UI yet.
 

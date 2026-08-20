@@ -141,7 +141,11 @@ Continuous integration runs the same checks on every push and pull request; see 
 
 MedRota keeps two separate program identity fields: **Program display name** is the local name shown throughout the product, while **Primary specialty** is the program's medical specialty/category. Existing `Program.name` and `Program.specialty` data remain unchanged; the update clarifies their labels rather than migrating values.
 
-Program Settings now includes optional program-defined **Clinical services** and **Attending activities**. Neither registry is populated from a hard-coded specialty tree. Activity types drive weekly attending-pattern selectors, while stored activity text remains on historical schedules after an activity is renamed or deactivated. The persistent attending roster also supports optional email, phone, office/location, and active status; contact details are excluded from public schedule responses.
+Program Settings is organised into sections — General, Clinical Structure, Attendings, Scheduling, Access & Permissions, and History — navigated by a side-nav on desktop and a scrolling tab strip on narrow screens. The active section is reflected in a `?tab=` query parameter, so a refresh or a return to the page keeps it.
+
+Two of those sections hold optional program-defined registries: **Clinical services** and **Attending activities**. Neither is populated from a hard-coded specialty tree. Activity types drive weekly attending-pattern selectors, while stored activity text remains on historical schedules after an activity is renamed or deactivated. The persistent attending roster also supports optional email, phone, and office/location; contact details are excluded from public schedule responses.
+
+Deactivating a roster entry, an activity type or a clinical service takes it out of the default list and out of the selectors used to build new schedules, without deleting it or the history that references it. Each list shows how many active records it holds and, only when there are any, a `Show inactive (n)` disclosure that reveals the deactivated records with a Restore action.
 
 The canonical roles remain Program Admin, Program Director, Chief Resident, and Viewer. Admins and Directors always resolve to full program-management access, and Viewers always remain read-only. Admins and Directors may configure a bounded canonical set of Chief Resident operational permissions. `manage_scheduling_rules` is included for the future rule builder, but this release does not add that builder.
 
