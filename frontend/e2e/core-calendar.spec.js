@@ -133,7 +133,68 @@ test('violating calendar edit requires a reason and remains visible to validatio
 
   await page.getByRole('button', { name: 'Validate schedule' }).click();
   await expect(page.getByRole('heading', { name: 'Schedule needs attention' })).toBeVisible();
-  await expect(page.getByText('Recorded manual override').first()).toBeVisible();
+  await expect(page.getByText('Documented manual override').first()).toBeVisible();
+});
+
+test('validation explains who, when, which rule, why and what to do', async ({ page }) => {
+  await login(page, 'qa-chief@medrota.local');
+  await page.getByRole('button', { name: 'Validate schedule' }).click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute('aria-modal', 'true');
+
+  const card = dialog
+    .getByTestId('violation-CONSECUTIVE_CALL')
+    .filter({ hasText: 'QA_ONLY Alternate Senior' })
+    .first();
+  await expect(card).toBeVisible();
+  // Who and when.
+  await expect(card).toContainText('QA_ONLY Alternate Senior');
+  await expect(card).toContainText('16 Jun');
+  // Which rule and why it matters.
+  await expect(card).toContainText('Consecutive call');
+  await expect(card).toContainText('two days in a row');
+  // Whether it was intentional, and the recorded reason.
+  await expect(card).toContainText('Documented manual override');
+  await expect(card).toContainText('QA_ONLY consecutive coverage exception');
+  // The related date is spelled out rather than left implicit.
+  await expect(card).toContainText('Also assigned 15 Jun');
+
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toBeHidden();
+});
+
+test('unfilled slots explain which residents were unavailable and why', async ({ page }) => {
+  await login(page, 'qa-chief@medrota.local');
+  await page.getByRole('button', { name: 'Validate schedule' }).click();
+
+  const dialog = page.getByRole('dialog');
+  const unfilled = dialog.getByTestId('unfilled-slots');
+  await expect(unfilled).toBeVisible();
+  await expect(unfilled).toContainText('Unfilled slots');
+
+  // Progressive disclosure: the list is collapsed when it is long.
+  await unfilled.locator('summary').click();
+
+  // Pick the day right after the seeded call day: the residents on call the day
+  // before must be reported as unavailable for the consecutive-call rule.
+  const slot = dialog.getByTestId('unfilled-2026-06-17-junior');
+  await expect(slot).toBeVisible();
+  await expect(slot).toContainText('Junior unassigned');
+  await expect(slot).toContainText('unavailable');
+  await expect(slot).toContainText('Already on call the day before or after');
+});
+
+test('a schedule whose only violations are documented overrides still publishes', async ({ page }) => {
+  await login(page, 'qa-chief@medrota.local');
+  await page.getByRole('button', { name: /^Re-publish$|^Publish$/ }).click();
+  await expect(page.getByRole('heading', { name: 'Publish Schedule' })).toBeVisible();
+  await page.getByRole('button', { name: /^Publish$/ }).click();
+
+  // No violation gate: the consecutive call is an accepted, documented exception.
+  await expect(page.getByRole('heading', { name: 'This schedule breaks scheduling rules' })).toHaveCount(0);
+  await expect(page.getByText(/Schedule published/)).toBeVisible();
 });
 
 test('seeded public holiday is visible on the authenticated calendar', async ({ page }) => {

@@ -28,6 +28,7 @@ const {
   isAcademicDayLabel,
 } = require('./paroRules');
 const { minimumPositive, validateSchedule } = require('./scheduleValidator');
+const { checkEligibility } = require('./eligibility');
 
 function startOfLogicalDay(value) {
   const dateKey = normalizeDateKey(value);
@@ -111,49 +112,10 @@ function formatEligibilityReasons(reasons) {
     .join(', ');
 }
 
+// Eligibility lives in services/eligibility.js so the validator can explain an
+// unfilled slot using exactly the rule that rejected each candidate.
 function checkEligible(resident, dateKey, roleOnDay, programSettings, blockDateKeys) {
-  if (violatesVacation(dateKey, resident.vacationDateKeys)) return { ok: false, reason: 'vacation' };
-  if (violatesPostCallBeforeVacation(dateKey, resident.vacationDateKeys)) return { ok: false, reason: 'post-call-before-vacation' };
-  if (hasConsecutiveCall(dateKey, [...resident.assignedDateKeys])) return { ok: false, reason: 'consecutive-call' };
-
-  const callType = getAssignmentCallType(roleOnDay, programSettings);
-  const nextHomeCalls = resident.homeCalls + (callType === 'home' ? 1 : 0);
-  const nextInHouseCalls = resident.inHouseCalls + (callType === 'in_house' ? 1 : 0);
-  const nextTotalCalls = nextHomeCalls + nextInHouseCalls;
-
-  if (resident.totalCallCap !== null && nextTotalCalls > resident.totalCallCap) {
-    return { ok: false, reason: `block-call-cap(${totalCalls(resident)}/${resident.totalCallCap})` };
-  }
-
-  if (resident.medStudentCallCap !== null && nextTotalCalls > resident.medStudentCallCap) {
-    return { ok: false, reason: `med-student-cap(${totalCalls(resident)}/${resident.medStudentCallCap})` };
-  }
-
-  if (callType === 'in_house' && nextInHouseCalls > resident.inHouseMax) {
-    return { ok: false, reason: `in-house-cap(${resident.inHouseCalls}/${resident.inHouseMax})` };
-  }
-
-  if (callType === 'home' && nextHomeCalls > resident.homeMax) {
-    return { ok: false, reason: `home-call-cap(${resident.homeCalls}/${resident.homeMax})` };
-  }
-
-  if (callType === 'home' && hasConsecutiveHomeCallWeekend(dateKey, [...resident.homeCallDateKeys])) {
-    return { ok: false, reason: 'consecutive-home-call-weekends' };
-  }
-
-  if (!isBlendedCallLoadAllowed(nextHomeCalls, nextInHouseCalls)) {
-    return { ok: false, reason: 'blended-call-load' };
-  }
-
-  const requiredWeekendsOff = requiredCompleteWeekendsOff(blockDateKeys);
-  if (requiredWeekendsOff > 0 && isFridaySaturdaySunday(dateKey)) {
-    const weekendsOff = calculateCompleteWeekendsOff([...resident.assignedDateKeys, dateKey], blockDateKeys);
-    if (weekendsOff < requiredWeekendsOff) {
-      return { ok: false, reason: `complete-weekends-off(${weekendsOff}/${requiredWeekendsOff})` };
-    }
-  }
-
-  return { ok: true, callType };
+  return checkEligibility(resident, dateKey, roleOnDay, programSettings, blockDateKeys);
 }
 
 // Ties are common: on most days several residents sit on the same call count.

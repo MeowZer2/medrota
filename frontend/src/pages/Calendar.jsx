@@ -12,6 +12,8 @@ import {
   toISODate, fmtShort, fmtDay, fmtFull, DAYS_OF_WEEK,
 } from '../lib/blockUtils';
 import ReadinessPanel from '../components/ReadinessPanel';
+import Modal from '../components/Modal';
+import { ViolationCard, UnfilledSlotCard } from '../components/ViolationList';
 
 // â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -744,52 +746,85 @@ function GenSummaryModal({ summary, onClose }) {
 // â”€â”€ PublishConfirmModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ValidationModal({ result, onClose, onEditDate }) {
-  const items = result?.violations ?? [];
+  const violations = result?.violations ?? [];
+  const warnings = result?.warnings ?? [];
+  const unfilled = result?.unfilledSlots ?? [];
+  const documented = violations.filter(item => item.isOverride);
+  const outstanding = violations.filter(item => !item.isOverride);
+
+  const open = (dateKey) => { onEditDate?.(dateKey); onClose(); };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.4)' }} onClick={onClose}>
-      <div className="w-full max-w-2xl rounded-2xl overflow-hidden" style={{ background: '#fff', maxHeight: '85vh', boxShadow: '0 18px 48px rgba(15,23,42,0.2)' }} onClick={event => event.stopPropagation()}>
-        <div className="flex items-start justify-between gap-4 px-5 py-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
-          <div>
-            <h2 style={{ fontSize: 17, fontWeight: 750, color: '#1A3A5C' }}>
-              {result?.compliant ? 'Schedule is compliant' : 'Schedule needs attention'}
-            </h2>
-            <p style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>
-              {items.length} violation{items.length === 1 ? '' : 's'} and {result?.warnings?.length ?? 0} warning{result?.warnings?.length === 1 ? '' : 's'}
-            </p>
-          </div>
-          <button onClick={onClose} aria-label="Close validation results" style={{ border: 0, background: 'none', color: '#64748B', cursor: 'pointer', fontSize: 20 }}>×</button>
+    <Modal
+      title={result?.compliant ? 'Schedule is compliant' : 'Schedule needs attention'}
+      description={
+        `${outstanding.length} outstanding violation${outstanding.length === 1 ? '' : 's'}, ` +
+        `${documented.length} documented override${documented.length === 1 ? '' : 's'}, ` +
+        `${unfilled.length} unfilled slot${unfilled.length === 1 ? '' : 's'}`
+      }
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+      closeLabel="Close validation results"
+    >
+      {violations.length === 0 && (
+        <div className="rounded-xl px-4 py-3 mb-4" data-testid="validation-clean"
+          style={{ background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', fontSize: 13 }}>
+          No scheduling-rule violations were found in the stored draft.
         </div>
-        <div className="px-5 py-4 space-y-3 overflow-y-auto" style={{ maxHeight: '64vh' }}>
-          {items.length === 0 && (
-            <div className="rounded-xl px-4 py-3" style={{ background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', fontSize: 13 }}>
-              No scheduling-rule violations were found in the stored draft.
-            </div>
-          )}
-          {items.map((item, index) => (
-            <div key={`${item.code}-${item.residentId}-${item.date}-${index}`} className="rounded-xl px-4 py-3" style={{ border: '1px solid #FECACA', background: '#FEF2F2' }}>
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p style={{ fontSize: 12, fontWeight: 750, color: '#991B1B' }}>{item.code.replaceAll('_', ' ')}</p>
-                  <p style={{ fontSize: 13, color: '#7F1D1D', marginTop: 3 }}>{item.message}</p>
-                  {item.isOverride && <p style={{ fontSize: 11, color: '#B45309', marginTop: 4 }}>Recorded manual override</p>}
-                </div>
-                {item.date && onEditDate && (
-                  <button onClick={() => onEditDate(item.date)} className="px-3 py-1.5 rounded-lg" style={{ border: '1px solid #FCA5A5', background: '#fff', color: '#991B1B', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
-                    Edit {item.date}
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-          {(result?.warnings ?? []).map((item, index) => (
-            <div key={`warning-${item.code}-${item.residentId}-${index}`} className="rounded-xl px-4 py-3" style={{ border: '1px solid #FDE68A', background: '#FFFBEB' }}>
-              <p style={{ fontSize: 12, fontWeight: 750, color: '#92400E' }}>{item.code.replaceAll('_', ' ')}</p>
-              <p style={{ fontSize: 13, color: '#78350F', marginTop: 3 }}>{item.message}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+      )}
+
+      {outstanding.length > 0 && (
+        <section className="mb-4">
+          <h4 style={{ fontSize: 11, fontWeight: 700, color: '#991B1B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            Needs a decision ({outstanding.length})
+          </h4>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {outstanding.map((item, index) => (
+              <ViolationCard key={`${item.code}-${item.residentId}-${item.date}-${index}`} item={item} onEditDate={open} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {documented.length > 0 && (
+        <section className="mb-4">
+          <h4 style={{ fontSize: 11, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            Accepted exceptions ({documented.length})
+          </h4>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {documented.map((item, index) => (
+              <ViolationCard key={`override-${item.code}-${item.residentId}-${item.date}-${index}`} item={item} onEditDate={open} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {warnings.length > 0 && (
+        <section className="mb-4">
+          <h4 style={{ fontSize: 11, fontWeight: 700, color: '#92400E', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            Warnings ({warnings.length})
+          </h4>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {warnings.map((item, index) => (
+              <ViolationCard key={`warning-${item.code}-${item.residentId}-${index}`} item={item} onEditDate={open} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {unfilled.length > 0 && (
+        <details data-testid="unfilled-slots" open={unfilled.length <= 3}>
+          <summary style={{ fontSize: 11, fontWeight: 700, color: '#1A3A5C', textTransform: 'uppercase', letterSpacing: '0.06em', cursor: 'pointer', marginBottom: 8 }}>
+            Unfilled slots ({unfilled.length})
+          </summary>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {unfilled.map(slot => (
+              <UnfilledSlotCard key={`${slot.date}-${slot.roleOnDay}`} slot={slot} onEditDate={open} />
+            ))}
+          </ul>
+        </details>
+      )}
+    </Modal>
   );
 }
 
@@ -821,6 +856,44 @@ function OverrideConfirmModal({ violations, onConfirm, onClose, saving }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function PublishBlockedModal({ violations, onAcknowledge, onClose, onEditDate, publishing }) {
+  return (
+    <Modal
+      title="This schedule breaks scheduling rules"
+      description={`${violations.length} violation${violations.length === 1 ? '' : 's'} are not documented exceptions`}
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+      closeLabel="Close publish check"
+      footer={(
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button type="button" onClick={onClose} disabled={publishing}
+            className="flex-1 py-2.5 rounded-lg text-sm font-semibold"
+            style={{ background: '#fff', color: '#1A3A5C', border: '1px solid #CBD5E1', cursor: publishing ? 'not-allowed' : 'pointer' }}>
+            Go back and fix
+          </button>
+          <button type="button" onClick={onAcknowledge} disabled={publishing}
+            data-testid="publish-acknowledge"
+            className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white"
+            style={{ background: '#B91C1C', border: 'none', cursor: publishing ? 'not-allowed' : 'pointer', opacity: publishing ? 0.6 : 1 }}>
+            {publishing ? 'Publishing...' : 'Publish anyway'}
+          </button>
+        </div>
+      )}
+    >
+      <p style={{ fontSize: 13, color: '#475569', marginBottom: 12, lineHeight: 1.5 }}>
+        Publishing makes this schedule visible to anyone with the link. You can still publish, but the
+        violations below will go out as they are. Documented manual overrides are not listed here because
+        they are already recorded as intentional exceptions.
+      </p>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {violations.map((item, index) => (
+          <ViolationCard key={`${item.code}-${item.residentId}-${item.date}-${index}`} item={item} onEditDate={onEditDate} />
+        ))}
+      </ul>
+    </Modal>
   );
 }
 
@@ -1298,6 +1371,7 @@ export default function Calendar() {
   const [showPublishSuccess, setShowPublishSuccess] = useState(false);
   const [publishResult, setPublishResult]           = useState(null);
   const [publishing, setPublishing]                 = useState(false);
+  const [publishBlockedBy, setPublishBlockedBy]     = useState(null);
   const [exportingExcel, setExportingExcel]         = useState(false);
   const [printingPdf, setPrintingPdf]               = useState(false);
   const [showClearModal, setShowClearModal]         = useState(false);
@@ -1604,10 +1678,10 @@ export default function Calendar() {
     setShowPublishModal(true);
   }, [blockId]);
 
-  const handleConfirmPublish = useCallback(async () => {
+  const handleConfirmPublish = useCallback(async (acknowledgeViolations = false) => {
     setPublishing(true);
     try {
-      const { data } = await api.post('/schedule/publish', { blockId });
+      const { data } = await api.post('/schedule/publish', { blockId, acknowledgeViolations });
       // Refresh context so isPublished + publicToken persist in AppContext
       await refreshContext();
       // Update currentBlock to the refreshed version with new publicToken
@@ -1617,11 +1691,18 @@ export default function Calendar() {
       setTimeout(() => setPublishPulsing(false), 1200);
       setShowPublishModal(false);
       setShowPublishSuccess(true);
+      setPublishBlockedBy(null);
       const publishedLabel = data.publishedAt ? new Date(data.publishedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'now';
       toast.success(`Schedule published ${publishedLabel}`);
-    } catch {
-      toast.error('Failed to publish');
-      setShowPublishModal(false);
+    } catch (err) {
+      // The server refuses to publish an unreviewed non-compliant schedule.
+      if (err.response?.status === 409 && err.response.data?.requiresViolationAcknowledgement) {
+        setShowPublishModal(false);
+        setPublishBlockedBy(err.response.data.violations ?? []);
+      } else {
+        toast.error(err.response?.data?.error ?? 'Failed to publish');
+        setShowPublishModal(false);
+      }
     } finally {
       setPublishing(false);
     }
@@ -1882,9 +1963,21 @@ export default function Calendar() {
         <AnimatePresence>
           {showPublishModal && (
             <PublishConfirmModal
-              onConfirm={handleConfirmPublish}
+              onConfirm={() => handleConfirmPublish(false)}
               onClose={() => setShowPublishModal(false)}
               publishing={publishing}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {publishBlockedBy && (
+            <PublishBlockedModal
+              violations={publishBlockedBy}
+              publishing={publishing}
+              onAcknowledge={() => handleConfirmPublish(true)}
+              onClose={() => setPublishBlockedBy(null)}
+              onEditDate={dateKey => { setPublishBlockedBy(null); setSelectedDateKey(dateKey); }}
             />
           )}
         </AnimatePresence>

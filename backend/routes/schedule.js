@@ -90,11 +90,28 @@ router.get('/validate', async (req, res) => {
 
 // POST /api/schedule/publish â€” snapshot current schedule and mark block as published
 router.post('/publish', async (req, res) => {
-  const { blockId } = req.body;
+  const { blockId, acknowledgeViolations = false } = req.body;
   if (!blockId) return res.status(400).json({ error: 'blockId required' });
   try {
     const membership = await requireBlockPermission(req, res, blockId, 'publish_schedule');
     if (!membership) return;
+
+    // Never publish a schedule whose compliance nobody has looked at. Violations
+    // that are already documented manual overrides are intentional exceptions
+    // and do not block; anything else needs an explicit acknowledgement from
+    // someone authorised to publish.
+    const preflight = await validateSchedule(blockId);
+    if (!preflight) return res.status(404).json({ error: 'Block not found' });
+    const undocumented = preflight.violations.filter(item => !item.isOverride);
+    if (undocumented.length > 0 && !acknowledgeViolations) {
+      return res.status(409).json({
+        requiresViolationAcknowledgement: true,
+        error: 'This schedule breaks scheduling rules that are not documented exceptions.',
+        violations: undocumented,
+        documentedOverrides: preflight.violations.filter(item => item.isOverride),
+      });
+    }
+
     // Fetch all current schedule data for the block
     const block = await prisma.block.findUnique({
       where: { id: blockId },
@@ -152,6 +169,8 @@ router.post('/publish', async (req, res) => {
       publishedAt: version.publishedAt.toISOString(),
       publicToken: updatedBlock.publicToken,
       versionId: version.id,
+      publishedWithViolations: undocumented.length,
+      documentedOverrides: preflight.violations.filter(item => item.isOverride).length,
     });
   } catch (err) {
     console.error('[schedule/publish] Error:', err.message);
