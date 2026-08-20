@@ -87,7 +87,9 @@ router.post('/:programId', async (req, res) => {
     res.json(entry);
   } catch (err) {
     console.error('[attending-template POST]', err.message);
-    res.status(500).json({ error: 'Failed to create template entry' });
+    // resolveActivityType rejects inactive activity types with a 400; surface
+    // that instead of reporting a server fault the caller cannot act on.
+    res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : 'Failed to create template entry' });
   }
 });
 
@@ -107,7 +109,7 @@ router.put('/entry/:id', async (req, res) => {
     res.json(entry);
   } catch (err) {
     console.error('[attending-template PUT /entry/:id]', err.message);
-    res.status(500).json({ error: 'Failed to update template entry' });
+    res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : 'Failed to update template entry' });
   }
 });
 
