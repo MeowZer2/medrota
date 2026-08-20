@@ -156,7 +156,24 @@ function checkEligible(resident, dateKey, roleOnDay, programSettings, blockDateK
   return { ok: true, callType };
 }
 
-function sortCandidates(candidates) {
+// Ties are common: on most days several residents sit on the same call count.
+// Breaking them on raw roster index makes the generator prefer whoever the
+// database happens to return first, every single day, which concentrates the
+// leftover calls on a fixed roster position. Rotating the starting point by the
+// day's ordinal keeps the choice fully deterministic while giving each position
+// its turn at the front of the queue.
+//
+// The rotation is taken over the candidate's rank within its own role pool, not
+// over the whole roster: rotating a pool of 4 juniors modulo an 8-person roster
+// would advance their order unevenly and reintroduce the bias it is meant to
+// remove.
+function rotatedOrder(resident, rotation, poolSize) {
+  const rank = resident.poolRank ?? resident.sortOrder;
+  if (!poolSize) return rank;
+  return ((rank - rotation) % poolSize + poolSize) % poolSize;
+}
+
+function sortCandidates(candidates, rotation = 0, poolSize = 0) {
   return candidates.sort((a, b) => {
     const callDelta = totalCalls(a) - totalCalls(b);
     if (callDelta !== 0) return callDelta;
@@ -166,8 +183,25 @@ function sortCandidates(candidates) {
       - calculateWeightedCallPoints(b.homeCalls, b.inHouseCalls);
     if (weightDelta !== 0) return weightDelta;
 
+    const rotationDelta =
+      rotatedOrder(a, rotation, poolSize) - rotatedOrder(b, rotation, poolSize);
+    if (rotationDelta !== 0) return rotationDelta;
+
     return a.sortOrder - b.sortOrder;
   });
+}
+
+// Rank each resident within the pool they actually compete in.
+function assignPoolRanks(pool) {
+  const byRole = new Map();
+  for (const resident of [...pool].sort((a, b) => a.sortOrder - b.sortOrder)) {
+    const key = resident.role;
+    if (!byRole.has(key)) byRole.set(key, 0);
+    resident.poolRank = byRole.get(key);
+    resident.poolSize = 0;
+    byRole.set(key, byRole.get(key) + 1);
+  }
+  for (const resident of pool) resident.poolSize = byRole.get(resident.role) ?? 0;
 }
 
 function buildSummaryRow(resident) {
@@ -268,6 +302,8 @@ async function generateSchedule(blockId) {
   const medStudents = residents.filter(resident =>
     resident.isMedStudent && resident.isActive && resident.availabilityComplete
   );
+  assignPoolRanks(regularResidents);
+  assignPoolRanks(medStudents);
 
   // Every stored assignment is loaded, not only manual overrides. Callers that
   // want a fresh plan clear the generated rows first (POST /schedule/generate
@@ -343,7 +379,10 @@ async function generateSchedule(blockId) {
       }
     }
 
-    return { eligible: sortCandidates(eligible), rejectedReasons };
+    // The day's ordinal in the block rotates which roster position wins a tie.
+    const rotation = blockDateKeys.indexOf(dateKey);
+    const poolSize = eligible[0]?.poolSize ?? 0;
+    return { eligible: sortCandidates(eligible, rotation, poolSize), rejectedReasons };
   }
 
   for (const dateKey of blockDateKeys) {

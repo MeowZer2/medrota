@@ -142,7 +142,20 @@ async function buildScenario(spec) {
   const vacationsByName = spec.vacations ?? {};
   const capsByName = spec.callCaps ?? {};
 
-  for (const resident of residents) {
+  // Enrollment insertion order becomes the generator's tie-break order, so the
+  // fairness harness can vary it deliberately.
+  const enrollmentOrder = spec.enrollmentOrder
+    ? spec.enrollmentOrder.map(name => {
+        const resident = byName.get(name);
+        if (!resident) throw new Error(`enrollmentOrder names unknown resident "${name}"`);
+        return resident;
+      })
+    : residents;
+  if (spec.enrollmentOrder && enrollmentOrder.length !== residents.length) {
+    throw new Error('enrollmentOrder must list every resident exactly once');
+  }
+
+  for (const resident of enrollmentOrder) {
     if (unenrolled.has(resident.name)) continue;
     const ranges = vacationsByName[resident.name] ?? [];
     const vacationKeys = ranges.flatMap(([from, to]) => vacationRange(from, to));
