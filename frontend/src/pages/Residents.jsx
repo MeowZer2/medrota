@@ -300,30 +300,30 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
 
           {/* Role */}
           <div>
-            <label style={labelStyle}>Role</label>
-            <select value={form.role} onChange={e => set('role', e.target.value)} style={inputStyle}>
+            <label htmlFor="rf-role" style={labelStyle}>Role</label>
+            <select id="rf-role" value={form.role} onChange={e => set('role', e.target.value)} style={inputStyle}>
               {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
 
           {/* Name */}
           <div>
-            <label style={labelStyle}>Full name</label>
-            <input required value={form.name} onChange={e => set('name', e.target.value)}
+            <label htmlFor="rf-name" style={labelStyle}>Full name</label>
+            <input id="rf-name" required value={form.name} onChange={e => set('name', e.target.value)}
               placeholder="Dr. Firstname Lastname" style={inputStyle} />
           </div>
 
           {/* Email (optional) */}
           <div>
-            <label style={labelStyle}>Email <span style={{ color: '#CBD5E1', fontWeight: 400 }}>(optional)</span></label>
-            <input type="email" value={form.email ?? ''} onChange={e => set('email', e.target.value)}
+            <label htmlFor="rf-email" style={labelStyle}>Email <span style={{ color: '#CBD5E1', fontWeight: 400 }}>(optional)</span></label>
+            <input id="rf-email" type="email" value={form.email ?? ''} onChange={e => set('email', e.target.value)}
               placeholder="dr.smith@hospital.org" style={inputStyle} />
           </div>
 
           {/* PGY level */}
           <div>
-            <label style={labelStyle}>PGY level</label>
-            <select value={form.pgyLevel}
+            <label htmlFor="rf-pgy" style={labelStyle}>PGY level</label>
+            <select id="rf-pgy" value={form.pgyLevel}
               onChange={e => {
                 const val = e.target.value;
                 if (val === 'Medical Student') setForm(f => ({ ...f, pgyLevel: val, role: 'med-student', isServiceResident: false }));
@@ -339,12 +339,12 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
               <label style={labelStyle}>Rotation dates (2-week)</label>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 4 }}>From</p>
-                  <input type="date" value={form.rotationFrom} onChange={e => set('rotationFrom', e.target.value)} style={inputStyle} />
+                  <label htmlFor="rf-rotation-from" style={{ display: 'block', fontSize: 11, color: '#94A3B8', marginBottom: 4 }}>From</label>
+                  <input id="rf-rotation-from" type="date" value={form.rotationFrom} onChange={e => set('rotationFrom', e.target.value)} style={inputStyle} />
                 </div>
                 <div>
-                  <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 4 }}>To</p>
-                  <input type="date" value={form.rotationTo} onChange={e => set('rotationTo', e.target.value)} style={inputStyle} />
+                  <label htmlFor="rf-rotation-to" style={{ display: 'block', fontSize: 11, color: '#94A3B8', marginBottom: 4 }}>To</label>
+                  <input id="rf-rotation-to" type="date" value={form.rotationTo} onChange={e => set('rotationTo', e.target.value)} style={inputStyle} />
                 </div>
               </div>
             </div>
@@ -353,8 +353,8 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
           {/* Academic day pref */}
           {!isMedStudent && (
             <div>
-              <label style={labelStyle}>Academic day preference</label>
-              <select value={form.academicDayPref} onChange={e => set('academicDayPref', e.target.value)} style={inputStyle}>
+              <label htmlFor="rf-academic-day" style={labelStyle}>Academic day preference</label>
+              <select id="rf-academic-day" value={form.academicDayPref} onChange={e => set('academicDayPref', e.target.value)} style={inputStyle}>
                 {ACADEMIC_DAY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </div>
@@ -383,11 +383,11 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
                 <div key={i} className="grid grid-cols-2 gap-2">
                   <div>
                     {i === 0 && <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 4 }}>From</p>}
-                    <input type="date" value={range.from} onChange={e => updateRange(i, 'from', e.target.value)} style={inputStyle} />
+                    <input type="date" aria-label={`Vacation range ${i + 1} start`} value={range.from} onChange={e => updateRange(i, 'from', e.target.value)} style={inputStyle} />
                   </div>
                   <div>
                     {i === 0 && <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 4 }}>To</p>}
-                    <input type="date" value={range.to} onChange={e => updateRange(i, 'to', e.target.value)} style={inputStyle} />
+                    <input type="date" aria-label={`Vacation range ${i + 1} end`} value={range.to} onChange={e => updateRange(i, 'to', e.target.value)} style={inputStyle} />
                   </div>
                 </div>
               ))}
@@ -400,11 +400,11 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
 
           {/* Call cap override */}
           <div>
-            <label style={labelStyle}>
+            <label htmlFor="rf-call-cap" style={labelStyle}>
               Call cap override{' '}
               <span style={{ color: '#CBD5E1' }}>(optional, default: {isMedStudent ? 5 : 9})</span>
             </label>
-            <input type="number" min="1" max="15" value={form.callCapOverride}
+            <input id="rf-call-cap" type="number" min="1" max="15" value={form.callCapOverride}
               onChange={e => set('callCapOverride', e.target.value)}
               placeholder={isMedStudent ? '5' : '9'} style={inputStyle} />
           </div>

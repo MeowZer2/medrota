@@ -543,8 +543,9 @@ const Sidebar = memo(function Sidebar({ userName }) {
           {can('edit_program_settings') && (
           <div className="relative shrink-0">
             <button
-              className="p-1.5 rounded-lg transition-colors duration-100"
-              style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
+              aria-label="Program settings"
+              className="rounded-lg transition-colors duration-100"
+              style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 34, minHeight: 34 }}
               onMouseEnter={e => { e.currentTarget.style.background = '#F0F5FF'; e.currentTarget.style.color = '#2C5F8A'; setTooltip('settings'); }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94A3B8'; setTooltip(null); }}
               onClick={() => navigate('/settings')}
@@ -576,8 +577,9 @@ const Sidebar = memo(function Sidebar({ userName }) {
           {/* Logout */}
           <div className="relative shrink-0">
             <button
-              className="p-1.5 rounded-lg transition-colors duration-100"
-              style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
+              aria-label="Log out"
+              className="rounded-lg transition-colors duration-100"
+              style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 34, minHeight: 34 }}
               onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626'; setTooltip('logout'); }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94A3B8'; setTooltip(null); }}
               onClick={() => { localStorage.clear(); window.location.href = '/login'; }}

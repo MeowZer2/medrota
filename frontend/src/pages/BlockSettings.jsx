@@ -9,10 +9,14 @@ import { useBlock, useUser } from '../context/AppContext';
 
 // ── Toggle ────────────────────────────────────────────────────────────────────
 
-function Toggle({ checked, onChange, disabled }) {
+function Toggle({ checked, onChange, disabled, id, label }) {
   return (
     <button
       type="button"
+      id={id}
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
       onClick={() => !disabled && onChange(!checked)}
       style={{
         width: 40, height: 22, borderRadius: 11, border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
@@ -32,11 +36,11 @@ function Toggle({ checked, onChange, disabled }) {
 
 // ── SettingRow ─────────────────────────────────────────────────────────────────
 
-function SettingRow({ label, description, children }) {
+function SettingRow({ controlId, label, description, children }) {
   return (
-    <div className="flex items-center justify-between gap-6 py-4" style={{ borderBottom: '1px solid #F1F5F9' }}>
-      <div>
-        <p style={{ fontSize: 14, fontWeight: 500, color: '#1A3A5C', margin: 0 }}>{label}</p>
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4" style={{ borderBottom: '1px solid #F1F5F9' }}>
+      <div style={{ minWidth: 0, flex: '1 1 220px' }}>
+        <label htmlFor={controlId} style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#1A3A5C', margin: 0 }}>{label}</label>
         {description && <p style={{ fontSize: 12, color: '#94A3B8', margin: '2px 0 0' }}>{description}</p>}
       </div>
       <div style={{ flexShrink: 0 }}>{children}</div>
@@ -46,9 +50,10 @@ function SettingRow({ label, description, children }) {
 
 // ── NumberInput ───────────────────────────────────────────────────────────────
 
-function NumberInput({ value, onChange, min = 0, max = 30 }) {
+function NumberInput({ value, onChange, min = 0, max = 30, id }) {
   return (
     <input
+      id={id}
       type="number"
       value={value}
       min={min}
@@ -169,23 +174,28 @@ export default function BlockSettings() {
               <div style={{ padding: '0 24px' }}>
                 <SettingRow
                   label="Local resident call ceiling"
+                  controlId="bs-max-calls-resident"
                   description="A stricter local cap; enter 0 to use the PARO-derived maximum only"
                 >
-                  <NumberInput value={settings.maxCallsPerResident} onChange={val => set('maxCallsPerResident', val)} />
+                  <NumberInput id="bs-max-calls-resident" value={settings.maxCallsPerResident} onChange={val => set('maxCallsPerResident', val)} />
                 </SettingRow>
 
                 <SettingRow
                   label="Medical-student call ceiling"
+                  controlId="bs-max-calls-student"
                   description="Maximum number of calls for a medical student in this block"
                 >
-                  <NumberInput value={settings.maxCallsMedStudent} onChange={val => set('maxCallsMedStudent', val)} />
+                  <NumberInput id="bs-max-calls-student" value={settings.maxCallsMedStudent} onChange={val => set('maxCallsMedStudent', val)} />
                 </SettingRow>
 
                 <SettingRow
                   label="Attending-only days"
+                  controlId="bs-attending-only"
                   description="Allow days where only an attending is assigned and no resident"
                 >
                   <Toggle
+                    id="bs-attending-only"
+                    label="Attending-only days"
                     checked={settings.allowAttendingOnlyDays}
                     onChange={val => set('allowAttendingOnlyDays', val)}
                   />
@@ -193,9 +203,12 @@ export default function BlockSettings() {
 
                 <SettingRow
                   label="Avoid academic half-days"
+                  controlId="bs-avoid-academic"
                   description="Try to avoid scheduling call on academic or educational half-days"
                 >
                   <Toggle
+                    id="bs-avoid-academic"
+                    label="Avoid academic half-days"
                     checked={settings.avoidAcademicDays}
                     onChange={val => set('avoidAcademicDays', val)}
                   />

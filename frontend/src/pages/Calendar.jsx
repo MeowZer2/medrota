@@ -12,7 +12,7 @@ import {
   toISODate, fmtShort, fmtDay, fmtFull, DAYS_OF_WEEK,
 } from '../lib/blockUtils';
 import ReadinessPanel from '../components/ReadinessPanel';
-import Modal from '../components/Modal';
+import Modal, { useDialogA11y } from '../components/Modal';
 import { ViolationCard, UnfilledSlotCard } from '../components/ViolationList';
 import AuditHistory from '../components/AuditHistory';
 
@@ -373,7 +373,7 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
             </select>
           ) : (
             <input value={form.attendingName} onChange={e => setForm(p => ({ ...p, attendingName: e.target.value }))}
-              placeholder="Attending name" style={miniInput} />
+              aria-label="Attending name" placeholder="Attending name" style={miniInput} />
           )}
 
           {(() => {
@@ -392,7 +392,7 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
               </select>
             ) : (
               <input value={form.activityLabel} onChange={e => setForm(p => ({ ...p, activityLabel: e.target.value }))}
-                placeholder="Activity label (e.g. General Medicine)" style={miniInput} />
+                aria-label="Activity label" placeholder="Activity label (e.g. General Medicine)" style={miniInput} />
             );
           })()}
           <label className="flex items-center gap-2" style={{ fontSize: 12, color: '#374151', cursor: 'pointer' }}>
@@ -472,6 +472,7 @@ function FlagSection({ day, blockId, flag, onFlagChange }) {
       <input
         value={label}
         onChange={e => setLabel(e.target.value)}
+        aria-label="Day flag label"
         placeholder="e.g. Teaching Day"
         style={{ ...miniInput, marginBottom: 8 }}
       />
@@ -525,6 +526,12 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
   const [visible, setVisible] = useState(false);
   const [seniorId, setSeniorId] = useState('');
   const [juniorId, setJuniorId] = useState('');
+  // The day sheet keeps its own mobile slide-up chrome, so it borrows the
+  // dialog behaviour rather than the shared shell. Focus waits for `visible`
+  // because the backdrop is visibility:hidden until then, and a hidden element
+  // cannot take focus.
+  const { panelRef, handleKeyDown } = useDialogA11y(onClose, { active: isOpen && visible });
+  const headingId = 'day-modal-title';
 
   useEffect(() => {
     if (isOpen) {
@@ -573,15 +580,22 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
       onClick={onClose}
     >
       <div
-        className={`w-full max-w-sm rounded-t-2xl md:rounded-2xl overflow-hidden modal-panel${visible ? ' open' : ''}`}
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={headingId}
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
+        className={`w-full max-w-sm rounded-t-2xl md:rounded-2xl overflow-hidden modal-panel outline-none${visible ? ' open' : ''}`}
         style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6', transition: 'opacity 120ms ease, transform 120ms ease' }}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
           <div>
-            <p style={{ fontSize: 14, fontWeight: 600, color: '#1A3A5C' }}>{fmtFull(day)}</p>
+            <h2 id={headingId} style={{ fontSize: 14, fontWeight: 600, color: '#1A3A5C' }}>{fmtFull(day)}</h2>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg" style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
+          <button onClick={onClose} aria-label="Close day editor" className="rounded-lg"
+            style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 36, minHeight: 36 }}
             onMouseEnter={e => e.currentTarget.style.background = '#F0F5FF'}
             onMouseLeave={e => e.currentTarget.style.background = ''}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -655,26 +669,19 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
 
 function GenSummaryModal({ summary, onClose }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.34)' }}
-      onClick={onClose}
+    <Modal
+      title="Schedule Generated"
+      description="Auto-generation complete"
+      onClose={onClose}
+      maxWidth="max-w-sm"
+      closeLabel="Close generation summary"
+      footer={(
+        <button type="button" onClick={onClose}
+          style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: '#1A3A5C', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+          View Schedule
+        </button>
+      )}
     >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 16 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 16 }}
-        transition={{ duration: 0.14, ease: 'easeOut' }}
-        className="w-full max-w-sm rounded-2xl overflow-hidden"
-        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{ height: 4, background: 'linear-gradient(90deg, #16A34A 0%, #2C5F8A 100%)' }} />
-        <div style={{ padding: '24px 24px 20px' }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1A3A5C', margin: 0 }}>Schedule Generated</h2>
-          <p style={{ fontSize: 13, color: '#94A3B8', marginTop: 4, marginBottom: 20 }}>Auto-generation complete</p>
-
           <div className="grid grid-cols-3 gap-3 mb-5">
             {[
               { label: 'Work Days',  value: summary.workDays,   color: '#1A3A5C' },
@@ -732,15 +739,7 @@ function GenSummaryModal({ summary, onClose }) {
             </div>
           )}
 
-          <button onClick={onClose}
-            style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: '#1A3A5C', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#2C5F8A'}
-            onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}>
-            View Schedule
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
+    </Modal>
   );
 }
 
@@ -980,30 +979,25 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.34)' }}
-      onClick={onClose}
+    <Modal
+      title="Schedule published!"
+      description="Share this read-only public link with your team."
+      onClose={onClose}
+      maxWidth="max-w-md"
+      closeLabel="Close publish confirmation"
+      footer={(
+        <div className="flex gap-3">
+          <button type="button" onClick={() => window.open(publicUrl, '_blank')}
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #C7D9EC', background: '#EEF4FF', color: '#2C5F8A', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            View published version
+          </button>
+          <button type="button" onClick={onClose}
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#1A3A5C', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            Done
+          </button>
+        </div>
+      )}
     >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 12 }}
-        transition={{ duration: 0.14, ease: 'easeOut' }}
-        className="w-full max-w-md rounded-2xl overflow-hidden"
-        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{ height: 4, background: 'linear-gradient(90deg, #16A34A 0%, #2C5F8A 100%)' }} />
-        <div style={{ padding: '24px 24px 20px', textAlign: 'center' }}>
-          <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1A3A5C', margin: '0 0 6px' }}>Schedule published!</h2>
-          <p style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>Share this read-only public link with your team.</p>
 
           {(publishedLabel || versionId) && (
             <div className="rounded-lg px-3 py-2 mb-4" style={{ background: '#F8FAFC', border: '1px solid #E8EFF6' }}>
@@ -1012,8 +1006,12 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
             </div>
           )}
 
+          <label htmlFor="published-public-link" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1A3A5C', marginBottom: 6 }}>
+            Public link
+          </label>
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             <input
+              id="published-public-link"
               readOnly
               value={publicUrl}
               style={{
@@ -1023,6 +1021,7 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
               }}
             />
             <button
+              type="button"
               onClick={handleCopy}
               style={{
                 padding: '9px 16px', borderRadius: 8,
@@ -1034,34 +1033,7 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
               {copied ? 'Copied!' : 'Copy'}
             </button>
           </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => window.open(publicUrl, '_blank')}
-              style={{
-                flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #C7D9EC',
-                background: '#EEF4FF', color: '#2C5F8A', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = '#DCE9F5'}
-              onMouseLeave={e => e.currentTarget.style.background = '#EEF4FF'}
-            >
-              View published version
-            </button>
-            <button
-              onClick={onClose}
-              style={{
-                flex: 1, padding: '10px', borderRadius: 10, border: 'none',
-                background: '#1A3A5C', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = '#2C5F8A'}
-              onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
+    </Modal>
   );
 }
 
@@ -1268,8 +1240,9 @@ const CalendarTopBar = memo(function CalendarTopBar({
       </div>
       {isPublished && publicToken && (
         <div className="flex flex-wrap items-center gap-3 px-5 py-3" style={{ background: '#F8FAFC', borderBottom: '1px solid #E8EFF6' }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#2C5F8A', whiteSpace: 'nowrap' }}>Public link</span>
+          <label htmlFor="calendar-public-link" style={{ fontSize: 12, fontWeight: 700, color: '#2C5F8A', whiteSpace: 'nowrap' }}>Public link</label>
           <input
+            id="calendar-public-link"
             readOnly
             value={publicUrl}
             className="min-w-0 flex-1"

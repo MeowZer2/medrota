@@ -49,8 +49,9 @@ export default function Register() {
         {error && <p style={styles.error}>{error}</p>}
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          <label style={styles.label}>Name</label>
+          <label htmlFor="rg-name" style={styles.label}>Name</label>
           <input
+            id="rg-name"
             style={styles.input}
             type="text"
             name="name"
@@ -60,8 +61,9 @@ export default function Register() {
             autoComplete="name"
           />
 
-          <label style={styles.label}>Email</label>
+          <label htmlFor="rg-email" style={styles.label}>Email</label>
           <input
+            id="rg-email"
             style={styles.input}
             type="email"
             name="email"
@@ -71,8 +73,9 @@ export default function Register() {
             autoComplete="email"
           />
 
-          <label style={styles.label}>Password</label>
+          <label htmlFor="rg-password" style={styles.label}>Password</label>
           <input
+            id="rg-password"
             style={styles.input}
             type="password"
             name="password"

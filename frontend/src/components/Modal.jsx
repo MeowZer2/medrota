@@ -16,6 +16,24 @@ const FOCUSABLE = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 
+// A trigger that disables itself while loading (Validate, Publish) has already
+// dropped focus to <body> by the time its dialog mounts, so document.activeElement
+// is not enough on its own. Track the last real element to hold focus and use
+// that as the fallback when handing focus back.
+let lastFocusedElement = null;
+if (typeof document !== 'undefined') {
+  document.addEventListener('focusin', event => {
+    const target = event.target;
+    if (target instanceof HTMLElement && target !== document.body) lastFocusedElement = target;
+  }, true);
+}
+
+function elementToRestore() {
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && active !== document.body) return active;
+  return lastFocusedElement;
+}
+
 export function CloseIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true" focusable="false">
@@ -24,24 +42,13 @@ export function CloseIcon() {
   );
 }
 
-export default function Modal({
-  title,
-  description,
-  onClose,
-  children,
-  footer,
-  maxWidth = 'max-w-md',
-  closeLabel = 'Close dialog',
-  labelledById,
-}) {
+export function useDialogA11y(onClose, { active = true } = {}) {
   const panelRef = useRef(null);
   const previouslyFocusedRef = useRef(null);
-  const headingId = useRef(`modal-title-${Math.random().toString(36).slice(2, 9)}`).current;
-  const descriptionId = useRef(`modal-desc-${Math.random().toString(36).slice(2, 9)}`).current;
 
-  // Remember what had focus so it can be handed back on close.
   useEffect(() => {
-    previouslyFocusedRef.current = document.activeElement;
+    if (!active) return undefined;
+    previouslyFocusedRef.current = elementToRestore();
     const panel = panelRef.current;
     if (panel) {
       const first = panel.querySelector(FOCUSABLE);
@@ -53,7 +60,7 @@ export default function Modal({
         target.focus({ preventScroll: true });
       }
     };
-  }, []);
+  }, [active]);
 
   const handleKeyDown = useCallback((event) => {
     if (event.key === 'Escape') {
@@ -82,6 +89,23 @@ export default function Modal({
       first.focus();
     }
   }, [onClose]);
+
+  return { panelRef, handleKeyDown };
+}
+
+export default function Modal({
+  title,
+  description,
+  onClose,
+  children,
+  footer,
+  maxWidth = 'max-w-md',
+  closeLabel = 'Close dialog',
+  labelledById,
+}) {
+  const headingId = useRef(`modal-title-${Math.random().toString(36).slice(2, 9)}`).current;
+  const descriptionId = useRef(`modal-desc-${Math.random().toString(36).slice(2, 9)}`).current;
+  const { panelRef, handleKeyDown } = useDialogA11y(onClose);
 
   return (
     <motion.div
