@@ -7,6 +7,7 @@ const {
   requireProgramPermission,
   requireBlockPermission,
 } = require('../lib/roles');
+const { recordAuditEvent } = require('../services/auditLog');
 
 const router = express.Router();
 router.use(auth);
@@ -265,6 +266,23 @@ router.post('/', async (req, res) => {
       });
     }
 
+    await recordAuditEvent({
+      programId,
+      blockId: blockId ?? null,
+      actorUserId: req.user?.userId,
+      action: 'RESIDENT_CREATED',
+      entityType: 'ResidentProfile',
+      entityId: resident.id,
+      summary: `Added ${resident.name} (${isMed ? 'medical student' : resident.residentRole})`,
+      metadata: {
+        residentId: resident.id,
+        residentRole: resident.residentRole,
+        pgyLevel: resident.pgyLevel,
+        isMedStudent: isMed,
+        isServiceResident: isService,
+      },
+    });
+
     res.status(201).json(resident);
   } catch (err) {
     console.error('[residents POST] error:', err.message);
@@ -298,6 +316,16 @@ router.post('/:id/enroll', async (req, res) => {
         callCapOverride: callCapOverride != null ? parseInt(callCapOverride, 10) : null,
       },
     });
+    await recordAuditEvent({
+      programId: ownership.blockAccess.programId,
+      blockId,
+      actorUserId: req.user?.userId,
+      action: 'BLOCK_AVAILABILITY_CHANGED',
+      entityType: 'BlockEnrollment',
+      entityId: enrollment.id,
+      summary: 'Marked a resident active for this block',
+      metadata: { residentId: id, vacationDateCount: cleanDates.length, callCapOverride: enrollment.callCapOverride },
+    });
     res.status(201).json(enrollment);
   } catch (err) {
     console.error('[residents/:id/enroll POST] error:', err.message);
@@ -316,6 +344,16 @@ router.delete('/:id/enroll/:blockId', async (req, res) => {
     const ownership = await assertResidentBelongsToBlockProgram(res, id, blockId);
     if (!ownership) return;
     await prisma.blockEnrollment.deleteMany({ where: { residentId: id, blockId } });
+    await recordAuditEvent({
+      programId: ownership.blockAccess.programId,
+      blockId,
+      actorUserId: req.user?.userId,
+      action: 'BLOCK_AVAILABILITY_CHANGED',
+      entityType: 'BlockEnrollment',
+      entityId: null,
+      summary: 'Removed a resident from this block',
+      metadata: { residentId: id, removed: true },
+    });
     res.json({ ok: true });
   } catch (err) {
     console.error('[residents/:id/enroll/:blockId DELETE] error:', err.message);
@@ -337,7 +375,7 @@ router.put('/:id', async (req, res) => {
   const forcedServiceResident = isMedStudent ? false : isServiceResident;
 
   try {
-    const existingResident = await prisma.residentProfile.findUnique({ where: { id }, select: { programId: true } });
+    const existingResident = await prisma.residentProfile.findUnique({ where: { id }, select: { programId: true, name: true } });
     if (!existingResident) return res.status(404).json({ error: 'Resident not found' });
     const membership = blockId
       ? await requireBlockPermission(req, res, blockId, 'edit_residents')
@@ -377,6 +415,22 @@ router.put('/:id', async (req, res) => {
       }
     }
 
+    await recordAuditEvent({
+      programId: resident.programId,
+      blockId: blockId ?? null,
+      actorUserId: req.user?.userId,
+      action: 'RESIDENT_UPDATED',
+      entityType: 'ResidentProfile',
+      entityId: resident.id,
+      summary: `Updated ${resident.name}`,
+      metadata: {
+        residentId: resident.id,
+        // Field names only: the audit records what was touched, not a copy of
+        // the request body.
+        changedFields: Object.keys(req.body ?? {}).filter(key => !['programId', 'blockId'].includes(key)),
+      },
+    });
+
     res.json(resident);
   } catch (err) {
     console.error('[residents PUT] error:', err.message);
@@ -388,13 +442,22 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
-  const existingResident = await prisma.residentProfile.findUnique({ where: { id }, select: { programId: true } });
+  const existingResident = await prisma.residentProfile.findUnique({ where: { id }, select: { programId: true, name: true } });
   if (!existingResident) return res.status(404).json({ error: 'Resident not found' });
   const membership = await requireProgramPermission(req, res, existingResident.programId, 'edit_residents');
   if (!membership) return;
   await prisma.callAssignment.deleteMany({ where: { residentId: id } });
   await prisma.blockEnrollment.deleteMany({ where: { residentId: id } });
   await prisma.residentProfile.delete({ where: { id } });
+  await recordAuditEvent({
+    programId: existingResident.programId,
+    actorUserId: req.user?.userId,
+    action: 'RESIDENT_REMOVED',
+    entityType: 'ResidentProfile',
+    entityId: id,
+    summary: `Removed ${existingResident.name} and all of their call assignments`,
+    metadata: { residentId: id, removedAssignments: true },
+  });
   res.json({ success: true });
 });
 

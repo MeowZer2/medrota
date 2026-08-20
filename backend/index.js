@@ -18,6 +18,7 @@ const publicRoutes = require('./routes/public');
 const blocksRoutes = require('./routes/blocks');
 const attendingTemplateRoutes = require('./routes/attendingTemplate');
 const flagsRoutes = require('./routes/flags');
+const auditRoutes = require('./routes/audit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -64,6 +65,7 @@ app.use('/api/schedule', scheduleRoutes);
 app.use('/api/blocks', blocksRoutes);
 app.use('/api/attending-template', attendingTemplateRoutes);
 app.use('/api/flags', flagsRoutes);
+app.use('/api/audit', auditRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });

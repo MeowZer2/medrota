@@ -8,6 +8,7 @@ const { createPrintableScheduleHtml, buildPrintableFilename } = require('../serv
 const { requireBlockPermission, requireBlockView } = require('../lib/roles');
 const { hasPermission } = require('../lib/roles');
 const { validateSchedule } = require('../services/scheduleValidator');
+const { recordAuditEvent, recordAuditEventTx } = require('../services/auditLog');
 
 const router = express.Router();
 router.use(auth);
@@ -40,6 +41,23 @@ router.post('/generate', async (req, res) => {
 
     const summary = await generateSchedule(blockId);
     console.log(`[schedule/generate] done: assigned=${summary.assigned}/${summary.workDays} warnings=${summary.warnings.length}`);
+    await recordAuditEvent({
+      programId: membership.programId,
+      blockId,
+      actorUserId: req.user?.userId,
+      action: 'SCHEDULE_GENERATED',
+      entityType: 'Block',
+      entityId: blockId,
+      summary: `Auto-generated the schedule: ${summary.assigned} of ${summary.workDays} days covered`,
+      metadata: {
+        assigned: summary.assigned,
+        workDays: summary.workDays,
+        unassigned: summary.unassigned,
+        warningCount: summary.warnings.length,
+        availabilityComplete: summary.availabilityComplete,
+        excludedResidentCount: summary.excludedResidents.length,
+      },
+    });
     res.json(summary);
   } catch (err) {
     console.error('[schedule/generate] Error:', err.message);
@@ -64,6 +82,16 @@ router.delete('/clear', async (req, res) => {
     // Step 3: delete only empty CallDays.
     const { count } = await prisma.callDay.deleteMany({
       where: { blockId, assignments: { none: {} } },
+    });
+    await recordAuditEvent({
+      programId: membership.programId,
+      blockId,
+      actorUserId: req.user?.userId,
+      action: 'SCHEDULE_CLEARED',
+      entityType: 'Block',
+      entityId: blockId,
+      summary: `Cleared the generated schedule: ${count} empty call day${count === 1 ? '' : 's'} removed`,
+      metadata: { clearedCallDays: count, manualOverridesPreserved: true },
     });
     res.json({ cleared: count });
   } catch (err) {
@@ -149,19 +177,37 @@ router.post('/publish', async (req, res) => {
     const publicToken = block.publicToken || crypto.randomUUID();
 
     // Update block + create version in a transaction
-    const [updatedBlock, version] = await prisma.$transaction([
-      prisma.block.update({
+    const { updatedBlock, version } = await prisma.$transaction(async tx => {
+      const block2 = await tx.block.update({
         where: { id: blockId },
         data: { isPublished: true, publicToken },
-      }),
-      prisma.scheduleVersion.create({
+      });
+      const version2 = await tx.scheduleVersion.create({
         data: {
           blockId,
           snapshotJson: snapshot,
           publishedBy: req.user?.userId ?? null,
         },
-      }),
-    ]);
+      });
+      await recordAuditEventTx(tx, {
+        programId: membership.programId,
+        blockId,
+        actorUserId: req.user?.userId,
+        action: 'SCHEDULE_PUBLISHED',
+        entityType: 'ScheduleVersion',
+        entityId: version2.id,
+        summary: undocumented.length > 0
+          ? `Published the schedule with ${undocumented.length} acknowledged rule violation${undocumented.length === 1 ? '' : 's'}`
+          : 'Published the schedule',
+        metadata: {
+          versionId: version2.id,
+          acknowledgedViolations: undocumented.map(item => ({ code: item.code, date: item.date })),
+          documentedOverrides: preflight.violations.filter(item => item.isOverride).length,
+          linkReused: Boolean(block.publicToken),
+        },
+      });
+      return { updatedBlock: block2, version: version2 };
+    });
 
     res.json({
       success: true,

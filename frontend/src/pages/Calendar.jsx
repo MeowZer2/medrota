@@ -14,6 +14,7 @@ import {
 import ReadinessPanel from '../components/ReadinessPanel';
 import Modal from '../components/Modal';
 import { ViolationCard, UnfilledSlotCard } from '../components/ViolationList';
+import AuditHistory from '../components/AuditHistory';
 
 // â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -1844,6 +1845,18 @@ export default function Calendar() {
               loading={settingsLoading}
               blockNum={blockNum}
             />
+          </details>
+        )}
+
+        {can('view_draft_schedule') && blockId && programId && (
+          <details className="mb-4 rounded-xl" data-testid="block-history"
+            style={{ border: '1px solid #E8EFF6', background: '#fff' }}>
+            <summary style={{ padding: '12px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#1A3A5C' }}>
+              Block history
+            </summary>
+            <div style={{ padding: '0 16px 16px' }}>
+              <AuditHistory programId={programId} blockId={blockId} limit={30} />
+            </div>
           </details>
         )}
 

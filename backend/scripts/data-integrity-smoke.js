@@ -38,6 +38,8 @@ async function cleanup(orgId, userIds) {
     await prisma.residentProfile.deleteMany({ where: { programId: { in: programIds } } });
     await prisma.invite.deleteMany({ where: { programId: { in: programIds } } });
     await prisma.programMember.deleteMany({ where: { programId: { in: programIds } } });
+    // The test's own audit rows must go before the program they reference.
+    await prisma.auditEvent.deleteMany({ where: { programId: { in: programIds } } });
     await prisma.program.deleteMany({ where: { id: { in: programIds } } });
   }
   if (userIds.length) await prisma.user.deleteMany({ where: { id: { in: userIds } } });

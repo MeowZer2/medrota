@@ -120,3 +120,34 @@ test('copy availability forward carries the previous block configuration', async
   await expect(page.getByRole('dialog')).toBeHidden();
   await expect(page.getByText(/4 of 4 service residents active this block/)).toBeVisible();
 });
+
+test('block history is visible to a chief resident and hidden from a viewer', async ({ page }) => {
+  await loginAsChief(page);
+  await page.goto('/blocks/2/calendar');
+
+  const history = page.getByTestId('block-history');
+  await expect(history).toBeVisible();
+  await history.locator('summary').click();
+
+  // The bulk availability change made earlier in this suite must be recorded.
+  await expect(page.getByTestId('audit-BLOCK_AVAILABILITY_CHANGED').first()).toBeVisible();
+  await expect(page.getByTestId('audit-history')).toContainText('QA_ONLY Chief Resident QA');
+
+  // Administrative history must never appear for a chief resident.
+  await expect(page.getByTestId('audit-MEMBER_ROLE_CHANGED')).toHaveCount(0);
+  await expect(page.getByTestId('audit-MEMBER_INVITED')).toHaveCount(0);
+  await expect(page.getByTestId('audit-PROGRAM_CALL_TYPES_CHANGED')).toHaveCount(0);
+});
+
+test('a viewer cannot read program history', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill('qa-viewer@medrota.local');
+  await page.locator('#lg-password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await page.waitForURL(/\/dashboard|\/setup/, { timeout: 20_000 });
+
+  const response = await page.request.get('/api/audit?programId=any', {
+    headers: { Authorization: `Bearer ${await page.evaluate(() => localStorage.getItem('token'))}` },
+  });
+  expect([403, 400]).toContain(response.status());
+});

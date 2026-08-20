@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import Layout from '../components/Layout';
 import PageWrapper from '../components/PageWrapper';
 import api from '../api/axios';
+import AuditHistory from '../components/AuditHistory';
 import { useBlock, useUser } from '../context/AppContext';
 import { ROLE_OPTIONS } from '../constants/roles';
 import { MEDICAL_SPECIALTIES } from '../constants/medicalSpecialties';
@@ -421,6 +422,14 @@ export default function ProgramSettings() {
                 ))}
               </div>
             )}
+          </Card>
+
+          {/* Program history */}
+          <Card
+            title="Program History"
+            subtitle="Read-only record of who changed what. Program Admins and Directors see everything; Chief Residents see scheduling changes only."
+          >
+            <AuditHistory programId={programId} limit={50} />
           </Card>
         </motion.div>
 

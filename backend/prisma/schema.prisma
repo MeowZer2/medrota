@@ -31,6 +31,7 @@ model Program {
   attendingRoster AttendingRoster[]
   attendingTemplates AttendingScheduleTemplate[]
   invites        Invite[]
+  auditEvents    AuditEvent[]
 
   @@index([orgId])
 }
@@ -60,6 +61,7 @@ model User {
   org          Organization?   @relation(fields: [orgId], references: [id])
   createdAt    DateTime        @default(now())
   memberships  ProgramMember[]
+  auditEvents  AuditEvent[]
 
   @@index([orgId])
 }
@@ -116,6 +118,7 @@ model Block {
   callDays       CallDay[]
   versions       ScheduleVersion[]
   flags          DayFlag[]
+  auditEvents    AuditEvent[]
 
   @@index([academicYearId])
 }
@@ -252,4 +255,26 @@ model AttendingScheduleTemplate {
   activityLabel String
 
   @@index([programId])
+}
+
+// Append-only record of who changed what. Written alongside the mutation it
+// describes; never updated or deleted by application code.
+model AuditEvent {
+  id           String   @id @default(uuid())
+  programId    String
+  program      Program  @relation(fields: [programId], references: [id])
+  blockId      String?
+  block        Block?   @relation(fields: [blockId], references: [id])
+  actorUserId  String?
+  actorUser    User?    @relation(fields: [actorUserId], references: [id])
+  action       String
+  category     String   @default("scheduling")
+  entityType   String
+  entityId     String?
+  summary      String
+  metadataJson Json?
+  createdAt    DateTime @default(now())
+
+  @@index([programId, createdAt])
+  @@index([blockId, createdAt])
 }

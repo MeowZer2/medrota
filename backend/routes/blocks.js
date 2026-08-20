@@ -3,6 +3,7 @@ const prisma  = require('../lib/prisma');
 const auth    = require('../middleware/auth');
 const { requireBlockPermission, requireBlockView } = require('../lib/roles');
 const { bulkEnroll, copyAvailabilityForward, getBlockReadiness } = require('../services/blockAvailability');
+const { recordAuditEvent } = require('../services/auditLog');
 
 const router = express.Router();
 router.use(auth);
@@ -102,6 +103,16 @@ router.put('/:id/settings', async (req, res) => {
         avoidAcademicDays:       avoidAcademicDays       !== undefined ? Boolean(avoidAcademicDays)       : true,
       },
     });
+    await recordAuditEvent({
+      programId: membership.programId,
+      blockId: id,
+      actorUserId: req.user?.userId,
+      action: 'BLOCK_SETTINGS_CHANGED',
+      entityType: 'BlockSettings',
+      entityId: settings.id,
+      summary: 'Changed the block scheduling rules',
+      metadata: shapeSupportedSettings(settings, id),
+    });
     res.json(shapeSupportedSettings(settings, id));
   } catch (err) {
     console.error('[blocks/settings PUT] Error:', err.message);
@@ -139,6 +150,18 @@ router.post('/:id/availability/bulk', async (req, res) => {
     if (!membership) return;
     const result = await bulkEnroll(id, residentIds);
     if (result.error) return res.status(result.status).json({ error: result.error });
+    if (result.enrolled > 0) {
+      await recordAuditEvent({
+        programId: membership.programId,
+        blockId: id,
+        actorUserId: req.user?.userId,
+        action: 'BLOCK_AVAILABILITY_CHANGED',
+        entityType: 'Block',
+        entityId: id,
+        summary: `Set block availability for ${result.enrolled} resident${result.enrolled === 1 ? '' : 's'}`,
+        metadata: { enrolled: result.enrolled, alreadyEnrolled: result.alreadyEnrolled, residentIds: result.residentIds },
+      });
+    }
     res.json(result);
   } catch (err) {
     console.error('[blocks/availability/bulk POST] Error:', err.message);
@@ -162,6 +185,24 @@ router.post('/:id/availability/copy', async (req, res) => {
     if (!source) return;
     const result = await copyAvailabilityForward(fromBlockId, id, residentIds ?? null);
     if (result.error) return res.status(result.status).json({ error: result.error });
+    if (result.copied > 0) {
+      await recordAuditEvent({
+        programId: target.programId,
+        blockId: id,
+        actorUserId: req.user?.userId,
+        action: 'BLOCK_AVAILABILITY_CHANGED',
+        entityType: 'Block',
+        entityId: id,
+        summary: `Copied availability forward for ${result.copied} resident${result.copied === 1 ? '' : 's'}`,
+        metadata: {
+          fromBlockId,
+          copied: result.copied,
+          skipped: result.skipped.length,
+          vacationDatesCopied: result.vacationDatesCopied,
+          vacationDatesDropped: result.vacationDatesDropped,
+        },
+      });
+    }
     res.json(result);
   } catch (err) {
     console.error('[blocks/availability/copy POST] Error:', err.message);
