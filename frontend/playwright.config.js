@@ -3,6 +3,9 @@ import process from 'node:process';
 
 export default defineConfig({
   testDir: './e2e',
+  // Removes the QA_ONLY E2E records the specs create, so repeated runs cannot
+  // inflate the inactive registry lists in a local QA database.
+  globalTeardown: './e2e/global-teardown.js',
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,

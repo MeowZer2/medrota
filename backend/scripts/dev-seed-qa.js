@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const prisma = require('../lib/prisma');
 const { ROLES } = require('../lib/roles');
+const { E2E_PREFIX, pruneE2ERegistryRecords } = require('./lib/qaRegistry');
 
 const PASSWORD = 'QA_only_password_123!';
 const ORG_NAME = 'MedRota QA';
@@ -339,6 +340,14 @@ async function main() {
 
   const org = await findOrCreateOrganization();
   const program = await findOrCreateProgram(org.id);
+  // Start every run from the same registry state. Browser tests add real
+  // records to exercise the registries; without this the deactivated ones they
+  // leave behind accumulate run after run. Only records the suite owns are
+  // removed, and only inside this program.
+  const pruned = await pruneE2ERegistryRecords(program.id);
+  if (pruned.attendings || pruned.activities || pruned.services) {
+    console.log(`[dev:seed-qa] Cleared leftover "${E2E_PREFIX}*" records: ${JSON.stringify(pruned)}`);
+  }
   await prisma.programRolePermission.deleteMany({ where: { programId: program.id, role: ROLES.CHIEF_RESIDENT } });
   await Promise.all(['Clinic', 'OR', 'Ward'].map((name, index) => upsertActivityType(program.id, name, index)));
   const academicYear = await findOrCreateAcademicYear(program.id);

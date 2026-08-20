@@ -86,6 +86,8 @@ jobs:
           npm run availability:smoke
           npm run program-config:smoke
           npm run registry:lifecycle-smoke
+          npm run settings:save-smoke
+          npm run qa:isolation-smoke
           npm run publish:safety-smoke
           npm run publish:revocation-smoke
           npm run audit:smoke

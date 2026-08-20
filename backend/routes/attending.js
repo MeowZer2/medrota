@@ -71,6 +71,10 @@ router.post('/roster', async (req, res) => {
 // PUT /api/attending/roster/:id — update name and/or activities
 router.put('/roster/:id', async (req, res) => {
   const { attendingName, typicalActivities, email, phone, officeLocation, isActive } = req.body;
+  // A rename may not empty the name. Schedules already built from this row are
+  // matched to it by name, so an empty one would orphan them.
+  const nextName = attendingName === undefined ? undefined : String(attendingName).trim();
+  if (nextName !== undefined && !nextName) return res.status(400).json({ error: 'Attending name is required' });
   try {
     const existing = await prisma.attendingRoster.findUnique({ where: { id: req.params.id }, select: { programId: true } });
     if (!existing) return res.status(404).json({ error: 'Roster entry not found' });
@@ -79,7 +83,7 @@ router.put('/roster/:id', async (req, res) => {
     const entry = await prisma.attendingRoster.update({
       where: { id: req.params.id },
       data: {
-        ...(attendingName     !== undefined && { attendingName }),
+        ...(nextName !== undefined && { attendingName: nextName }),
         ...(typicalActivities !== undefined && { typicalActivities }),
         ...(email !== undefined && { email: email || null }),
         ...(phone !== undefined && { phone: phone || null }),

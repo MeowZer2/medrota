@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { ownedName } from './qa-records.js';
 
 const PASSWORD = 'QA_only_password_123!';
 
@@ -25,9 +26,8 @@ async function api(page, path, options = {}) {
 }
 
 test('program identity, custom registries, weekly activity selection, and Chief permissions work together', async ({ page }) => {
-  const suffix = Date.now();
-  const serviceName = `QA_ONLY Trauma ${suffix}`;
-  const activityName = `QA_ONLY Angio ${suffix}`;
+  const serviceName = ownedName('Trauma');
+  const activityName = ownedName('Angio');
 
   await login(page, 'qa-admin@medrota.local');
   await expect(page.getByRole('heading', { name: 'Program Settings' })).toBeVisible();
@@ -80,7 +80,7 @@ test('program identity, custom registries, weekly activity selection, and Chief 
   await expect(page.getByRole('button', { name: /^Residents$/ })).toBeVisible();
 
   await login(page, 'qa-viewer@medrota.local', '/dashboard');
-  const viewerMutation = await api(page, `/program-configuration/${programId}/clinical-services`, { method: 'POST', body: JSON.stringify({ name: `QA_ONLY Viewer ${suffix}` }) });
+  const viewerMutation = await api(page, `/program-configuration/${programId}/clinical-services`, { method: 'POST', body: JSON.stringify({ name: ownedName('Viewer') }) });
   expect(viewerMutation.status).toBe(403);
 
   await login(page, 'qa-admin@medrota.local', '/settings?tab=access');
