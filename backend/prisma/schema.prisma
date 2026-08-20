@@ -53,6 +53,9 @@ model User {
   name         String
   email        String          @unique
   passwordHash String
+  // Deprecated: collected at registration but never read by the product, and a
+  // self-declared desiredRole must never grant privileges. No longer written.
+  // Retained so existing rows are preserved.
   category     String?
   clinicalIdentity String?
   desiredRole  String?

@@ -24,6 +24,7 @@ function Spinner() {
 // ── Step indicator ─────────────────────────────────────────────────────────────
 
 function StepDots({ step }) {
+  if (step < 1) return null;
   return (
     <div className="flex items-center gap-2 justify-center mb-8">
       {[1, 2, 3].map(s => (
@@ -107,7 +108,7 @@ export default function Setup() {
   const navigate = useNavigate();
   const { refreshContext } = useUser();
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
 
@@ -222,9 +223,10 @@ export default function Setup() {
                 </svg>
               </div>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1A3A5C', letterSpacing: '-0.5px', margin: 0 }}>
-                {step === 3 ? "You're all set!" : 'Set up MedRota'}
+                {step === 0 ? 'You are not in a program yet' : step === 3 ? "You're all set!" : 'Set up MedRota'}
               </h1>
               <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 4 }}>
+                {step === 0 && 'Choose how you want to get started'}
                 {step === 1 && 'Create your organization'}
                 {step === 2 && 'Set up your residency program'}
                 {step === 3 && '13 blocks are ready to go'}
@@ -234,6 +236,50 @@ export default function Setup() {
             <StepDots step={step} />
 
             <AnimatePresence mode="wait">
+              {/* ── Step 0: how do you want to get started? ── */}
+              {step === 0 && (
+                <motion.div
+                  key="step0"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.22 }}
+                  data-testid="setup-choice"
+                  style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+                >
+                  <div style={{ padding: 16, borderRadius: 12, background: '#F0F5FF', border: '1px solid #D6E4F7' }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#1A3A5C', margin: 0 }}>
+                      Your program already uses MedRota?
+                    </p>
+                    <p style={{ fontSize: 12.5, color: '#475569', marginTop: 6, lineHeight: 1.55 }}>
+                      Ask your Program Admin for an invitation link. Opening it will add you to the program with
+                      the right level of access, and nothing needs setting up here.
+                    </p>
+                  </div>
+
+                  <div style={{ padding: 16, borderRadius: 12, background: '#F8FAFC', border: '1px solid #E8EFF6' }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#1A3A5C', margin: 0 }}>
+                      Starting a new program?
+                    </p>
+                    <p style={{ fontSize: 12.5, color: '#475569', marginTop: 6, lineHeight: 1.55 }}>
+                      Create your organization and residency program. You will become its Program Admin and can
+                      invite everyone else.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setStep(1)}
+                      data-testid="setup-create-program"
+                      style={{
+                        marginTop: 12, width: '100%', padding: '11px', borderRadius: 10, border: 'none',
+                        background: '#1A3A5C', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+                      }}
+                    >
+                      Create a new program
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
               {/* ── Step 1 ── */}
               {step === 1 && (
                 <motion.form
