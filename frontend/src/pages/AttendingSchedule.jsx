@@ -893,7 +893,7 @@ export default function AttendingSchedule() {
   return (
     <Layout>
       <PageWrapper>
-        <div style={{ maxWidth: 900, margin: '0 auto', paddingBottom: 32 }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 12px 32px', minWidth: 0 }}>
 
           {/* Page header */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
@@ -911,7 +911,7 @@ export default function AttendingSchedule() {
             </div>
 
             {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0, alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', minWidth: 0, alignItems: 'flex-start' }}>
 
               {/* Copy previous block */}
               <motion.button
@@ -962,7 +962,7 @@ export default function AttendingSchedule() {
               </motion.button>
 
               {/* Apply template button + scope chooser */}
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative', minWidth: 0 }}>
               <motion.button
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                 onClick={() => setApplyScope(v => !v)}
@@ -970,7 +970,7 @@ export default function AttendingSchedule() {
                 style={{
                   padding: '9px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
                   background: '#7C3AED', color: '#fff', fontSize: 13, fontWeight: 600,
-                  opacity: (applying || !blockId) ? 0.5 : 1,
+                  opacity: (applying || !blockId) ? 0.5 : 1, maxWidth: '100%',
                 }}
                 onMouseEnter={e => { if (!applying && blockId) e.currentTarget.style.background = '#6D28D9'; }}
                 onMouseLeave={e => e.currentTarget.style.background = '#7C3AED'}

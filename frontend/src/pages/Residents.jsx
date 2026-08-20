@@ -10,6 +10,7 @@ import { useBlock, useUser } from '../context/AppContext';
 import BlockSelector from '../components/BlockSelector';
 import { PlusIcon, PgyBadge, CallBadge, VacationRangePill, parseVacationRanges, labelStyle, inputStyle } from '../components/ResidentPanels';
 import BlockAvailabilityModal from '../components/BlockAvailabilityModal';
+import Modal from '../components/Modal';
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ function ServiceToggle({ on, onChange, disabled, residentName }) {
       title={on ? 'Available this block — click to unenroll' : 'Not enrolled this block — click to enroll'}
       style={{
         display: 'flex', alignItems: 'center', gap: 5,
-        padding: '3px 8px 3px 4px', borderRadius: 99,
+        padding: '7px 10px 7px 6px', borderRadius: 99, minHeight: 34,
         border: `1px solid ${on ? '#BBF7D0' : '#E2E8F0'}`,
         background: on ? '#F0FDF4' : '#F8FAFC',
         cursor: disabled ? 'default' : 'pointer',
@@ -141,7 +142,8 @@ function ResidentCard({ resident, blockId, onToggleEnroll, onEdit, onRemove }) {
           <span style={{ fontSize: 13, fontWeight: 600, color: '#1A3A5C' }}>{resident.name}</span>
           {resident.email && (
             <a href={`mailto:${resident.email}`} onClick={e => e.stopPropagation()} title={resident.email}
-              style={{ color: '#94A3B8', display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+              aria-label={`Email ${resident.name}`}
+              style={{ color: '#94A3B8', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, minWidth: 32, minHeight: 32 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                 <polyline points="22,6 12,12 2,6" />
@@ -185,10 +187,11 @@ function ResidentCard({ resident, blockId, onToggleEnroll, onEdit, onRemove }) {
       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
         <button
           onClick={() => onEdit(resident)}
-          style={{ padding: '5px 6px', borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8' }}
+          style={{ padding: '5px 6px', borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 36, minHeight: 36 }}
           onMouseEnter={e => { e.currentTarget.style.background = '#F0F5FF'; e.currentTarget.style.color = '#2C5F8A'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#94A3B8'; }}
           title="Edit"
+          aria-label={`Edit ${resident.name}`}
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -197,10 +200,11 @@ function ResidentCard({ resident, blockId, onToggleEnroll, onEdit, onRemove }) {
         </button>
         <button
           onClick={() => onRemove(resident.id)}
-          style={{ padding: '5px 6px', borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8' }}
+          style={{ padding: '5px 6px', borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 36, minHeight: 36 }}
           onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#94A3B8'; }}
           title="Remove"
+          aria-label={`Remove ${resident.name}`}
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" />
@@ -256,34 +260,13 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
     set('vacationRanges', form.vacationRanges.filter((_, j) => j !== i));
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.34)' }}
+    <Modal
+      title={submitLabel === 'Save changes' ? 'Edit Resident' : 'Add Resident'}
+      onClose={onClose}
+      maxWidth="max-w-md"
+      closeLabel="Close resident form"
     >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.97, y: 8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.97, y: 8 }}
-        transition={{ duration: 0.14, ease: 'easeOut' }}
-        className="w-full max-w-md rounded-2xl overflow-hidden max-h-[90vh] flex flex-col"
-        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 shrink-0" style={{ borderBottom: '1px solid #E8EFF6' }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: '#1A3A5C' }}>
-            {submitLabel === 'Save changes' ? 'Edit Resident' : 'Add Resident'}
-          </h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg" style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#F0F5FF'}
-            onMouseLeave={e => e.currentTarget.style.background = ''}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-
-        <form onSubmit={onSubmit} className="px-6 py-5 space-y-4 overflow-y-auto">
+      <form onSubmit={onSubmit} className="space-y-4">
           {error && <p className="text-sm px-3 py-2 rounded-lg" style={{ background: '#FEF2F2', color: '#DC2626' }}>{error}</p>}
 
           {/* Service / Off-service toggle — hidden for med students (always off-service) */}
@@ -408,7 +391,8 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
                   </div>
                 </div>
               ))}
-              <button type="button" onClick={addRange} className="text-xs font-medium" style={{ color: '#2C5F8A' }}>
+              <button type="button" onClick={addRange} className="text-xs font-medium"
+                style={{ color: '#2C5F8A', minHeight: 34, padding: '0 4px' }}>
                 + Add range
               </button>
             </div>
@@ -440,9 +424,8 @@ function ResidentForm({ form, setForm, isSaving, error, onSubmit, onClose, submi
               {isSaving ? 'Saving…' : submitLabel}
             </button>
           </div>
-        </form>
-      </motion.div>
-    </motion.div>
+      </form>
+    </Modal>
   );
 }
 

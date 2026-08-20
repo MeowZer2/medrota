@@ -116,8 +116,8 @@ export default function Modal({
             type="button"
             onClick={onClose}
             aria-label={closeLabel}
-            className="p-1.5 rounded-lg shrink-0"
-            style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
+            className="rounded-lg shrink-0"
+            style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 36, minHeight: 36 }}
             onMouseEnter={e => { e.currentTarget.style.background = '#F0F5FF'; }}
             onMouseLeave={e => { e.currentTarget.style.background = ''; }}
           >

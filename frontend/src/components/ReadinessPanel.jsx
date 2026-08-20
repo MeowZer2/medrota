@@ -72,8 +72,8 @@ export default function ReadinessPanel({ readiness, onDismiss }) {
             type="button"
             onClick={onDismiss}
             aria-label="Hide readiness summary"
-            className="p-1.5 rounded-lg"
-            style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+            className="rounded-lg"
+            style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 36, minHeight: 36 }}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true" focusable="false">
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
