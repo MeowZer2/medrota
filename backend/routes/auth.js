@@ -8,7 +8,11 @@ const { createRateLimiter } = require('../middleware/rateLimit');
 const router = express.Router();
 
 const MIN_PASSWORD_LENGTH = 10;
-const authLimit = process.env.NODE_ENV === 'production' ? 10 : 50;
+// Credential-stuffing protection is a production concern, so production keeps a
+// tight budget. Outside production the limiter only has to stay out of the way:
+// the browser E2E suite alone signs in more than fifty times inside one window,
+// and throttling it produced 429s that looked like unrelated login failures.
+const authLimit = process.env.NODE_ENV === 'production' ? 10 : 500;
 const loginLimiter = createRateLimiter({ max: authLimit, message: 'Too many login attempts. Try again later.' });
 const registrationLimiter = createRateLimiter({ max: authLimit, message: 'Too many registration attempts. Try again later.' });
 const requestAccessLimiter = createRateLimiter({ max: authLimit });
