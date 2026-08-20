@@ -19,7 +19,10 @@
     "scheduler:integration": "node scripts/scheduler-integration.js",
     "schedule:validate-smoke": "node scripts/schedule-validator-smoke.js",
     "dev:seed-qa": "node scripts/dev-seed-qa.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "data:integrity-audit": "node scripts/data-integrity-audit.js",
+    "data:integrity-repair": "node scripts/data-integrity-repair.js",
+    "data:integrity-smoke": "node scripts/data-integrity-smoke.js"
   },
   "keywords": [],
   "author": "",

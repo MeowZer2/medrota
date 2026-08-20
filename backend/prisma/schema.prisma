@@ -228,6 +228,7 @@ model CallAssignment {
   createdAt      DateTime        @default(now())
 
   @@unique([callDayId, residentId])
+  @@unique([callDayId, roleOnDay])
   @@index([residentId])
 }
 
