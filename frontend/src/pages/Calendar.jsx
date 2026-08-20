@@ -832,112 +832,105 @@ function ValidationModal({ result, onClose, onEditDate }) {
 function OverrideConfirmModal({ violations, onConfirm, onClose, saving }) {
   const [reason, setReason] = useState('');
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.48)' }} onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: '#fff', boxShadow: '0 18px 48px rgba(15,23,42,0.22)' }} onClick={event => event.stopPropagation()}>
-        <div className="px-5 py-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
-          <h2 style={{ fontSize: 17, fontWeight: 750, color: '#991B1B' }}>Rule violation requires an override</h2>
-          <p style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>Review the violations and record why this exception is necessary.</p>
-        </div>
-        <div className="px-5 py-4 space-y-3">
-          <ul className="space-y-2" style={{ maxHeight: 190, overflowY: 'auto' }}>
-            {violations.map((item, index) => (
-              <li key={`${item.code}-${index}`} className="rounded-lg px-3 py-2" style={{ background: '#FEF2F2', color: '#7F1D1D', fontSize: 12 }}>
-                <strong>{item.code.replaceAll('_', ' ')}:</strong> {item.message}
-              </li>
-            ))}
-          </ul>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#1A3A5C' }} htmlFor="override-reason">Override reason</label>
-          <textarea id="override-reason" value={reason} onChange={event => setReason(event.target.value)} rows={3} placeholder="Explain the clinical or operational reason for this exception" style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: 10, padding: '10px 12px', fontSize: 13, resize: 'vertical' }} />
-        </div>
-        <div className="flex gap-2 px-5 pb-5">
-          <button onClick={onClose} disabled={saving} className="flex-1 py-2.5 rounded-lg" style={{ border: '1px solid #CBD5E1', background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: 700 }}>Cancel</button>
-          <button onClick={() => onConfirm(reason)} disabled={saving || !reason.trim()} className="flex-1 py-2.5 rounded-lg" style={{ border: 0, background: '#B91C1C', color: '#fff', cursor: saving || !reason.trim() ? 'not-allowed' : 'pointer', opacity: saving || !reason.trim() ? 0.6 : 1, fontWeight: 750 }}>
-            {saving ? 'Saving override...' : 'Confirm override'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PublishBlockedModal({ violations, onAcknowledge, onClose, onEditDate, publishing }) {
-  return (
     <Modal
-      title="This schedule breaks scheduling rules"
-      description={`${violations.length} violation${violations.length === 1 ? '' : 's'} are not documented exceptions`}
+      title="Rule violation requires an override"
+      description="Review the violations and record why this exception is necessary."
       onClose={onClose}
-      maxWidth="max-w-2xl"
-      closeLabel="Close publish check"
+      maxWidth="max-w-lg"
+      closeLabel="Close override confirmation"
       footer={(
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button type="button" onClick={onClose} disabled={publishing}
-            className="flex-1 py-2.5 rounded-lg text-sm font-semibold"
-            style={{ background: '#fff', color: '#1A3A5C', border: '1px solid #CBD5E1', cursor: publishing ? 'not-allowed' : 'pointer' }}>
-            Go back and fix
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button type="button" onClick={onClose} disabled={saving} className="flex-1 py-2.5 rounded-lg"
+            style={{ border: '1px solid #CBD5E1', background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: 700 }}>
+            Cancel
           </button>
-          <button type="button" onClick={onAcknowledge} disabled={publishing}
-            data-testid="publish-acknowledge"
-            className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white"
-            style={{ background: '#B91C1C', border: 'none', cursor: publishing ? 'not-allowed' : 'pointer', opacity: publishing ? 0.6 : 1 }}>
-            {publishing ? 'Publishing...' : 'Publish anyway'}
+          <button type="button" onClick={() => onConfirm(reason)} disabled={saving || !reason.trim()} className="flex-1 py-2.5 rounded-lg"
+            style={{ border: 0, background: '#B91C1C', color: '#fff', cursor: saving || !reason.trim() ? 'not-allowed' : 'pointer', opacity: saving || !reason.trim() ? 0.6 : 1, fontWeight: 750 }}>
+            {saving ? 'Saving override...' : 'Confirm override'}
           </button>
         </div>
       )}
     >
-      <p style={{ fontSize: 13, color: '#475569', marginBottom: 12, lineHeight: 1.5 }}>
-        Publishing makes this schedule visible to anyone with the link. You can still publish, but the
-        violations below will go out as they are. Documented manual overrides are not listed here because
-        they are already recorded as intentional exceptions.
-      </p>
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
         {violations.map((item, index) => (
-          <ViolationCard key={`${item.code}-${item.residentId}-${item.date}-${index}`} item={item} onEditDate={onEditDate} />
+          <ViolationCard key={`${item.code}-${index}`} item={item} />
         ))}
       </ul>
+      <label htmlFor="override-reason" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#1A3A5C', marginTop: 14 }}>
+        Override reason
+      </label>
+      <textarea
+        id="override-reason" value={reason} onChange={event => setReason(event.target.value)} rows={3}
+        placeholder="Explain the clinical or operational reason for this exception"
+        style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: 10, padding: '10px 12px', fontSize: 13, resize: 'vertical', marginTop: 6 }}
+      />
+    </Modal>
+  );
+}
+
+function LinkControlModal({ mode, onConfirm, onClose, busy }) {
+  const isUnpublish = mode === 'unpublish';
+  return (
+    <Modal
+      title={isUnpublish ? 'Unpublish this schedule?' : 'Generate a new public link?'}
+      onClose={onClose}
+      maxWidth="max-w-md"
+      footer={(
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button type="button" onClick={onClose} disabled={busy}
+            className="flex-1 py-2.5 rounded-lg text-sm font-medium"
+            style={{ background: '#fff', color: '#64748B', border: '1px solid #E2E8F0', cursor: busy ? 'not-allowed' : 'pointer' }}>
+            Cancel
+          </button>
+          <button type="button" onClick={onConfirm} disabled={busy}
+            data-testid={isUnpublish ? 'confirm-unpublish' : 'confirm-rotate'}
+            className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white"
+            style={{ background: '#B91C1C', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+            {busy ? 'Working...' : (isUnpublish ? 'Unpublish' : 'Generate new link')}
+          </button>
+        </div>
+      )}
+    >
+      {isUnpublish ? (
+        <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
+          <p>The public link will stop working immediately, and anyone holding it will see an unavailable page.</p>
+          <p style={{ marginTop: 8 }}>Your draft schedule is not changed, and the published version history is kept. You can publish again at any time.</p>
+        </div>
+      ) : (
+        <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
+          <p>A new link is created and the current one stops working immediately. Anyone who already has the old link will lose access.</p>
+          <p style={{ marginTop: 8 }}>The published schedule itself does not change. You will need to share the new link with everyone who needs it.</p>
+        </div>
+      )}
     </Modal>
   );
 }
 
 function PublishConfirmModal({ onConfirm, onClose, publishing }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.34)' }}
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 12 }}
-        transition={{ duration: 0.14, ease: 'easeOut' }}
-        className="w-full max-w-sm rounded-2xl overflow-hidden"
-        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{ height: 4, background: 'linear-gradient(90deg, #16A34A 0%, #2C5F8A 100%)' }} />
-        <div style={{ padding: '24px 24px 20px' }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1A3A5C', margin: '0 0 8px' }}>Publish Schedule</h2>
-          <p style={{ fontSize: 13, color: '#64748B', marginBottom: 20, lineHeight: 1.5 }}>
-            This will make the schedule publicly viewable via a shareable link. Residents will be able to see their assignments without logging in.
-          </p>
-          <div className="flex gap-3">
-            <button onClick={onClose} disabled={publishing}
-              style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#F8FAFC', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#F0F5FF'}
-              onMouseLeave={e => e.currentTarget.style.background = '#F8FAFC'}>
-              Cancel
-            </button>
-            <button onClick={onConfirm} disabled={publishing}
-              style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#16A34A', color: '#fff', fontSize: 13, fontWeight: 600, cursor: publishing ? 'not-allowed' : 'pointer', opacity: publishing ? 0.7 : 1 }}
-              onMouseEnter={e => { if (!publishing) e.currentTarget.style.background = '#15803D'; }}
-              onMouseLeave={e => e.currentTarget.style.background = '#16A34A'}>
-              {publishing ? 'Publishing...' : 'Publish'}
-            </button>
-          </div>
+    <Modal
+      title="Publish Schedule"
+      onClose={onClose}
+      maxWidth="max-w-sm"
+      closeLabel="Close publish confirmation"
+      footer={(
+        <div className="flex gap-3">
+          <button type="button" onClick={onClose} disabled={publishing}
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#fff', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: publishing ? 'not-allowed' : 'pointer' }}>
+            Cancel
+          </button>
+          <button type="button" onClick={onConfirm} disabled={publishing}
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#16A34A', color: '#fff', fontSize: 13, fontWeight: 600, cursor: publishing ? 'not-allowed' : 'pointer', opacity: publishing ? 0.7 : 1 }}>
+            {publishing ? 'Publishing...' : 'Publish'}
+          </button>
         </div>
-      </motion.div>
-    </motion.div>
+      )}
+    >
+      <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
+        This will make the schedule publicly viewable via a shareable link. Residents will be able to see their
+        assignments without logging in.
+      </p>
+    </Modal>
   );
 }
 
@@ -945,44 +938,29 @@ function PublishConfirmModal({ onConfirm, onClose, publishing }) {
 
 function ClearConfirmModal({ blockNum, onConfirm, onClose, clearing }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.34)' }}
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 12 }}
-        transition={{ duration: 0.14, ease: 'easeOut' }}
-        className="w-full max-w-sm rounded-2xl overflow-hidden"
-        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{ height: 4, background: '#DC2626' }} />
-        <div style={{ padding: '24px 24px 20px' }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1A3A5C', margin: '0 0 8px' }}>Clear schedule</h2>
-          <p style={{ fontSize: 13, color: '#64748B', marginBottom: 20, lineHeight: 1.5 }}>
-            This will remove all resident call assignments for Block {blockNum}. Attending entries will not be affected. This cannot be undone.
-          </p>
-          <div className="flex gap-3">
-            <button onClick={onClose} disabled={clearing}
-              style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#F8FAFC', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#F0F5FF'}
-              onMouseLeave={e => e.currentTarget.style.background = '#F8FAFC'}>
-              Cancel
-            </button>
-            <button onClick={onConfirm} disabled={clearing}
-              style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#DC2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: clearing ? 'not-allowed' : 'pointer', opacity: clearing ? 0.7 : 1 }}
-              onMouseEnter={e => { if (!clearing) e.currentTarget.style.background = '#B91C1C'; }}
-              onMouseLeave={e => e.currentTarget.style.background = '#DC2626'}>
-              {clearing ? 'Clearing...' : 'Clear all assignments'}
-            </button>
-          </div>
+    <Modal
+      title="Clear schedule"
+      onClose={onClose}
+      maxWidth="max-w-sm"
+      closeLabel="Close clear confirmation"
+      footer={(
+        <div className="flex gap-3">
+          <button type="button" onClick={onClose} disabled={clearing}
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#fff', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: clearing ? 'not-allowed' : 'pointer' }}>
+            Cancel
+          </button>
+          <button type="button" onClick={onConfirm} disabled={clearing}
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#DC2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: clearing ? 'not-allowed' : 'pointer', opacity: clearing ? 0.7 : 1 }}>
+            {clearing ? 'Clearing...' : 'Clear all assignments'}
+          </button>
         </div>
-      </motion.div>
-    </motion.div>
+      )}
+    >
+      <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
+        This will remove all resident call assignments for Block {blockNum}. Attending entries will not be
+        affected. This cannot be undone.
+      </p>
+    </Modal>
   );
 }
 
@@ -1119,6 +1097,8 @@ const CalendarTopBar = memo(function CalendarTopBar({
   isPublished, publicToken,
   publicUrl,
   onCopyLink,
+  onUnpublish,
+  onRotateLink,
   onExportExcel, exportingExcel,
   onPrintPdf, printingPdf,
   onViewPublished,
@@ -1314,6 +1294,30 @@ const CalendarTopBar = memo(function CalendarTopBar({
           >
             Copy public link
           </button>
+          {canPublishSchedule && (
+            <>
+              <button
+                onClick={onRotateLink}
+                data-testid="rotate-public-link"
+                className="px-3 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: '#fff', color: '#B45309', border: '1px solid #FDE68A', cursor: 'pointer' }}
+                onMouseEnter={event => { event.currentTarget.style.background = '#FFFBEB'; }}
+                onMouseLeave={event => { event.currentTarget.style.background = '#fff'; }}
+              >
+                New link
+              </button>
+              <button
+                onClick={onUnpublish}
+                data-testid="unpublish-schedule"
+                className="px-3 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: '#fff', color: '#DC2626', border: '1px solid #FCA5A5', cursor: 'pointer' }}
+                onMouseEnter={event => { event.currentTarget.style.background = '#FEF2F2'; }}
+                onMouseLeave={event => { event.currentTarget.style.background = '#fff'; }}
+              >
+                Unpublish
+              </button>
+            </>
+          )}
         </div>
       )}
       <div className="flex flex-wrap gap-6 px-6 py-3">
@@ -1373,6 +1377,8 @@ export default function Calendar() {
   const [publishResult, setPublishResult]           = useState(null);
   const [publishing, setPublishing]                 = useState(false);
   const [publishBlockedBy, setPublishBlockedBy]     = useState(null);
+  const [linkControlMode, setLinkControlMode]       = useState(null);
+  const [linkControlBusy, setLinkControlBusy]       = useState(false);
   const [exportingExcel, setExportingExcel]         = useState(false);
   const [printingPdf, setPrintingPdf]               = useState(false);
   const [showClearModal, setShowClearModal]         = useState(false);
@@ -1709,6 +1715,36 @@ export default function Calendar() {
     }
   }, [blockId, refreshContext, setCurrentBlock]);
 
+  const handleUnpublish = useCallback(async () => {
+    setLinkControlBusy(true);
+    try {
+      await api.post('/schedule/unpublish', { blockId });
+      await refreshContext();
+      setCurrentBlock(prev => (prev ? { ...prev, isPublished: false } : prev));
+      setLinkControlMode(null);
+      toast.success('Schedule unpublished. The public link no longer works.');
+    } catch (err) {
+      toast.error(err.response?.data?.error ?? 'Failed to unpublish');
+    } finally {
+      setLinkControlBusy(false);
+    }
+  }, [blockId, refreshContext, setCurrentBlock]);
+
+  const handleRotateLink = useCallback(async () => {
+    setLinkControlBusy(true);
+    try {
+      const { data } = await api.post('/schedule/rotate-link', { blockId });
+      await refreshContext();
+      setCurrentBlock(prev => (prev ? { ...prev, publicToken: data.publicToken } : prev));
+      setLinkControlMode(null);
+      toast.success('New public link generated. The previous link no longer works.');
+    } catch (err) {
+      toast.error(err.response?.data?.error ?? 'Failed to generate a new link');
+    } finally {
+      setLinkControlBusy(false);
+    }
+  }, [blockId, refreshContext, setCurrentBlock]);
+
   const handleCopyLink = useCallback(() => {
     if (!publicToken) return;
     const link = `${window.location.origin}/schedule/${publicToken}`;
@@ -1813,6 +1849,8 @@ export default function Calendar() {
           publicToken={publicToken}
           publicUrl={publicUrl}
           onCopyLink={handleCopyLink}
+          onUnpublish={() => setLinkControlMode('unpublish')}
+          onRotateLink={() => setLinkControlMode('rotate')}
           onExportExcel={handleExportExcel}
           exportingExcel={exportingExcel}
           onPrintPdf={handlePrintPdf}
@@ -1979,6 +2017,17 @@ export default function Calendar() {
               onConfirm={() => handleConfirmPublish(false)}
               onClose={() => setShowPublishModal(false)}
               publishing={publishing}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {linkControlMode && (
+            <LinkControlModal
+              mode={linkControlMode}
+              busy={linkControlBusy}
+              onConfirm={linkControlMode === 'unpublish' ? handleUnpublish : handleRotateLink}
+              onClose={() => setLinkControlMode(null)}
             />
           )}
         </AnimatePresence>

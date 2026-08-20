@@ -224,6 +224,96 @@ router.post('/publish', async (req, res) => {
   }
 });
 
+// POST /api/schedule/unpublish - retract a published schedule.
+//
+// The public URL stops resolving immediately because every public route checks
+// isPublished. Immutable ScheduleVersion history is left intact, and the draft
+// schedule is not touched at all.
+router.post('/unpublish', async (req, res) => {
+  const { blockId } = req.body;
+  if (!blockId) return res.status(400).json({ error: 'blockId required' });
+  try {
+    const membership = await requireBlockPermission(req, res, blockId, 'publish_schedule');
+    if (!membership) return;
+
+    const block = await prisma.block.findUnique({
+      where: { id: blockId },
+      select: { id: true, isPublished: true, number: true },
+    });
+    if (!block) return res.status(404).json({ error: 'Block not found' });
+    if (!block.isPublished) return res.status(409).json({ error: 'This schedule is not published' });
+
+    const versionCount = await prisma.scheduleVersion.count({ where: { blockId } });
+
+    await prisma.$transaction(async tx => {
+      await tx.block.update({ where: { id: blockId }, data: { isPublished: false } });
+      await recordAuditEventTx(tx, {
+        programId: membership.programId,
+        blockId,
+        actorUserId: req.user?.userId,
+        action: 'SCHEDULE_UNPUBLISHED',
+        entityType: 'Block',
+        entityId: blockId,
+        summary: 'Unpublished the schedule; the public link no longer resolves',
+        metadata: { retainedVersions: versionCount, draftUnchanged: true },
+      });
+    });
+
+    res.json({ success: true, blockId, isPublished: false, retainedVersions: versionCount });
+  } catch (err) {
+    console.error('[schedule/unpublish] Error:', err.message);
+    res.status(500).json({ error: 'Failed to unpublish schedule' });
+  }
+});
+
+// POST /api/schedule/rotate-link - mint a new public token.
+//
+// The old token stops working the moment it is replaced. The latest published
+// version remains available under the new link.
+router.post('/rotate-link', async (req, res) => {
+  const { blockId } = req.body;
+  if (!blockId) return res.status(400).json({ error: 'blockId required' });
+  try {
+    const membership = await requireBlockPermission(req, res, blockId, 'publish_schedule');
+    if (!membership) return;
+
+    const block = await prisma.block.findUnique({
+      where: { id: blockId },
+      select: { id: true, publicToken: true, isPublished: true },
+    });
+    if (!block) return res.status(404).json({ error: 'Block not found' });
+    if (!block.publicToken) return res.status(409).json({ error: 'This schedule has never been published' });
+
+    // 256 bits of randomness, URL-safe. Deliberately not derived from anything
+    // guessable about the block.
+    const nextToken = crypto.randomBytes(32).toString('base64url');
+
+    const updated = await prisma.$transaction(async tx => {
+      const next = await tx.block.update({
+        where: { id: blockId },
+        data: { publicToken: nextToken },
+      });
+      await recordAuditEventTx(tx, {
+        programId: membership.programId,
+        blockId,
+        actorUserId: req.user?.userId,
+        action: 'PUBLIC_LINK_ROTATED',
+        entityType: 'Block',
+        entityId: blockId,
+        // The tokens themselves are credentials and are never audited.
+        summary: 'Generated a new public link; the previous link no longer works',
+        metadata: { stillPublished: block.isPublished },
+      });
+      return next;
+    });
+
+    res.json({ success: true, blockId, publicToken: updated.publicToken, isPublished: updated.isPublished });
+  } catch (err) {
+    console.error('[schedule/rotate-link] Error:', err.message);
+    res.status(500).json({ error: 'Failed to rotate the public link' });
+  }
+});
+
 // GET /api/schedule/diagnostics?blockId= â€” non-destructive duplicate logical-day report
 router.get('/diagnostics', async (req, res) => {
   const { blockId } = req.query;

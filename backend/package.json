@@ -27,7 +27,8 @@
     "scheduler:fairness": "node scripts/scheduler-fairness.js",
     "availability:smoke": "node scripts/block-availability-smoke.js",
     "publish:safety-smoke": "node scripts/publish-safety-smoke.js",
-    "audit:smoke": "node scripts/audit-smoke.js"
+    "audit:smoke": "node scripts/audit-smoke.js",
+    "publish:revocation-smoke": "node scripts/publish-revocation-smoke.js"
   },
   "keywords": [],
   "author": "",
