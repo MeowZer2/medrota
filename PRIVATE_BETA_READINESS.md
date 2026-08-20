@@ -198,7 +198,9 @@ Full commands in `DEPLOYMENT.md`.
 | Deployment | `npm run deploy:smoke` | Headers, body limits, health, shutdown wiring |
 | Frontend | `npm run perf:guard`, `npm run lint`, `npm run build` | Performance patterns, lint, build |
 | Program configuration | `npm run program-config:smoke` | Clinical services, activity lifecycle, history preservation, dynamic Chief authorization, fixed role hierarchy |
-| Browser | `npm run e2e` | 40 Playwright tests: calendar, overrides, validation, availability, audit, publishing, onboarding, program configuration, responsive, accessibility |
+| Program settings saving | `npm run settings:save-smoke` | Section-scoped program saves, registry and roster field updates, blank-name refusal |
+| QA test isolation | `npm run qa:isolation-smoke` | Two consecutive QA seed/test cycles leave the QA registries at their baseline |
+| Browser | `npm run e2e` | 55 Playwright tests: calendar, overrides, validation, availability, audit, publishing, onboarding, program configuration, settings sections and registries, unsaved-change protection, responsive, accessibility |
 
 **What the tests do not cover:** real clinician data, a real program's rule
 interpretation, concurrent multi-user editing, load or soak, browsers other than

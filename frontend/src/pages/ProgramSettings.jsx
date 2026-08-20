@@ -10,6 +10,7 @@ import Modal from '../components/Modal';
 import { useBlock, useUser } from '../context/AppContext';
 import { ROLE_OPTIONS } from '../constants/roles';
 import { MEDICAL_SPECIALTIES } from '../constants/medicalSpecialties';
+import { DISCARD_PROMPT, useUnsavedChangesGuard } from '../lib/unsavedChanges';
 
 // -- helpers ------------------------------------------------------------------
 
@@ -47,6 +48,18 @@ const deactivateButtonStyle = {
 const restoreButtonStyle = {
   padding: '7px 12px', border: '1px solid #BBF7D0', borderRadius: 7, background: '#F0FDF4',
   color: '#15803D', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 34, whiteSpace: 'nowrap',
+};
+
+// Paired edit controls. Every inline editor in this page shows both, so an edit
+// is always reversible without reloading the section.
+const editSaveButtonStyle = {
+  padding: '7px 12px', border: '1px solid #D6E4F7', borderRadius: 7, background: '#EEF4FF',
+  color: '#2C5F8A', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 34, whiteSpace: 'nowrap',
+};
+
+const cancelButtonStyle = {
+  padding: '7px 12px', border: '1px solid #E2E8F0', borderRadius: 7, background: '#fff',
+  color: '#64748B', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 34, whiteSpace: 'nowrap',
 };
 
 function Label({ htmlFor, children }) {
@@ -88,23 +101,95 @@ function RegistryHeader({ activeCount, inactiveCount, noun, showInactive, onTogg
   );
 }
 
-function InactiveGroup({ noun, isEmpty, children }) {
+// Deactivated records are review-and-restore material, not a working list. A
+// local QA database can hold dozens of them, so the group sorts by name, shows
+// one readable page, and only offers a filter once there is more than a page.
+// Active rosters are never paged: those are the lists people work in.
+const INACTIVE_PAGE_SIZE = 10;
+
+const registryLabel = item => item.name;
+const rosterLabel = item => item.attendingName;
+
+function InactiveGroup({ noun, items, labelOf, renderItem }) {
+  const [query, setQuery] = useState('');
+  const [showAll, setShowAll] = useState(false);
+
+  const sorted = useMemo(
+    () => [...items].sort((a, b) => labelOf(a).localeCompare(labelOf(b), 'en', { sensitivity: 'base' })),
+    [items, labelOf],
+  );
+  const term = query.trim().toLocaleLowerCase();
+  const matches = term ? sorted.filter(item => labelOf(item).toLocaleLowerCase().includes(term)) : sorted;
+  const visible = showAll ? matches : matches.slice(0, INACTIVE_PAGE_SIZE);
+
   return (
-    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed #E2E8F0' }}>
+    <div data-testid={`inactive-${noun}`} style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed #E2E8F0' }}>
       <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 6px' }}>
         Inactive {noun}
       </p>
-      {isEmpty
-        ? <p style={{ fontSize: 13, color: '#94A3B8', margin: 0 }}>No inactive {noun}.</p>
-        : children}
+      {items.length === 0 ? (
+        <p style={{ fontSize: 13, color: '#94A3B8', margin: 0 }}>No inactive {noun}.</p>
+      ) : (
+        <>
+          {items.length > INACTIVE_PAGE_SIZE && (
+            <input
+              aria-label={`Search inactive ${noun}`}
+              value={query}
+              onChange={event => { setQuery(event.target.value); setShowAll(false); }}
+              placeholder={`Search inactive ${noun}`}
+              style={{ ...inputStyle, marginBottom: 8 }}
+            />
+          )}
+          <p style={{ fontSize: 12, color: '#64748B', margin: '0 0 6px' }}>
+            Showing {visible.length} of {matches.length} inactive {noun}
+          </p>
+          {matches.length === 0
+            ? <p style={{ fontSize: 13, color: '#94A3B8', margin: 0 }}>No inactive {noun} match that search.</p>
+            : visible.map(renderItem)}
+          {matches.length > INACTIVE_PAGE_SIZE && (
+            <button
+              type="button"
+              onClick={() => setShowAll(current => !current)}
+              style={{ marginTop: 8, padding: '6px 11px', border: '1px solid #E2E8F0', borderRadius: 7, background: '#F8FAFC', color: '#2C5F8A', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 32 }}
+            >
+              {showAll ? `Show fewer ${noun}` : `Show all ${matches.length} inactive ${noun}`}
+            </button>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-function RegistryRow({ item, canManage, onSave }) {
+// A registry row is a small form. Save and Cancel appear together as soon as the
+// name really differs from the stored one, Escape puts the stored name back, and
+// a blank name is never savable. A rejected save keeps the row in edit state so
+// the typed text is not thrown away.
+function RegistryRow({ item, canManage, onSave, onEditingChange }) {
   const [name, setName] = useState(item.name);
+  const [saving, setSaving] = useState(false);
   useEffect(() => setName(item.name), [item.name]);
+
   const references = (item._count?.attendingEntries ?? 0) + (item._count?.attendingTemplates ?? 0);
+  const trimmed = name.trim();
+  const isEdited = trimmed !== item.name;
+  const isBlank = trimmed.length === 0;
+
+  useEffect(() => {
+    onEditingChange?.(item.id, isEdited);
+    return () => onEditingChange?.(item.id, false);
+  }, [item.id, isEdited, onEditingChange]);
+
+  const cancel = () => setName(item.name);
+
+  const save = async () => {
+    if (isBlank || saving) return;
+    setSaving(true);
+    const saved = await onSave(item.id, { name: trimmed });
+    setSaving(false);
+    if (saved) setName(trimmed);
+  };
+
   return (
     <div className="settings-registry-row">
       <div className="settings-registry-main">
@@ -112,15 +197,31 @@ function RegistryRow({ item, canManage, onSave }) {
           aria-label={`${item.name} name`}
           value={name}
           onChange={event => setName(event.target.value)}
+          onKeyDown={event => {
+            if (event.key === 'Escape' && isEdited) { event.preventDefault(); cancel(); }
+            if (event.key === 'Enter' && isEdited) { event.preventDefault(); save(); }
+          }}
           disabled={!canManage}
-          style={{ ...inputStyle, background: canManage ? '#F8FAFC' : '#fff' }}
+          style={{ ...inputStyle, background: canManage ? '#F8FAFC' : '#fff', borderColor: isBlank ? '#FCA5A5' : '#E2E8F0' }}
         />
+        {isBlank && <span role="alert" style={{ display: 'block', fontSize: 11, color: '#B91C1C', marginTop: 3 }}>A name is required.</span>}
         {references > 0 && <span style={{ display: 'block', fontSize: 11, color: '#94A3B8', marginTop: 3 }}>{references} schedule reference{references === 1 ? '' : 's'} preserved</span>}
       </div>
       <div className="settings-registry-actions">
         {!item.isActive && <InactiveBadge />}
-        {canManage && name.trim() !== item.name && (
-          <button onClick={() => onSave(item.id, { name })} style={{ padding: '7px 12px', border: '1px solid #D6E4F7', borderRadius: 7, background: '#EEF4FF', color: '#2C5F8A', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 34 }}>Save</button>
+        {canManage && isEdited && (
+          <>
+            <button
+              type="button"
+              aria-label={`Save ${item.name}`}
+              onClick={save}
+              disabled={isBlank || saving}
+              style={{ ...editSaveButtonStyle, cursor: isBlank || saving ? 'not-allowed' : 'pointer', opacity: isBlank || saving ? 0.6 : 1 }}
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button type="button" aria-label={`Cancel editing ${item.name}`} onClick={cancel} style={cancelButtonStyle}>Cancel</button>
+          </>
         )}
         {canManage ? (
           <button
@@ -139,7 +240,7 @@ function RegistryRow({ item, canManage, onSave }) {
 
 // Active-first registry list. Deactivated entries leave the main list entirely
 // instead of sitting in it greyed out.
-function RegistryList({ items, canManage, noun, emptyMessage, onSave }) {
+function RegistryList({ items, canManage, noun, emptyMessage, onSave, onEditingChange }) {
   const [showInactive, setShowInactive] = useState(false);
   const active = items.filter(item => item.isActive);
   const inactive = items.filter(item => !item.isActive);
@@ -157,17 +258,106 @@ function RegistryList({ items, canManage, noun, emptyMessage, onSave }) {
       />
       {active.length === 0
         ? <p style={{ fontSize: 13, color: '#94A3B8' }}>No active {noun}.</p>
-        : active.map(item => <RegistryRow key={item.id} item={item} canManage={canManage} onSave={onSave} />)}
+        : active.map(item => <RegistryRow key={item.id} item={item} canManage={canManage} onSave={onSave} onEditingChange={onEditingChange} />)}
       {showInactive && (
-        <InactiveGroup noun={noun} isEmpty={inactive.length === 0}>
-          {inactive.map(item => <RegistryRow key={item.id} item={item} canManage={canManage} onSave={onSave} />)}
-        </InactiveGroup>
+        <InactiveGroup
+          noun={noun}
+          items={inactive}
+          labelOf={registryLabel}
+          renderItem={item => <RegistryRow key={item.id} item={item} canManage={canManage} onSave={onSave} onEditingChange={onEditingChange} />}
+        />
       )}
     </div>
   );
 }
 
-function RosterRow({ item, canManage, onSetActive }) {
+const ROSTER_FIELDS = Object.freeze([
+  ['attendingName', 'Name'],
+  ['email', 'Email'],
+  ['phone', 'Phone'],
+  ['officeLocation', 'Office / location'],
+]);
+
+function rosterDraftFrom(item) {
+  return {
+    attendingName: item.attendingName,
+    email: item.email ?? '',
+    phone: item.phone ?? '',
+    officeLocation: item.officeLocation ?? '',
+  };
+}
+
+// Attending rows edit in place like the other registries, but behind an explicit
+// Edit control: the row carries four fields, and a permanently open form would
+// crowd out the Deactivate/Restore action beside it.
+function RosterRow({ item, canManage, onSave, onSetActive, onEditingChange }) {
+  const [draft, setDraft] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const persisted = rosterDraftFrom(item);
+  const trimmedName = (draft?.attendingName ?? '').trim();
+  const isBlank = draft !== null && trimmedName.length === 0;
+  const isEdited = draft !== null && ROSTER_FIELDS.some(([field]) => draft[field].trim() !== persisted[field].trim());
+
+  useEffect(() => {
+    onEditingChange?.(item.id, isEdited);
+    return () => onEditingChange?.(item.id, false);
+  }, [item.id, isEdited, onEditingChange]);
+
+  const cancel = () => setDraft(null);
+
+  const save = async () => {
+    if (isBlank || saving) return;
+    if (!isEdited) { setDraft(null); return; }
+    setSaving(true);
+    const saved = await onSave(item.id, {
+      attendingName: trimmedName,
+      email: draft.email.trim(),
+      phone: draft.phone.trim(),
+      officeLocation: draft.officeLocation.trim(),
+    });
+    setSaving(false);
+    if (saved) setDraft(null);
+  };
+
+  if (draft) {
+    return (
+      <div
+        className="settings-roster-edit"
+        data-testid="roster-edit"
+        onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); cancel(); } }}
+      >
+        <div className="settings-field-grid">
+          {ROSTER_FIELDS.map(([field, label]) => (
+            <div key={field}>
+              <Label htmlFor={`roster-${item.id}-${field}`}>{label}</Label>
+              <input
+                id={`roster-${item.id}-${field}`}
+                value={draft[field]}
+                onChange={event => setDraft(current => ({ ...current, [field]: event.target.value }))}
+                onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); save(); } }}
+                style={{ ...inputStyle, borderColor: field === 'attendingName' && isBlank ? '#FCA5A5' : '#E2E8F0' }}
+              />
+            </div>
+          ))}
+        </div>
+        {isBlank && <p role="alert" style={{ fontSize: 11, color: '#B91C1C', margin: '6px 0 0' }}>A name is required.</p>}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+          <button
+            type="button"
+            aria-label={`Save ${item.attendingName}`}
+            onClick={save}
+            disabled={isBlank || saving}
+            style={{ ...editSaveButtonStyle, cursor: isBlank || saving ? 'not-allowed' : 'pointer', opacity: isBlank || saving ? 0.6 : 1 }}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button type="button" aria-label={`Cancel editing ${item.attendingName}`} onClick={cancel} style={cancelButtonStyle}>Cancel</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="settings-roster-row" style={{ background: item.isActive ? 'transparent' : '#FFFBEB' }}>
       <span style={{ display: 'flex', gap: 8, alignItems: 'center', minWidth: 0 }}>
@@ -179,14 +369,24 @@ function RosterRow({ item, canManage, onSetActive }) {
       <span style={{ fontSize: 12, color: '#64748B', overflowWrap: 'anywhere' }}>{item.officeLocation || '—'}</span>
       <span className="settings-roster-actions">
         {canManage ? (
-          <button
-            type="button"
-            aria-label={`${item.isActive ? 'Deactivate' : 'Restore'} ${item.attendingName}`}
-            onClick={() => onSetActive(item, !item.isActive)}
-            style={item.isActive ? deactivateButtonStyle : restoreButtonStyle}
-          >
-            {item.isActive ? 'Deactivate' : 'Restore'}
-          </button>
+          <>
+            <button
+              type="button"
+              aria-label={`Edit ${item.attendingName}`}
+              onClick={() => setDraft(rosterDraftFrom(item))}
+              style={deactivateButtonStyle}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              aria-label={`${item.isActive ? 'Deactivate' : 'Restore'} ${item.attendingName}`}
+              onClick={() => onSetActive(item, !item.isActive)}
+              style={item.isActive ? deactivateButtonStyle : restoreButtonStyle}
+            >
+              {item.isActive ? 'Deactivate' : 'Restore'}
+            </button>
+          </>
         ) : <span style={{ fontSize: 11, color: item.isActive ? '#15803D' : '#94A3B8' }}>{item.isActive ? 'Active' : 'Inactive'}</span>}
       </span>
     </div>
@@ -298,22 +498,21 @@ export default function ProgramSettings() {
     ? requestedSection
     : sections[0]?.id;
 
-  // Replace rather than push: tab clicks should not build a history stack the
-  // user has to unwind, but a refresh or a return to the page keeps the section.
-  const selectSection = useCallback((id) => {
-    setSearchParams(previous => {
-      const next = new URLSearchParams(previous);
-      next.set('tab', id);
-      return next;
-    }, { replace: true });
-  }, [setSearchParams]);
-
   // -- Program info -----------------------------------------------------------
+  // General and Scheduling edit different fields of the same program record, so
+  // each one sends only its own fields. `PUT /programs/:id` applies exactly the
+  // fields a payload carries and leaves the rest of the stored record alone, so
+  // neither section can overwrite the other's saved — or unsaved — values.
   const [name,      setName]      = useState(currentProgram?.programName ?? '');
   const [specialty, setSpecialty] = useState(currentProgram?.specialty   ?? '');
   const [juniorInHouseCall, setJuniorInHouseCall] = useState(currentProgram?.juniorInHouseCall ?? true);
   const [seniorInHouseCall, setSeniorInHouseCall] = useState(currentProgram?.seniorInHouseCall ?? false);
-  const [savingInfo, setSavingInfo] = useState(false);
+  const [savingSection, setSavingSection] = useState(null);
+
+  const savedName = currentProgram?.programName ?? '';
+  const savedSpecialty = currentProgram?.specialty ?? '';
+  const savedJuniorInHouseCall = currentProgram?.juniorInHouseCall ?? true;
+  const savedSeniorInHouseCall = currentProgram?.seniorInHouseCall ?? false;
 
   useEffect(() => {
     setName(currentProgram?.programName ?? '');
@@ -322,45 +521,50 @@ export default function ProgramSettings() {
     setSeniorInHouseCall(currentProgram?.seniorInHouseCall ?? false);
   }, [currentProgram]);
 
-  const handleSaveInfo = async () => {
-    if (!programId) return;
-    setSavingInfo(true);
+  const saveProgramFields = async (fields, section, successMessage) => {
+    if (!programId) return false;
+    setSavingSection(section);
     try {
-      await api.put(`/programs/${programId}`, {
-        name,
-        specialty,
-        juniorInHouseCall,
-        seniorInHouseCall,
-      });
+      await api.put(`/programs/${programId}`, fields);
       await refreshContext();
-      toast.success('Program info updated!');
+      toast.success(successMessage);
+      return true;
     } catch {
       toast.error('Failed to update program info');
+      return false;
     } finally {
-      setSavingInfo(false);
+      setSavingSection(null);
     }
   };
 
-  // General and Scheduling both edit the same program record, so each renders
-  // the same single Save. Only one section is mounted at a time.
-  const saveButton = canEditProgramSettings ? (
-    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-      <motion.button
-        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-        onClick={handleSaveInfo}
-        disabled={savingInfo}
-        style={{
-          padding: '9px 22px', borderRadius: 9, border: 'none',
-          background: '#1A3A5C', color: '#fff', fontSize: 13, fontWeight: 600,
-          cursor: savingInfo ? 'not-allowed' : 'pointer', opacity: savingInfo ? 0.7 : 1,
-        }}
-        onMouseEnter={e => { if (!savingInfo) e.currentTarget.style.background = '#2C5F8A'; }}
-        onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}
-      >
-        {savingInfo ? 'Saving...' : 'Save'}
-      </motion.button>
-    </div>
-  ) : null;
+  const handleSaveGeneral = () => saveProgramFields({ name, specialty }, 'general', 'Program details saved');
+  const handleSaveScheduling = () => saveProgramFields({ juniorInHouseCall, seniorInHouseCall }, 'scheduling', 'Call configuration saved');
+
+  // Each section renders its own Save so the button means what it says: it
+  // persists that section and nothing else.
+  const sectionSaveButton = (section, onSave, label) => {
+    if (!canEditProgramSettings) return null;
+    const saving = savingSection === section;
+    return (
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <motion.button
+          whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+          onClick={onSave}
+          disabled={saving}
+          aria-label={label}
+          style={{
+            padding: '9px 22px', borderRadius: 9, border: 'none',
+            background: '#1A3A5C', color: '#fff', fontSize: 13, fontWeight: 600,
+            cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1,
+          }}
+          onMouseEnter={e => { if (!saving) e.currentTarget.style.background = '#2C5F8A'; }}
+          onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </motion.button>
+      </div>
+    );
+  };
 
   // -- Team members -----------------------------------------------------------
   const [members, setMembers]       = useState([]);
@@ -467,8 +671,21 @@ export default function ProgramSettings() {
   const [newServiceName, setNewServiceName] = useState('');
   const [newActivityName, setNewActivityName] = useState('');
   const [chiefPermissions, setChiefPermissions] = useState([]);
+  const [savedChiefPermissions, setSavedChiefPermissions] = useState([]);
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [savingPermissions, setSavingPermissions] = useState(false);
+  // Ids of rows whose inline editor holds text that is not stored yet. Rows
+  // report in and out; nothing else in the page needs to know their contents.
+  const [rowsBeingEdited, setRowsBeingEdited] = useState(() => new Set());
+
+  const trackRowEditing = useCallback((id, editing) => {
+    setRowsBeingEdited(current => {
+      if (editing === current.has(id)) return current;
+      const next = new Set(current);
+      if (editing) next.add(id); else next.delete(id);
+      return next;
+    });
+  }, []);
 
   const loadProgramConfiguration = useCallback(async () => {
     if (!programId) return;
@@ -489,7 +706,9 @@ export default function ProgramSettings() {
       } catch { /* registry sections remain independently usable */ }
     }
     if (permissionsResult?.status === 'fulfilled') {
-      setChiefPermissions(permissionsResult.value.data.roles.chief_resident.permissions.filter(item => item.enabled).map(item => item.permission));
+      const enabled = permissionsResult.value.data.roles.chief_resident.permissions.filter(item => item.enabled).map(item => item.permission);
+      setChiefPermissions(enabled);
+      setSavedChiefPermissions(enabled);
       setPermissionsLoaded(true);
     }
   }, [programId, canConfigurePermissions, canManageActivities]);
@@ -508,6 +727,8 @@ export default function ProgramSettings() {
     }
   };
 
+  // Returns whether the change was stored, so an inline editor knows whether to
+  // close or stay open with the rejected text still in it.
   const updateRegistryItem = async (kind, id, changes) => {
     try {
       await api.put(`/program-configuration/${programId}/${kind}/${id}`, changes);
@@ -515,8 +736,10 @@ export default function ProgramSettings() {
       if (changes.isActive === true) toast.success('Restored');
       else if (changes.isActive === false) toast.success('Deactivated');
       else toast.success('Saved');
+      return true;
     } catch (err) {
       toast.error(err.response?.data?.error ?? 'Unable to save item');
+      return false;
     }
   };
 
@@ -529,6 +752,18 @@ export default function ProgramSettings() {
       toast.success('Attending added to the program roster');
     } catch (err) {
       toast.error(err.response?.data?.error ?? 'Unable to add attending');
+    }
+  };
+
+  const updateAttending = async (id, changes) => {
+    try {
+      await api.put(`/attending/roster/${id}`, changes);
+      await loadProgramConfiguration();
+      toast.success('Attending updated');
+      return true;
+    } catch (err) {
+      toast.error(err.response?.data?.error ?? 'Unable to update attending');
+      return false;
     }
   };
 
@@ -546,6 +781,7 @@ export default function ProgramSettings() {
     setSavingPermissions(true);
     try {
       await api.put(`/program-configuration/${programId}/role-permissions`, { role: 'chief_resident', permissions: chiefPermissions });
+      setSavedChiefPermissions(chiefPermissions);
       toast.success('Chief Resident permissions updated');
     } catch (err) {
       toast.error(err.response?.data?.error ?? 'Unable to update permissions');
@@ -556,6 +792,103 @@ export default function ProgramSettings() {
 
   const activeAttendings = attendingRoster.filter(item => item.isActive);
   const inactiveAttendings = attendingRoster.filter(item => !item.isActive);
+
+  // -- unsaved changes --------------------------------------------------------
+  // Deliberately small: each section says whether its own fields differ from
+  // what is stored, and everything that could take the user away from the
+  // section asks that one question first. No shared form state, no reducers.
+  const permissionsDirty = permissionsLoaded
+    && (chiefPermissions.length !== savedChiefPermissions.length
+      || chiefPermissions.some(permission => !savedChiefPermissions.includes(permission)));
+  const newAttendingDirty = Object.values(newAttending).some(value => value.trim() !== '');
+
+  const dirtyBySection = {
+    general: name !== savedName || specialty !== savedSpecialty,
+    scheduling: juniorInHouseCall !== savedJuniorInHouseCall || seniorInHouseCall !== savedSeniorInHouseCall,
+    clinical: rowsBeingEdited.size > 0 || newServiceName.trim() !== '',
+    attendings: rowsBeingEdited.size > 0 || newActivityName.trim() !== '' || newAttendingDirty,
+    access: permissionsDirty,
+    history: false,
+  };
+  const sectionIsDirty = Boolean(dirtyBySection[activeSection]);
+
+  const discardSectionChanges = useCallback((section) => {
+    if (section === 'general') {
+      setName(savedName);
+      setSpecialty(savedSpecialty);
+    }
+    if (section === 'scheduling') {
+      setJuniorInHouseCall(savedJuniorInHouseCall);
+      setSeniorInHouseCall(savedSeniorInHouseCall);
+    }
+    if (section === 'access') setChiefPermissions(savedChiefPermissions);
+    if (section === 'clinical') setNewServiceName('');
+    if (section === 'attendings') {
+      setNewActivityName('');
+      setNewAttending({ attendingName: '', email: '', phone: '', officeLocation: '' });
+    }
+    // Inline row editors discard their own drafts: leaving a section unmounts
+    // the rows, and unmounting is what clears them.
+  }, [savedName, savedSpecialty, savedJuniorInHouseCall, savedSeniorInHouseCall, savedChiefPermissions]);
+
+  // Registers the page-wide guard used by the sidebar and by the browser's own
+  // unload prompt.
+  useUnsavedChangesGuard(sectionIsDirty);
+
+  const discardActiveSectionRef = useRef(() => {});
+  useEffect(() => {
+    discardActiveSectionRef.current = () => discardSectionChanges(activeSection);
+  });
+
+  // Browser Back would otherwise drop unsaved edits without a word. While a
+  // section is dirty, one extra history entry is parked on the same URL, so the
+  // Back press lands here first and the question can still be asked. React
+  // Router's own history state is reused, so its internal index stays intact and
+  // the parked entry is invisible apart from absorbing that one press.
+  //
+  // The parked entry is reclaimed only if the page is still sitting on the URL
+  // it was parked at. Anything that changes the URL - a tab switch, which
+  // replaces the top entry, or a navigation away - has already consumed or
+  // outlived it, and popping then would undo the very move the user just made.
+  const parkedEntryRef = useRef(null);
+  useEffect(() => {
+    if (!sectionIsDirty) return undefined;
+    window.history.pushState(window.history.state, '');
+    parkedEntryRef.current = window.location.href;
+
+    const handlePopState = () => {
+      parkedEntryRef.current = null;
+      if (window.confirm(DISCARD_PROMPT)) {
+        discardActiveSectionRef.current();
+        window.history.back();
+        return;
+      }
+      window.history.pushState(window.history.state, '');
+      parkedEntryRef.current = window.location.href;
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      if (parkedEntryRef.current === window.location.href) {
+        parkedEntryRef.current = null;
+        window.history.back();
+      }
+    };
+  }, [sectionIsDirty]);
+
+  // Replace rather than push: tab clicks should not build a history stack the
+  // user has to unwind, but a refresh or a return to the page keeps the section.
+  const selectSection = useCallback((id) => {
+    if (id === activeSection) return;
+    if (sectionIsDirty && !window.confirm(DISCARD_PROMPT)) return;
+    discardSectionChanges(activeSection);
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      next.set('tab', id);
+      return next;
+    }, { replace: true });
+  }, [activeSection, sectionIsDirty, discardSectionChanges, setSearchParams]);
 
   // -- render -----------------------------------------------------------------
 
@@ -591,7 +924,7 @@ export default function ProgramSettings() {
             </select>
             <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>The program&rsquo;s main specialty.</p>
           </div>
-          {saveButton}
+          {sectionSaveButton('general', handleSaveGeneral, 'Save program details')}
         </div>
       </Card>
     ),
@@ -610,6 +943,7 @@ export default function ProgramSettings() {
           noun="services"
           emptyMessage="No clinical services configured. This feature is optional."
           onSave={(id, changes) => updateRegistryItem('clinical-services', id, changes)}
+          onEditingChange={trackRowEditing}
         />
       </Card>
     ),
@@ -632,11 +966,14 @@ export default function ProgramSettings() {
               />
               {activeAttendings.length === 0
                 ? <p style={{ fontSize: 13, color: '#94A3B8' }}>No active attendings.</p>
-                : activeAttendings.map(item => <RosterRow key={item.id} item={item} canManage={canManageActivities} onSetActive={setAttendingActive} />)}
+                : activeAttendings.map(item => <RosterRow key={item.id} item={item} canManage={canManageActivities} onSave={updateAttending} onSetActive={setAttendingActive} onEditingChange={trackRowEditing} />)}
               {showInactiveAttendings && (
-                <InactiveGroup noun="attendings" isEmpty={inactiveAttendings.length === 0}>
-                  {inactiveAttendings.map(item => <RosterRow key={item.id} item={item} canManage={canManageActivities} onSetActive={setAttendingActive} />)}
-                </InactiveGroup>
+                <InactiveGroup
+                  noun="attendings"
+                  items={inactiveAttendings}
+                  labelOf={rosterLabel}
+                  renderItem={item => <RosterRow key={item.id} item={item} canManage={canManageActivities} onSave={updateAttending} onSetActive={setAttendingActive} onEditingChange={trackRowEditing} />}
+                />
               )}
             </div>
           )}
@@ -655,6 +992,7 @@ export default function ProgramSettings() {
             noun="activities"
             emptyMessage="No activity types configured yet."
             onSave={(id, changes) => updateRegistryItem('attending-activities', id, changes)}
+            onEditingChange={trackRowEditing}
           />
         </Card>
       </>
@@ -681,7 +1019,7 @@ export default function ProgramSettings() {
               disabled={!canEditProgramSettings}
             />
           </div>
-          {saveButton}
+          {sectionSaveButton('scheduling', handleSaveScheduling, 'Save call configuration')}
         </div>
       </Card>
     ),

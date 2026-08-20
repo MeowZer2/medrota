@@ -55,7 +55,7 @@ risk.
 
 ## Behavioral Protection
 
-Seventeen backend suites and 39 Playwright tests. The full matrix is in
+Twenty-one backend suites and 55 Playwright tests. The full matrix is in
 `PRIVATE_BETA_READINESS.md` §7. The ones that earn their keep:
 
 * `authz:smoke` — real HTTP and database isolation, role, auth, invite,

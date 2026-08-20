@@ -1,5 +1,6 @@
 ﻿import { memo, useState, useRef, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { confirmDiscardUnsavedChanges, useGuardedNavigate } from '../lib/unsavedChanges';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBlock, useUser } from '../context/AppContext';
 import api from '../api/axios';
@@ -256,7 +257,9 @@ function YearSwitcher({ years, current, onChange, onAddYear, addingYear }) {
 // â”€â”€ Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const Sidebar = memo(function Sidebar({ userName }) {
-  const navigate = useNavigate();
+  // Every sidebar destination goes through the guarded navigate, so a page
+  // holding unsaved edits gets to ask before it is left.
+  const navigate = useGuardedNavigate();
   const location = useLocation();
   const { currentProgram, currentUser, currentRoleLabel, refreshContext, can } = useUser();
   const { currentBlock, setCurrentBlock, academicYears, currentAcademicYear, setCurrentAcademicYear } = useBlock();
@@ -582,7 +585,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
               style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 34, minHeight: 34 }}
               onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626'; setTooltip('logout'); }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94A3B8'; setTooltip(null); }}
-              onClick={() => { localStorage.clear(); window.location.href = '/login'; }}
+              onClick={() => { if (!confirmDiscardUnsavedChanges()) return; localStorage.clear(); window.location.href = '/login'; }}
             >
               <LogoutIcon />
             </button>

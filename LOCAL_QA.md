@@ -12,6 +12,8 @@ npm run dev:seed-qa
 
 The script refuses to run when `NODE_ENV=production`. It creates or updates its own QA organization, program, users, memberships, explicit block enrollments, sample residents, attending data, assignments, holiday, and flag. To remain deterministic, it clears only `QA_ONLY` resident assignments in the QA block before restoring the seed assignment; unrelated data is not deleted.
 
+The seed also restores a deterministic registry state: before it does anything else it deletes the records the browser suite owns in the QA program, which are the ones named `QA_ONLY E2E ...`. Those are the attendings, activities and clinical services the specs create to exercise adding, renaming, deactivating and restoring. The product has no hard delete, so left alone they piled up as deactivated records run after run until the inactive lists were unusable. Nothing else is removed: a record you created yourself with the plain `QA_ONLY` prefix, and every record in every other program, is left exactly as it is. No database reset is involved.
+
 ## Local QA Credentials
 
 All QA users use this password:
@@ -85,7 +87,7 @@ If browsers have not been installed on the machine yet, run once from `frontend`
 npx playwright install chromium
 ```
 
-Current E2E coverage is 48 tests across seven spec files:
+Current E2E coverage is 55 tests across eight spec files:
 
 | Spec | Covers |
 |---|---|
@@ -95,10 +97,33 @@ Current E2E coverage is 48 tests across seven spec files:
 | `onboarding.spec.js` | Registration fields, auto-login, the no-invite explanation, invited registration joining at the invited role |
 | `responsive.spec.js` | No horizontal scroll at 375/768/1024/1440, dialogs fit a phone, touch-target sizes |
 | `accessibility.spec.js` | Named controls, labelled modal dialogs, Escape and focus restore, keyboard-only login, calendar and every program settings section, role conveyed by text |
-| `settings-registries.spec.js` | Program Settings section navigation and URL persistence, per-role section visibility, attending and activity deactivate/restore, Viewer denial, and pointer reachability of registry actions at 375/768/1280px |
+| `settings-registries.spec.js` | Program Settings section navigation and URL persistence, per-role section visibility, attending and activity deactivate/restore, inline rename with Save/Cancel/Escape and blank-name refusal, in-place attending editing, sorted and capped inactive lists with search, Viewer denial, and pointer reachability of registry actions at 375/768/1280px |
+| `settings-unsaved-changes.spec.js` | Section-scoped saving of the program record, the discard warning on section change, sidebar navigation and browser Back, silence when nothing changed, and the browser unload prompt arming only while a section is dirty |
 
 The onboarding tests create accounts with unique throwaway emails. They join no
 program unless the test explicitly does so, and they are inert.
+
+### QA data isolation
+
+Specs must name every record they create with the `QA_ONLY E2E` prefix, via `ownedName()` in `frontend/e2e/qa-records.js`. That prefix is the only thing that marks a record as the suite’s to delete.
+
+Playwright’s global teardown then runs the cleanup at the end of every run:
+
+```bash
+cd backend
+npm run qa:cleanup-e2e
+```
+
+It deletes exactly those records inside the QA program and reports what is left, so repeated runs cannot inflate the inactive lists. Run it by hand after an interrupted run if you want to be sure. `dev:seed-qa` performs the same sweep on the way in, so a crashed run cannot leave residue either.
+
+The regression guard for all of this is:
+
+```bash
+cd backend
+npm run qa:isolation-smoke
+```
+
+It seeds, simulates two consecutive browser runs, and asserts that the QA program ends each cycle at exactly the inactive counts it started with; that a deactivated record which does not belong to the suite survives both cycles; and that the seeded activity types and attending roster are untouched.
 
 On Windows, Playwright's owned `webServer` teardown may hang after tests have completed. A reliable local alternative is to start backend and frontend normally, then run:
 
@@ -164,6 +189,11 @@ Program Settings browser QA should confirm:
 6. A custom active activity appears in the Attending Roster & Weekly Pattern selectors; a deactivated one does not, while entries already using it still display its label.
 7. On **Access & Permissions**, removing and restoring `Manage residents` changes the Chief Resident sidebar and backend access after a new login.
 8. Viewer mutation requests still return 403, and a Viewer sees the no-access message instead of the sections.
+9. Editing a registry name shows **Save** and **Cancel**; Escape restores the stored name; a blank name cannot be saved; and a duplicate name reports the conflict and keeps the row in edit state.
+10. An attending row opens an in-place editor from **Edit**, saves name, email, phone and office/location together, and closes on Cancel or Escape without writing.
+11. With more than ten deactivated records, the inactive group renders ten sorted by name, offers a search box and a `Show all` control, and **Restore** works from inside it.
+12. Editing a field and then changing section, following a sidebar link, or pressing Back warns “You have unsaved changes. Discard them?”; staying keeps the edit, discarding restores the stored value, and no warning appears when nothing was changed or after a successful save.
+13. Saving **General** does not change the call-type settings, and saving **Scheduling** does not change the program name or specialty, including when the other section holds an unsaved edit.
 
 `manage_scheduling_rules` is only a permission toggle in this milestone; there is no custom rule-builder UI yet.
 

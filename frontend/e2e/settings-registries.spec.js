@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { ownedName } from './qa-records.js';
 
 // Program Settings section navigation plus the active/inactive lifecycle of the
 // attending roster and the attending activity registry.
@@ -112,7 +113,7 @@ test('program settings is divided into navigable sections that survive a refresh
 });
 
 test('an attending leaves the active roster when deactivated and returns when restored', async ({ page }) => {
-  const attendingName = `QA_ONLY Lifecycle Attending ${Date.now()}`;
+  const attendingName = ownedName('Lifecycle Attending');
   await login(page, 'qa-admin@medrota.local', '/settings?tab=attendings');
   await expect(page.getByRole('heading', { name: 'Attending roster' })).toBeVisible();
 
@@ -155,7 +156,7 @@ test('an attending leaves the active roster when deactivated and returns when re
 });
 
 test('an attending activity leaves the active list when deactivated and returns when restored', async ({ page }) => {
-  const activityName = `QA_ONLY Lifecycle Activity ${Date.now()}`;
+  const activityName = ownedName('Lifecycle Activity');
   await login(page, 'qa-admin@medrota.local', '/settings?tab=attendings');
 
   await page.getByLabel('New attending activity').fill(activityName);
@@ -251,7 +252,7 @@ test('a viewer cannot reach or mutate either registry', async ({ page }) => {
 for (const width of [375, 768, 1280]) {
   test(`registry actions are reachable by pointer at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 860 });
-    const attendingName = `QA_ONLY Reachability Dr Alexander Montgomery ${Date.now()}`;
+    const attendingName = ownedName('Reachability Dr Alexander Montgomery');
     await login(page, 'qa-admin@medrota.local', '/settings?tab=attendings');
 
     await page.locator('#new-attending-attendingName').fill(attendingName);
@@ -279,3 +280,161 @@ for (const width of [375, 768, 1280]) {
     await expect(page.getByRole('button', { name: `Restore ${attendingName}` })).toBeVisible();
   });
 }
+
+// -- Inline editing -----------------------------------------------------------
+//
+// Renaming used to be a one-way door: a Save button appeared once the text
+// changed, with no Cancel, and Escape did nothing. The only way back to the
+// stored name was to remember it and retype it.
+
+test('renaming an activity offers Save and Cancel, reverts on Escape, and refuses a blank name', async ({ page }) => {
+  const activityName = ownedName('Rename Activity');
+  const renamed = `${activityName} Renamed`;
+  await login(page, 'qa-admin@medrota.local', '/settings?tab=attendings');
+
+  await page.getByLabel('New attending activity').fill(activityName);
+  await page.getByRole('button', { name: 'Add activity' }).click();
+  const field = page.getByLabel(`${activityName} name`);
+  await expect(field).toBeVisible();
+
+  // An untouched row is not in edit state, so it offers neither control.
+  await expect(page.getByRole('button', { name: `Save ${activityName}` })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: `Cancel editing ${activityName}` })).toHaveCount(0);
+
+  await field.fill(renamed);
+  await expect(page.getByRole('button', { name: `Save ${activityName}` })).toBeVisible();
+  await expect(page.getByRole('button', { name: `Cancel editing ${activityName}` })).toBeVisible();
+
+  // Escape restores the stored name, from the keyboard alone.
+  await field.press('Escape');
+  await expect(field).toHaveValue(activityName);
+  await expect(page.getByRole('button', { name: `Save ${activityName}` })).toHaveCount(0);
+
+  // Cancel does the same for a pointer.
+  await field.fill(renamed);
+  await page.getByRole('button', { name: `Cancel editing ${activityName}` }).click();
+  await expect(field).toHaveValue(activityName);
+
+  // A blank name is never savable, and saying so keeps the row in edit state.
+  await field.fill('   ');
+  await expect(page.getByText('A name is required.')).toBeVisible();
+  await expect(page.getByRole('button', { name: `Save ${activityName}` })).toBeDisabled();
+
+  // A real rename saves and leaves edit state behind.
+  await field.fill(renamed);
+  await page.getByRole('button', { name: `Save ${activityName}` }).click();
+  await expect(page.getByLabel(`${renamed} name`)).toBeVisible();
+  await expect(page.getByRole('button', { name: `Save ${renamed}` })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: `Cancel editing ${renamed}` })).toHaveCount(0);
+
+  // A rejected rename explains itself and keeps the typed text on screen.
+  const renamedField = page.getByLabel(`${renamed} name`);
+  await renamedField.fill('Clinic');
+  await page.getByRole('button', { name: `Save ${renamed}` }).click();
+  await expect(page.getByText(/already exists in this program/)).toBeVisible();
+  await expect(renamedField, 'a refused rename keeps the edit alive').toHaveValue('Clinic');
+  await renamedField.press('Escape');
+  await expect(renamedField).toHaveValue(renamed);
+
+  // Tidy-up goes through the API: the error toast is still sitting over the
+  // bottom-right of the page, and deactivating from the UI is covered above.
+  const programId = (await api(page, '/programs/mine')).body.programId;
+  const stored = (await api(page, `/program-configuration/${programId}/attending-activities`)).body.find(item => item.name === renamed);
+  expect(stored, 'the renamed activity is the one that was stored').toBeTruthy();
+  await api(page, `/program-configuration/${programId}/attending-activities/${stored.id}`, { method: 'PUT', body: JSON.stringify({ isActive: false }) });
+});
+
+test('an attending row edits in place, cancels on Escape, and refuses a blank name', async ({ page }) => {
+  const attendingName = ownedName('Editable Attending');
+  const editedName = `${attendingName} Edited`;
+  await login(page, 'qa-admin@medrota.local', '/settings?tab=attendings');
+
+  await page.locator('#new-attending-attendingName').fill(attendingName);
+  await page.locator('#new-attending-phone').fill('555-0100');
+  await page.getByRole('button', { name: 'Add attending' }).click();
+  await expect(page.getByText(attendingName, { exact: true })).toBeVisible();
+
+  // Escape abandons the editor without writing anything.
+  await page.getByRole('button', { name: `Edit ${attendingName}` }).click();
+  const editor = page.getByTestId('roster-edit');
+  await editor.getByLabel('Office / location').fill('Level 9');
+  await editor.getByLabel('Office / location').press('Escape');
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByText('Level 9')).toHaveCount(0);
+
+  // So does Cancel.
+  await page.getByRole('button', { name: `Edit ${attendingName}` }).click();
+  await page.getByTestId('roster-edit').getByLabel('Phone').fill('555-0199');
+  await page.getByRole('button', { name: `Cancel editing ${attendingName}` }).click();
+  await expect(page.getByTestId('roster-edit')).toHaveCount(0);
+  await expect(page.getByText('555-0100')).toBeVisible();
+
+  // A blank name cannot be saved.
+  await page.getByRole('button', { name: `Edit ${attendingName}` }).click();
+  const reopened = page.getByTestId('roster-edit');
+  await reopened.getByLabel('Name').fill('   ');
+  await expect(page.getByRole('button', { name: `Save ${attendingName}` })).toBeDisabled();
+
+  // A real edit saves the whole row and closes the editor.
+  await reopened.getByLabel('Name').fill(editedName);
+  await reopened.getByLabel('Phone').fill('555-0123');
+  await page.getByRole('button', { name: `Save ${attendingName}` }).click();
+  await expect(page.getByTestId('roster-edit')).toHaveCount(0);
+  await expect(page.getByText(editedName, { exact: true })).toBeVisible();
+  await expect(page.getByText('555-0123')).toBeVisible();
+
+  await page.getByRole('button', { name: `Deactivate ${editedName}` }).click();
+  await expect(page.getByText(editedName, { exact: true })).toHaveCount(0);
+});
+
+// This one runs last on purpose: it fills the inactive activity list past a
+// page, which is exactly the state the other tests should not have to work in.
+test('a long inactive list is sorted, capped, searchable and expandable', async ({ page }) => {
+  await login(page, 'qa-admin@medrota.local', '/settings?tab=attendings');
+  const programId = (await api(page, '/programs/mine')).body.programId;
+
+  const base = ownedName('Paged Activity');
+  const created = [];
+  for (let index = 1; index <= 12; index += 1) {
+    const name = `${base} ${String(index).padStart(2, '0')}`;
+    const post = await api(page, `/program-configuration/${programId}/attending-activities`, { method: 'POST', body: JSON.stringify({ name }) });
+    expect(post.status, `created ${name}`).toBe(201);
+    await api(page, `/program-configuration/${programId}/attending-activities/${post.body.id}`, { method: 'PUT', body: JSON.stringify({ isActive: false }) });
+    created.push({ id: post.body.id, name });
+  }
+
+  try {
+    await page.goto('/settings?tab=attendings');
+    const toggle = page.getByRole('button', { name: /^Show inactive activities \(\d+\)$/ });
+    await expect(toggle).toBeVisible();
+    const total = Number((await toggle.textContent()).match(/\((\d+)\)/)[1]);
+    expect(total, 'the disclosure counts every deactivated activity').toBeGreaterThanOrEqual(12);
+    await toggle.click();
+
+    const group = page.getByTestId('inactive-activities');
+    await expect(group.getByText(`Showing 10 of ${total} inactive activities`)).toBeVisible();
+
+    // Sorted by name, so which records land on the first page is predictable.
+    const shown = await group.locator('input[aria-label$=" name"]').evaluateAll(nodes => nodes.map(node => node.value));
+    expect(shown, 'one page of rows is rendered').toHaveLength(10);
+    expect(shown).toEqual([...shown].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })));
+
+    // The rest are reachable rather than rendered by default.
+    const last = created[created.length - 1].name;
+    await expect(group.getByLabel(`${last} name`)).toHaveCount(0);
+    await group.getByRole('button', { name: `Show all ${total} inactive activities` }).click();
+    await expect(group.getByLabel(`${last} name`)).toBeVisible();
+
+    // Search narrows the group, and Restore still works from inside it.
+    await group.getByLabel('Search inactive activities').fill(last);
+    await expect(group.getByText('Showing 1 of 1 inactive activities')).toBeVisible();
+    await group.getByRole('button', { name: `Restore ${last}` }).click();
+    await expect(page.getByRole('button', { name: `Deactivate ${last}` })).toBeVisible();
+  } finally {
+    // Restore the QA registry to its pre-test shape. The global teardown then
+    // deletes these records outright.
+    for (const item of created) {
+      await api(page, `/program-configuration/${programId}/attending-activities/${item.id}`, { method: 'PUT', body: JSON.stringify({ isActive: true }) });
+    }
+  }
+});

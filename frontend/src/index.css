@@ -252,7 +252,24 @@ button:active:not([disabled]) {
   align-items: center;
 }
 
-.settings-roster-actions { justify-self: start; }
+.settings-roster-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-self: start;
+}
+
+/* The in-place attending editor replaces its row, so it inherits the row's
+   width rules and can never push an action off screen. */
+.settings-roster-edit {
+  padding: 12px;
+  margin: 8px 0;
+  border: 1px solid #D6E4F7;
+  border-radius: 10px;
+  background: #F8FCFF;
+  min-width: 0;
+}
 
 @media (min-width: 768px) {
   .settings-roster-row {

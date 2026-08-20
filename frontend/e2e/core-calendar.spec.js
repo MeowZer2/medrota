@@ -257,7 +257,8 @@ test('program admin can persist program call-type settings', async ({ page }) =>
   await login(page, 'qa-admin@medrota.local', '/settings');
   await expect(page.getByRole('heading', { name: 'Program Settings' })).toBeVisible();
 
-  // Call configuration lives in the Scheduling section of Program Settings.
+  // Call configuration lives in the Scheduling section of Program Settings, and
+  // its Save persists that section alone.
   await page.getByRole('tab', { name: 'Scheduling' }).click();
 
   const juniorToggle = page.getByRole('checkbox', { name: /Junior in-house call/i });
@@ -267,7 +268,7 @@ test('program admin can persist program call-type settings', async ({ page }) =>
 
   await juniorToggle.setChecked(false);
   await seniorToggle.setChecked(true);
-  await page.getByRole('button', { name: /^Save$/ }).click();
+  await page.getByRole('button', { name: 'Save call configuration' }).click();
   await expect(juniorToggle).not.toBeChecked();
   await expect(seniorToggle).toBeChecked();
 
@@ -277,7 +278,7 @@ test('program admin can persist program call-type settings', async ({ page }) =>
 
   await juniorToggle.setChecked(true);
   await seniorToggle.setChecked(false);
-  await page.getByRole('button', { name: /^Save$/ }).click();
+  await page.getByRole('button', { name: 'Save call configuration' }).click();
   await expect(juniorToggle).toBeChecked();
   await expect(seniorToggle).not.toBeChecked();
 });
