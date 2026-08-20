@@ -292,6 +292,7 @@ test('login password eye stays fixed and toggles visibility', async ({ page }) =
   const eye = page.getByRole('button', { name: 'Show password' });
 
   await password.fill(PASSWORD);
+  await page.evaluate(() => document.fonts.ready);
   const before = await eye.boundingBox();
   await eye.hover();
   const afterHover = await eye.boundingBox();

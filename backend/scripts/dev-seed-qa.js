@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const prisma = require('../lib/prisma');
 const { ROLES } = require('../lib/roles');
 
@@ -279,6 +280,58 @@ async function upsertHoliday(academicYearId, date) {
   return prisma.publicHoliday.create({ data: { academicYearId, date, name: 'QA_ONLY Holiday' } });
 }
 
+async function resetPublishedSchedule(blockId, publishedBy) {
+  const block = await prisma.block.findUnique({
+    where: { id: blockId },
+    include: {
+      academicYear: {
+        include: {
+          program: { select: { name: true, specialty: true } },
+          holidays: true,
+        },
+      },
+      attendingEntries: true,
+      callDays: {
+        orderBy: { date: 'asc' },
+        include: {
+          assignments: {
+            include: { resident: { select: { id: true, name: true, residentRole: true } } },
+          },
+        },
+      },
+    },
+  });
+  if (!block) throw new Error('QA block disappeared before publication');
+
+  const snapshotJson = {
+    block: {
+      id: block.id,
+      number: block.number,
+      startDate: block.startDate,
+      endDate: block.endDate,
+      programName: block.academicYear.program.name,
+      specialty: block.academicYear.program.specialty,
+      holidays: block.academicYear.holidays,
+    },
+    attendingEntries: block.attendingEntries,
+    callDays: block.callDays,
+  };
+
+  await prisma.$transaction(async tx => {
+    await tx.scheduleVersion.deleteMany({ where: { blockId } });
+    await tx.block.update({
+      where: { id: blockId },
+      data: {
+        isPublished: true,
+        publicToken: block.publicToken || crypto.randomUUID(),
+      },
+    });
+    await tx.scheduleVersion.create({
+      data: { blockId, snapshotJson, publishedBy },
+    });
+  });
+}
+
 async function main() {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Refusing to seed QA data when NODE_ENV=production');
@@ -300,8 +353,10 @@ async function main() {
   });
 
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
+  const users = {};
   for (const user of USERS) {
     const saved = await upsertUser(user, org.id, passwordHash);
+    users[user.email] = saved;
     await upsertMembership(program.id, saved.id, user.role);
   }
 
@@ -330,6 +385,7 @@ async function main() {
   await upsertAssignment(callDay.id, residents['QA_ONLY Junior Resident'].id, 'junior');
   await upsertFlag(block.id, day(2));
   await upsertHoliday(academicYear.id, day(3));
+  await resetPublishedSchedule(block.id, users['qa-chief@medrota.local'].id);
 
   console.log('[dev:seed-qa] QA data ready');
   console.log(JSON.stringify({
