@@ -201,6 +201,30 @@ test('an attending activity leaves the active list when deactivated and returns 
   await expect(page.getByLabel(`${activityName} name`)).toHaveCount(0);
 });
 
+test('a chief resident sees only the sections their permissions allow', async ({ page }) => {
+  await login(page, 'qa-chief@medrota.local');
+  await expect(page.getByRole('heading', { name: 'Program Settings' })).toBeVisible();
+
+  // No manage_users and no configure_role_permissions, so no access section.
+  await expect(page.getByRole('tab')).toHaveText(['General', 'Clinical Structure', 'Attendings', 'Scheduling', 'History']);
+  await expect(page.getByRole('tab', { name: 'Access & Permissions' })).toHaveCount(0);
+
+  // Program identity stays visible but read-only for a Chief Resident.
+  await expect(page.getByLabel('Program display name')).toBeDisabled();
+
+  // Naming a hidden section in the URL must not render it.
+  await page.goto('/settings?tab=access');
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('heading', { name: 'Team Members' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Role permissions' })).toHaveCount(0);
+
+  // The registries a Chief Resident does manage stay available.
+  await page.goto('/settings?tab=attendings');
+  await expect(page.getByRole('heading', { name: 'Attending roster' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Attending activities' })).toBeVisible();
+});
+
 test('a viewer cannot reach or mutate either registry', async ({ page }) => {
   await login(page, 'qa-admin@medrota.local', '/settings?tab=attendings');
   const mine = await api(page, '/programs/mine');
