@@ -571,8 +571,11 @@ export default function ProgramSettings() {
     );
   }
 
+  // Built lazily: only the visible section pays for its element tree, so a
+  // keystroke in one section does not construct the member table or the
+  // published-version list sitting behind another.
   const panels = {
-    general: (
+    general: () => (
       <Card title="Program" subtitle="Program identity used throughout MedRota.">
         <div className="space-y-4">
           <div>
@@ -593,7 +596,7 @@ export default function ProgramSettings() {
       </Card>
     ),
 
-    clinical: (
+    clinical: () => (
       <Card title="Clinical services" subtitle="Optional program-defined services or subspecialty rotations. No specialty defaults are imposed.">
         {canManageServices && (
           <div className="settings-inline-form">
@@ -611,7 +614,7 @@ export default function ProgramSettings() {
       </Card>
     ),
 
-    attendings: (
+    attendings: () => (
       <>
         {canManageActivities && <Card title="Attending roster" subtitle="Persistent program staff. Contact details stay inside authenticated program settings and are never added to the public schedule.">
           <div className="settings-field-grid" style={{ marginBottom: 14 }}>
@@ -657,7 +660,7 @@ export default function ProgramSettings() {
       </>
     ),
 
-    scheduling: (
+    scheduling: () => (
       <Card title="Call configuration" subtitle="Program-level call rules applied to PARO maximums.">
         <div className="space-y-4">
           <div>
@@ -683,7 +686,7 @@ export default function ProgramSettings() {
       </Card>
     ),
 
-    access: (
+    access: () => (
       <>
         {canManageUsers && <>
         <Card title="Team Members" subtitle="View and manage who has access to this program.">
@@ -812,7 +815,7 @@ export default function ProgramSettings() {
       </>
     ),
 
-    history: (
+    history: () => (
       <>
         <Card
           title="Published Versions"
@@ -897,7 +900,7 @@ export default function ProgramSettings() {
               aria-labelledby={`settings-tab-${activeSection}`}
               tabIndex={-1}
             >
-              {panels[activeSection]}
+              {panels[activeSection]?.()}
             </div>
           </div>
         </motion.div>
