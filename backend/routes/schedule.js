@@ -6,6 +6,8 @@ const { generateSchedule, clearSchedule } = require('../services/scheduler');
 const { createScheduleWorkbook, shapeProtectedSchedule } = require('../services/excelExport');
 const { createPrintableScheduleHtml, buildPrintableFilename } = require('../services/printableSchedule');
 const { requireBlockPermission, requireBlockView } = require('../lib/roles');
+const { hasPermission } = require('../lib/roles');
+const { validateSchedule } = require('../services/scheduleValidator');
 
 const router = express.Router();
 router.use(auth);
@@ -67,6 +69,22 @@ router.delete('/clear', async (req, res) => {
   } catch (err) {
     console.error('[schedule/clear] Error:', err.message);
     res.status(500).json({ error: 'Failed to clear schedule' });
+  }
+});
+
+// GET /api/schedule/validate?blockId= - validate the stored draft without mutation.
+router.get('/validate', async (req, res) => {
+  const { blockId } = req.query;
+  if (!blockId) return res.status(400).json({ error: 'blockId required' });
+  try {
+    const membership = await requireBlockPermission(req, res, blockId, 'view_draft_schedule');
+    if (!membership) return;
+    const result = await validateSchedule(blockId);
+    if (!result) return res.status(404).json({ error: 'Block not found' });
+    res.json(result);
+  } catch (err) {
+    console.error('[schedule/validate] Error:', err.message);
+    res.status(500).json({ error: 'Failed to validate schedule' });
   }
 });
 
@@ -263,6 +281,7 @@ router.get('/history', async (req, res) => {
   try {
     const membership = await requireBlockView(req, res, blockId);
     if (!membership) return;
+    const canViewDraft = hasPermission(membership.role, 'view_draft_schedule');
     const versions = await prisma.scheduleVersion.findMany({
       where: { blockId },
       orderBy: { publishedAt: 'desc' },
@@ -288,9 +307,9 @@ router.get('/history', async (req, res) => {
       return {
         id: v.id,
         publishedAt: v.publishedAt,
-        publishedBy: publisherName,
+        publishedBy: canViewDraft ? publisherName : null,
         assignedDays,
-        snapshotJson: snapshot,
+        ...(canViewDraft ? { snapshotJson: snapshot } : {}),
       };
     }));
 

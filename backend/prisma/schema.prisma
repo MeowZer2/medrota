@@ -31,6 +31,8 @@ model Program {
   attendingRoster AttendingRoster[]
   attendingTemplates AttendingScheduleTemplate[]
   invites        Invite[]
+
+  @@index([orgId])
 }
 
 model Invite {
@@ -41,6 +43,8 @@ model Invite {
   role      String   @default("viewer")
   createdAt DateTime @default(now())
   usedAt    DateTime?
+
+  @@index([programId])
 }
 
 model User {
@@ -56,6 +60,8 @@ model User {
   org          Organization?   @relation(fields: [orgId], references: [id])
   createdAt    DateTime        @default(now())
   memberships  ProgramMember[]
+
+  @@index([orgId])
 }
 
 model ProgramMember {
@@ -66,6 +72,9 @@ model ProgramMember {
   program   Program  @relation(fields: [programId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
+
+  @@unique([programId, userId])
+  @@index([userId])
 }
 
 model AcademicYear {
@@ -77,6 +86,8 @@ model AcademicYear {
   createdAt DateTime  @default(now())
   blocks    Block[]
   holidays  PublicHoliday[]
+
+  @@index([programId])
 }
 
 model PublicHoliday {
@@ -85,6 +96,8 @@ model PublicHoliday {
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
   date           DateTime
   name           String
+
+  @@index([academicYearId, date])
 }
 
 model Block {
@@ -103,6 +116,8 @@ model Block {
   callDays       CallDay[]
   versions       ScheduleVersion[]
   flags          DayFlag[]
+
+  @@index([academicYearId])
 }
 
 model DayFlag {
@@ -113,6 +128,8 @@ model DayFlag {
   label     String
   color     String   @default("#F59E0B")
   createdAt DateTime @default(now())
+
+  @@index([blockId, date])
 }
 
 model ResidentProfile {
@@ -129,6 +146,8 @@ model ResidentProfile {
   createdAt         DateTime @default(now())
   enrollments       BlockEnrollment[]
   assignments       CallAssignment[]
+
+  @@index([programId])
 }
 
 model BlockEnrollment {
@@ -140,6 +159,9 @@ model BlockEnrollment {
   vacationDates   DateTime[]
   academicDayPref String?
   callCapOverride Int?
+
+  @@unique([blockId, residentId])
+  @@index([residentId])
 }
 
 model BlockSettings {
@@ -161,6 +183,8 @@ model AttendingRoster {
   attendingName     String
   typicalActivities String[]
   createdAt         DateTime @default(now())
+
+  @@index([programId])
 }
 
 model AttendingEntry {
@@ -173,6 +197,8 @@ model AttendingEntry {
   notes         String?
   isCallDay     Boolean  @default(false)
   callDays      CallDay[]
+
+  @@index([blockId, date])
 }
 
 model CallDay {
@@ -185,6 +211,9 @@ model CallDay {
   attendingEntryId String?
   attendingEntry   AttendingEntry? @relation(fields: [attendingEntryId], references: [id])
   assignments      CallAssignment[]
+
+  @@unique([blockId, date])
+  @@index([attendingEntryId])
 }
 
 model CallAssignment {
@@ -197,6 +226,9 @@ model CallAssignment {
   isOverride     Boolean         @default(false)
   overrideReason String?
   createdAt      DateTime        @default(now())
+
+  @@unique([callDayId, residentId])
+  @@index([residentId])
 }
 
 model ScheduleVersion {
@@ -206,6 +238,8 @@ model ScheduleVersion {
   snapshotJson Json
   publishedBy  String?
   publishedAt  DateTime @default(now())
+
+  @@index([blockId, publishedAt])
 }
 
 model AttendingScheduleTemplate {
@@ -215,4 +249,6 @@ model AttendingScheduleTemplate {
   attendingName String
   dayOfWeek     Int     // 0=Mon, 1=Tue, ..., 6=Sun
   activityLabel String
+
+  @@index([programId])
 }

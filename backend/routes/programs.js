@@ -1,7 +1,7 @@
 ﻿const express = require('express');
 const prisma = require('../lib/prisma');
 const auth = require('../middleware/auth');
-const { ROLES, normalizeRole, isValidRole, requireProgramPermission } = require('../lib/roles');
+const { ROLES, normalizeRole, isValidRole, requireProgramPermission, requireBlockView } = require('../lib/roles');
 const { isAllowedSpecialty } = require('../lib/medicalSpecialties');
 
 const router = express.Router();
@@ -85,6 +85,8 @@ router.get('/stats', async (req, res) => {
   if (!blockId) return res.status(400).json({ error: 'blockId is required' });
 
   try {
+    const membership = await requireBlockView(req, res, blockId);
+    if (!membership) return;
     const block = await prisma.block.findUnique({
       where: { id: blockId },
       include: {
@@ -151,7 +153,7 @@ router.get('/stats', async (req, res) => {
       ...recentEnrollments.map(e => ({
         type: 'resident_added',
         description: `${e.resident.name} enrolled in Block ${block.number}`,
-        icon: 'ðŸ‘¤',
+        icon: '👤',
         color: '#16A34A',
         timestamp: e.id, // use id as proxy since BlockEnrollment has no createdAt
         _sort: e.id,
@@ -159,7 +161,7 @@ router.get('/stats', async (req, res) => {
       ...recentAssignments.map(a => ({
         type: 'call_assigned',
         description: `Call assigned to ${a.resident.name}`,
-        icon: 'ðŸ“‹',
+        icon: '📋',
         color: '#2C5F8A',
         timestamp: a.createdAt,
         _sort: a.createdAt,
@@ -305,7 +307,7 @@ router.put('/:id', async (req, res) => {
 router.get('/:id/members', async (req, res) => {
   const { id } = req.params;
   try {
-    const membership = await requireProgramPermission(req, res, id, 'edit_program_settings');
+    const membership = await requireProgramPermission(req, res, id, 'manage_users');
     if (!membership) return;
 
     const members = await prisma.programMember.findMany({
@@ -325,16 +327,25 @@ router.get('/:id/members', async (req, res) => {
 router.put('/:id/members/:userId', async (req, res) => {
   const { id, userId } = req.params;
   const { role } = req.body;
-  const nextRole = normalizeRole(role);
-  if (!isValidRole(nextRole)) {
+  if (!isValidRole(role)) {
     return res.status(400).json({ error: 'Invalid role' });
   }
+  const nextRole = normalizeRole(role);
   try {
     const requester = await requireProgramPermission(req, res, id, 'manage_users');
     if (!requester) return;
 
-    const member = await prisma.programMember.findFirst({ where: { programId: id, userId } });
+    const member = await prisma.programMember.findUnique({ where: { programId_userId: { programId: id, userId } } });
     if (!member) return res.status(404).json({ error: 'Member not found' });
+
+    if (normalizeRole(member.role) === ROLES.PROGRAM_ADMIN && nextRole !== ROLES.PROGRAM_ADMIN) {
+      const otherAdmins = await prisma.programMember.count({
+        where: { programId: id, role: ROLES.PROGRAM_ADMIN, userId: { not: userId } },
+      });
+      if (otherAdmins === 0) {
+        return res.status(400).json({ error: 'Assign another Program Admin before changing this role' });
+      }
+    }
 
     const updated = await prisma.programMember.update({
       where: { id: member.id },
@@ -359,11 +370,11 @@ router.delete('/:id/members/:userId', async (req, res) => {
       if (!requester) return;
     }
 
-    const member = await prisma.programMember.findFirst({ where: { programId: id, userId } });
+    const member = await prisma.programMember.findUnique({ where: { programId_userId: { programId: id, userId } } });
     if (!member) return res.status(404).json({ error: 'Member not found' });
 
-    // A program admin cannot leave if they are the only admin.
-    if (isSelfLeave && normalizeRole(member.role) === ROLES.PROGRAM_ADMIN) {
+    // No membership operation may leave a program without a Program Admin.
+    if (normalizeRole(member.role) === ROLES.PROGRAM_ADMIN) {
       const otherAdmins = await prisma.programMember.count({
         where: { programId: id, role: ROLES.PROGRAM_ADMIN, userId: { not: userId } },
       });
@@ -385,8 +396,8 @@ router.delete('/:id/members/:userId', async (req, res) => {
 router.post('/:id/invite', async (req, res) => {
   const { id } = req.params;
   const { role = 'viewer' } = req.body;
+  if (!isValidRole(role)) return res.status(400).json({ error: 'Invalid role' });
   const inviteRole = normalizeRole(role);
-  if (!isValidRole(inviteRole)) return res.status(400).json({ error: 'Invalid role' });
   try {
     const membership = await requireProgramPermission(req, res, id, 'manage_users');
     if (!membership) return;
@@ -394,7 +405,8 @@ router.post('/:id/invite', async (req, res) => {
     const invite = await prisma.invite.create({
       data: { programId: id, role: inviteRole },
     });
-    res.json({ inviteLink: `http://localhost:5173/join/${invite.token}`, token: invite.token });
+    const appBaseUrl = (process.env.APP_BASE_URL || 'http://localhost:5173').replace(/\/$/, '');
+    res.json({ inviteLink: `${appBaseUrl}/join/${invite.token}`, token: invite.token });
   } catch (err) {
     console.error('[programs/:id/invite POST] Error:', err.message);
     res.status(500).json({ error: 'Failed to create invite' });
@@ -432,16 +444,18 @@ router.post('/:id/join-with-token', async (req, res) => {
       return res.status(404).json({ error: 'Invalid or expired invite link' });
     }
 
-    const existing = await prisma.programMember.findFirst({
-      where: { programId: id, userId: req.user.userId },
+    const existing = await prisma.programMember.findUnique({
+      where: { programId_userId: { programId: id, userId: req.user.userId } },
     });
     if (existing) {
       await prisma.invite.update({ where: { token }, data: { usedAt: new Date() } });
       return res.json({ membership: { ...existing, role: normalizeRole(existing.role) } });
     }
 
-    const membership = await prisma.programMember.create({
-      data: { programId: id, userId: req.user.userId, role: normalizeRole(invite.role) },
+    const membership = await prisma.programMember.upsert({
+      where: { programId_userId: { programId: id, userId: req.user.userId } },
+      update: {},
+      create: { programId: id, userId: req.user.userId, role: normalizeRole(invite.role) },
     });
     await prisma.invite.update({ where: { token }, data: { usedAt: new Date() } });
     res.status(201).json({ membership });

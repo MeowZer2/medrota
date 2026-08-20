@@ -1,6 +1,6 @@
 # Phase 5 Scheduling QA
 
-Status: closed after mock-backed regression audit and real local DB persistence check.
+Status: closed. The original mock-backed contract checks remain, with real database scheduler and validator coverage added during the reliability recovery.
 
 Automated smoke check:
 
@@ -17,8 +17,8 @@ This mock-backed smoke check does not touch the database. It validates:
 - Clear schedule deletes generated assignments only and deletes only empty CallDays.
 - `maxCallsPerResident`, `maxCallsMedStudent`, and academic-day avoidance are exercised.
 - Generation summary includes warnings and `unassignedDates`.
-- Duplicate diagnostics route wiring exists.
-- Publish success UI is wired to `publishedAt` and `versionId`.
+
+The former source-string assertions for diagnostics route wiring and publish modal props were removed; they were not behavioral evidence.
 
 Real local DB persistence check:
 
@@ -44,6 +44,8 @@ Latest closeout checks:
 - `cd backend && npm run phase5:smoke`: passed.
 - `cd backend && node --check scripts/phase5-db-persistence.js`: passed.
 - `cd backend && npm run phase5:db`: passed.
+- `cd backend && npm run scheduler:integration`: exercises the real generator and database.
+- `cd backend && npm run schedule:validate-smoke`: exercises validator behavior directly.
 
 Phase 5 is closed and ready for Phase 6 planning.
 

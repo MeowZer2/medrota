@@ -15,6 +15,9 @@
     "paro:smoke": "node scripts/paro-scheduler-smoke.js",
     "roles:smoke": "node scripts/role-permission-smoke.js",
     "roles:audit": "node scripts/role-audit.js",
+    "authz:smoke": "node scripts/authz-smoke.js",
+    "scheduler:integration": "node scripts/scheduler-integration.js",
+    "schedule:validate-smoke": "node scripts/schedule-validator-smoke.js",
     "dev:seed-qa": "node scripts/dev-seed-qa.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

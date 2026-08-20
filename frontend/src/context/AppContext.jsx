@@ -6,6 +6,14 @@ const AppContext = createContext(null);
 const UserContext = createContext(null);
 const BlockContext = createContext(null);
 
+function decodeSessionToken(token) {
+  const payload = JSON.parse(atob(token.split('.')[1]));
+  if (!payload.userId || (payload.exp && payload.exp * 1000 <= Date.now())) {
+    throw new Error('Expired or invalid session');
+  }
+  return payload;
+}
+
 export function AppProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [currentProgram, setCurrentProgram] = useState(null);
@@ -82,13 +90,28 @@ export function AppProvider({ children }) {
       return;
     }
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const payload = decodeSessionToken(token);
       setCurrentUser({ userId: payload.userId, email: payload.email, name: payload.name });
       fetchProgram();
     } catch {
+      localStorage.removeItem('token');
       setLoading(false);
     }
   }, [fetchProgram]);
+
+  useEffect(() => {
+    const clearExpiredSession = () => {
+      setCurrentUser(null);
+      setCurrentProgram(null);
+      setCurrentBlock(null);
+      setAcademicYears([]);
+      setCurrentAcademicYear(null);
+      setHasProgram(true);
+      setLoading(false);
+    };
+    window.addEventListener('medrota:auth-expired', clearExpiredSession);
+    return () => window.removeEventListener('medrota:auth-expired', clearExpiredSession);
+  }, []);
 
   // Re-fetch program when token changes (login/logout).
   // Returns a promise so callers can await full context reload.
@@ -105,9 +128,14 @@ export function AppProvider({ children }) {
       return Promise.resolve();
     }
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const payload = decodeSessionToken(token);
       setCurrentUser({ userId: payload.userId, email: payload.email, name: payload.name });
-    } catch { /* ignore */ }
+    } catch {
+      localStorage.removeItem('token');
+      setCurrentUser(null);
+      setLoading(false);
+      return Promise.resolve(false);
+    }
     setLoading(true);
     return fetchProgram();
   }, [fetchProgram]);

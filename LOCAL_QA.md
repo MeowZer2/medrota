@@ -10,7 +10,7 @@ Run from `backend`:
 npm run dev:seed-qa
 ```
 
-The script refuses to run when `NODE_ENV=production`. It creates or updates its own QA organization, program, users, memberships, sample residents, attending data, assignments, and a flag without deleting unrelated data.
+The script refuses to run when `NODE_ENV=production`. It creates or updates its own QA organization, program, users, memberships, explicit block enrollments, sample residents, attending data, assignments, holiday, and flag. To remain deterministic, it clears only `QA_ONLY` resident assignments in the QA block before restoring the seed assignment; unrelated data is not deleted.
 
 ## Local QA Credentials
 
@@ -38,8 +38,8 @@ QA block: Block 1, `2026-06-15` to `2026-06-28`
 | Role | Expected Access |
 |---|---|
 | Chief Resident | Can view draft schedule, open calendar day modal, assign residents, edit attending entries, generate, clear, publish, export draft schedules, and edit block settings. Cannot manage users/program settings. |
-| Program Admin | Can do scheduling work, edit program settings, manage users, create academic years, and delete program. |
-| Program Director | Can do scheduling work, edit program settings, manage users, and create academic years. Cannot delete program. |
+| Program Admin | Can do scheduling work, edit program settings, manage users, and create academic years. Program deletion is not implemented. |
+| Program Director | Can do scheduling work, edit program settings, manage users, and create academic years. Program deletion is not implemented. |
 | Viewer | Can view/export published schedules only. Cannot open editable day modal or mutate schedule data. |
 
 ## Browser Checks
@@ -68,7 +68,7 @@ Run from `frontend`:
 npm run e2e
 ```
 
-The Playwright config seeds QA data with `backend/npm run dev:seed-qa`, starts the backend, starts Vite, and runs Chromium headless. This is the required browser check after future UI, roles, permissions, login, or calendar modal changes.
+The Playwright config runs the backend QA seed, starts the backend and Vite, and runs Chromium headless. This is the required browser check after future UI, roles, permissions, login, or calendar modal changes.
 
 If browsers have not been installed on the machine yet, run once from `frontend`:
 
@@ -76,8 +76,19 @@ If browsers have not been installed on the machine yet, run once from `frontend`
 npx playwright install chromium
 ```
 
-Current E2E coverage includes Chief Resident login, calendar day modal resident preselects, attending visibility, assignment Save persistence, reload persistence, Viewer read-only restrictions, Viewer direct mutation API rejection, login password eye stability/toggle, and visible mojibake checks.
-It also covers Program Admin editing of the PARO call-type settings and confirms Viewers cannot edit those settings.
+Current E2E coverage includes logged-out route guards, public routes, Chief Resident calendar prefill/save/reload, duplicate-resident rejection without data loss, manual override confirmation/reason, stored-schedule validation, holiday visibility, Viewer restrictions and direct mutation rejection, Program Admin call-type settings, password visibility, publishing, public unauthenticated viewing, and mojibake checks across login, registration, calendar, dashboard, and public surfaces.
+
+On Windows, Playwright's owned `webServer` teardown may hang after tests have completed. A reliable local alternative is to start backend and frontend normally, then run:
+
+```powershell
+cd backend
+npm run dev:seed-qa
+# Start the backend and frontend in separate terminals, then from frontend:
+$env:PLAYWRIGHT_REUSE_SERVERS='1'
+npm run e2e
+```
+
+The explicit seed is required because reused servers bypass Playwright's embedded seed command. Stop the manually started local servers afterward. This runner limitation does not change test assertions or browser behavior.
 
 After running E2E manually, run the seed again if you want to restore the default QA assignment state:
 
@@ -114,4 +125,4 @@ Run from `backend`:
 npm run paro:smoke
 ```
 
-This checks PARO maximum tables, blended weighted-call calculation, vacation and post-call-before-vacation rules, consecutive-call rules, complete-weekend-off helpers, and the scheduler warning/summary contract.
+This checks PARO maximum tables, the `(home * 3) + (in-house * 4)` blended calculation, vacation and post-call-before-vacation rules, consecutive-call rules, and complete-weekend-off helpers. Run `npm run scheduler:integration` and `npm run schedule:validate-smoke` for behavioral generator/validator coverage.

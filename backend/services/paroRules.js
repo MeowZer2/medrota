@@ -73,7 +73,7 @@ function getAssignmentCallType(roleOnDay, programSettings = {}) {
 }
 
 function calculateWeightedCallPoints(homeCalls = 0, inHouseCalls = 0) {
-  return homeCalls + (3 * inHouseCalls);
+  return (3 * homeCalls) + (4 * inHouseCalls);
 }
 
 function isBlendedCallLoadAllowed(homeCalls = 0, inHouseCalls = 0, limit = 30) {
@@ -160,6 +160,10 @@ function requiredCompleteWeekendsOff(blockDateKeys = []) {
   return Math.min(2, Math.ceil(completeWeekendCount / 2));
 }
 
+function isAcademicDayLabel(label) {
+  return typeof label === 'string' && /academic/i.test(label);
+}
+
 module.exports = {
   normalizeDateKey,
   dateFromDateKey,
@@ -180,4 +184,5 @@ module.exports = {
   violatesVacation,
   violatesPostCallBeforeVacation,
   requiredCompleteWeekendsOff,
+  isAcademicDayLabel,
 };

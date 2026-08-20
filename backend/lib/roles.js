@@ -47,7 +47,6 @@ const ROLE_PERMISSIONS = Object.freeze({
     'edit_program_settings',
     'manage_users',
     'create_academic_year',
-    'delete_program',
   ]),
   [ROLES.PROGRAM_DIRECTOR]: new Set([
     'view_draft_schedule',
@@ -83,7 +82,9 @@ function hasPermission(role, permission) {
 
 async function getMembership(userId, programId) {
   if (!userId || !programId) return null;
-  const membership = await prisma.programMember.findFirst({ where: { userId, programId } });
+  const membership = await prisma.programMember.findUnique({
+    where: { programId_userId: { programId, userId } },
+  });
   if (!membership) return null;
   const normalizedRole = normalizeRole(membership.role);
   if (normalizedRole !== membership.role) {
@@ -100,6 +101,36 @@ async function getProgramIdForBlock(blockId) {
   });
   if (!block) return null;
   return { programId: block.academicYear?.programId ?? null, isPublished: block.isPublished };
+}
+
+async function assertResidentBelongsToBlockProgram(res, residentId, blockId) {
+  if (!residentId || !blockId) {
+    res.status(400).json({ error: 'residentId and blockId are required' });
+    return null;
+  }
+
+  const [resident, blockAccess] = await Promise.all([
+    prisma.residentProfile.findUnique({
+      where: { id: residentId },
+      select: { id: true, programId: true, residentRole: true, isMedStudent: true, isActive: true },
+    }),
+    getProgramIdForBlock(blockId),
+  ]);
+
+  if (!resident) {
+    res.status(404).json({ error: 'Resident not found' });
+    return null;
+  }
+  if (!blockAccess?.programId) {
+    res.status(404).json({ error: 'Block not found' });
+    return null;
+  }
+  if (resident.programId !== blockAccess.programId) {
+    res.status(400).json({ error: 'Resident and block must belong to the same program' });
+    return null;
+  }
+
+  return { resident, blockAccess };
 }
 
 async function requireProgramPermission(req, res, programId, permission) {
@@ -148,6 +179,8 @@ module.exports = {
   isValidRole,
   hasPermission,
   getMembership,
+  getProgramIdForBlock,
+  assertResidentBelongsToBlockProgram,
   requireProgramPermission,
   requireBlockPermission,
   requireBlockView,

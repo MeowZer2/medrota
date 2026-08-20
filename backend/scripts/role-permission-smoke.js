@@ -9,7 +9,7 @@ assert.strictEqual(normalizeRole('unknown'), ROLES.VIEWER);
 
 assert.strictEqual(hasPermission(ROLES.CHIEF_RESIDENT, 'generate_schedule'), true);
 assert.strictEqual(hasPermission(ROLES.CHIEF_RESIDENT, 'manage_users'), false);
-assert.strictEqual(hasPermission(ROLES.PROGRAM_ADMIN, 'delete_program'), true);
+assert.strictEqual(hasPermission(ROLES.PROGRAM_ADMIN, 'delete_program'), false);
 assert.strictEqual(hasPermission(ROLES.PROGRAM_DIRECTOR, 'delete_program'), false);
 assert.strictEqual(hasPermission(ROLES.VIEWER, 'view_published_schedule'), true);
 assert.strictEqual(hasPermission(ROLES.VIEWER, 'view_draft_schedule'), false);

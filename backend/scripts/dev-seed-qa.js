@@ -150,11 +150,11 @@ async function upsertUser(user, orgId, passwordHash) {
 }
 
 async function upsertMembership(programId, userId, role) {
-  const existing = await prisma.programMember.findFirst({ where: { programId, userId } });
-  if (existing) {
-    return prisma.programMember.update({ where: { id: existing.id }, data: { role } });
-  }
-  return prisma.programMember.create({ data: { programId, userId, role } });
+  return prisma.programMember.upsert({
+    where: { programId_userId: { programId, userId } },
+    update: { role },
+    create: { programId, userId, role },
+  });
 }
 
 async function upsertResident(programId, resident) {
@@ -173,6 +173,14 @@ async function upsertResident(programId, resident) {
     return prisma.residentProfile.update({ where: { id: existing.id }, data });
   }
   return prisma.residentProfile.create({ data: { programId, name: resident.name, ...data } });
+}
+
+async function upsertEnrollment(blockId, residentId) {
+  return prisma.blockEnrollment.upsert({
+    where: { blockId_residentId: { blockId, residentId } },
+    update: { vacationDates: [] },
+    create: { blockId, residentId, vacationDates: [] },
+  });
 }
 
 async function upsertRoster(programId, attendingName, typicalActivities) {
@@ -197,11 +205,11 @@ async function upsertAttendingEntry(blockId, date, attendingName, activityLabel,
 }
 
 async function upsertCallDay(blockId, date, attendingEntryId) {
-  const existing = await prisma.callDay.findFirst({ where: { blockId, date } });
-  if (existing) {
-    return prisma.callDay.update({ where: { id: existing.id }, data: { attendingEntryId } });
-  }
-  return prisma.callDay.create({ data: { blockId, date, attendingEntryId } });
+  return prisma.callDay.upsert({
+    where: { blockId_date: { blockId, date } },
+    update: { attendingEntryId },
+    create: { blockId, date, attendingEntryId },
+  });
 }
 
 async function upsertAssignment(callDayId, residentId, roleOnDay) {
@@ -237,6 +245,14 @@ async function upsertFlag(blockId, date) {
   return prisma.dayFlag.create({ data: { blockId, date, label: 'QA_ONLY Flag', ...data } });
 }
 
+async function upsertHoliday(academicYearId, date) {
+  const existing = await prisma.publicHoliday.findFirst({ where: { academicYearId, date } });
+  if (existing) {
+    return prisma.publicHoliday.update({ where: { id: existing.id }, data: { name: 'QA_ONLY Holiday' } });
+  }
+  return prisma.publicHoliday.create({ data: { academicYearId, date, name: 'QA_ONLY Holiday' } });
+}
+
 async function main() {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Refusing to seed QA data when NODE_ENV=production');
@@ -258,10 +274,19 @@ async function main() {
   for (const resident of RESIDENTS) {
     const saved = await upsertResident(program.id, resident);
     residents[resident.name] = saved;
+    await upsertEnrollment(block.id, saved.id);
   }
 
   await upsertRoster(program.id, 'QA_ONLY Dr Avery', ['Clinic', 'OR']);
   await upsertRoster(program.id, 'QA_ONLY Dr Blake', ['Ward']);
+
+  // Keep browser tests deterministic across reruns without touching non-QA data.
+  await prisma.callAssignment.deleteMany({
+    where: {
+      callDay: { blockId: block.id },
+      resident: { name: { startsWith: 'QA_ONLY' } },
+    },
+  });
 
   const callAttending = await upsertAttendingEntry(block.id, day(0), 'QA_ONLY Dr Avery', 'Ward', true);
   await upsertAttendingEntry(block.id, day(1), 'QA_ONLY Dr Blake', 'Clinic', false);
@@ -269,6 +294,7 @@ async function main() {
   await upsertAssignment(callDay.id, residents['QA_ONLY Senior Resident'].id, 'senior');
   await upsertAssignment(callDay.id, residents['QA_ONLY Junior Resident'].id, 'junior');
   await upsertFlag(block.id, day(2));
+  await upsertHoliday(academicYear.id, day(3));
 
   console.log('[dev:seed-qa] QA data ready');
   console.log(JSON.stringify({

@@ -1,7 +1,7 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const auth = require('../middleware/auth');
-const { requireProgramPermission, requireBlockPermission, requireBlockView } = require('../lib/roles');
+const { getProgramIdForBlock, requireProgramPermission, requireBlockPermission, requireBlockView } = require('../lib/roles');
 
 const router = express.Router();
 router.use(auth);
@@ -44,7 +44,6 @@ router.get('/roster', async (req, res) => {
 
 // POST /api/attending/roster
 router.post('/roster', async (req, res) => {
-  console.log('[attending/roster POST] body:', JSON.stringify(req.body));
   const { programId, attendingName, typicalActivities } = req.body;
   if (!programId || !attendingName) {
     console.warn('[attending/roster POST] missing fields', { programId, attendingName });
@@ -114,8 +113,17 @@ router.post('/copy', async (req, res) => {
     if (!sourceBlock || !targetBlock) {
       return res.status(404).json({ error: 'Source or target block not found' });
     }
-    const membership = await requireBlockPermission(req, res, targetBlockId, 'edit_attendings');
-    if (!membership) return;
+    const targetMembership = await requireBlockPermission(req, res, targetBlockId, 'edit_attendings');
+    if (!targetMembership) return;
+    const sourceMembership = await requireBlockView(req, res, sourceBlockId);
+    if (!sourceMembership) return;
+    const [sourceAccess, targetAccess] = await Promise.all([
+      getProgramIdForBlock(sourceBlockId),
+      getProgramIdForBlock(targetBlockId),
+    ]);
+    if (sourceAccess?.programId !== targetAccess?.programId) {
+      return res.status(400).json({ error: 'Source and target blocks must belong to the same program' });
+    }
 
     const sourceStart = startOfLogicalDay(sourceBlock.startDate);
     const targetStart = startOfLogicalDay(targetBlock.startDate);
@@ -199,7 +207,6 @@ router.get('/', async (req, res) => {
 
 // POST /api/attending
 router.post('/', async (req, res) => {
-  console.log('[attending POST] body:', JSON.stringify(req.body));
   const { blockId, attendingName, date, activityLabel, notes, isCallDay } = req.body;
   if (!blockId || !attendingName || !date) {
     console.warn('[attending POST] missing required fields', { blockId, attendingName, date });
@@ -243,7 +250,7 @@ router.post('/', async (req, res) => {
     console.log(`[attending POST] created entry id=${entry.id} blockId=${blockId} attending=${attendingName} date=${date}`);
     res.status(existing ? 200 : 201).json(entry);
   } catch (err) {
-    console.error('[attending POST] Prisma error:', err.message, err);
+    console.error('[attending POST] Prisma error:', err.message);
     res.status(500).json({ error: 'Failed to create attending entry' });
   }
 });

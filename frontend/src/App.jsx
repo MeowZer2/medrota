@@ -15,19 +15,25 @@ import BlockSettings from './pages/BlockSettings';
 import ProgramSettings from './pages/ProgramSettings';
 import JoinProgram from './pages/JoinProgram';
 
-function AnimatedRoutes() {
-  const location = useLocation();
+function ProtectedRoute({ children, allowWithoutProgram = false }) {
   const { currentUser, hasProgram, loading } = useUser();
+  const location = useLocation();
 
-  // Public paths that skip auth redirect
-  const isPublicPath =
-    ['/login', '/register', '/setup'].includes(location.pathname) ||
-    location.pathname.startsWith('/schedule/') ||
-    location.pathname.startsWith('/join/');
-
-  if (!loading && currentUser && !hasProgram && !isPublicPath) {
+  if (loading) {
+    return <div style={{ minHeight: '100vh', background: '#F8FAFC' }} aria-label="Loading application" />;
+  }
+  if (!currentUser) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+  if (!hasProgram && !allowWithoutProgram) {
     return <Navigate to="/setup" replace />;
   }
+  return children;
+}
+
+function AnimatedRoutes() {
+  const location = useLocation();
+  const { currentUser, loading } = useUser();
 
   return (
     <AnimatePresence mode="wait">
@@ -35,21 +41,21 @@ function AnimatedRoutes() {
         {/* ── Public (no auth required) ──────────────────────────── */}
         <Route path="/login"              element={<Login />} />
         <Route path="/register"           element={<Register />} />
-        <Route path="/setup"              element={<Setup />} />
+        <Route path="/setup"              element={<ProtectedRoute allowWithoutProgram><Setup /></ProtectedRoute>} />
         <Route path="/schedule/:token"    element={<PublicSchedule />} />
         <Route path="/join/:token"        element={<JoinProgram />} />
 
         {/* ── Protected ──────────────────────────────────────────── */}
-        <Route path="/dashboard"          element={<Dashboard />} />
-        <Route path="/residents"          element={<Residents />} />
-        <Route path="/attending"          element={<AttendingSchedule />} />
-        <Route path="/calendar"           element={<Calendar />} />
-        <Route path="/settings"           element={<ProgramSettings />} />
-        <Route path="/blocks/:blockNumber"                  element={<BlockPage />} />
-        <Route path="/blocks/:blockNumber/calendar"         element={<Calendar />} />
-        <Route path="/blocks/:blockNumber/settings"         element={<BlockSettings />} />
+        <Route path="/dashboard"          element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/residents"          element={<ProtectedRoute><Residents /></ProtectedRoute>} />
+        <Route path="/attending"          element={<ProtectedRoute><AttendingSchedule /></ProtectedRoute>} />
+        <Route path="/calendar"           element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+        <Route path="/settings"           element={<ProtectedRoute><ProgramSettings /></ProtectedRoute>} />
+        <Route path="/blocks/:blockNumber"                  element={<ProtectedRoute><BlockPage /></ProtectedRoute>} />
+        <Route path="/blocks/:blockNumber/calendar"         element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+        <Route path="/blocks/:blockNumber/settings"         element={<ProtectedRoute><BlockSettings /></ProtectedRoute>} />
 
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to={loading || currentUser ? '/dashboard' : '/login'} replace />} />
       </Routes>
     </AnimatePresence>
   );

@@ -169,7 +169,9 @@ function createScheduleWorkbook(schedule, options = {}) {
   sheet.mergeCells('A2:H2');
   sheet.getCell('A2').value = compactJoin([
     block.specialty,
-    schedule.publishedAt ? `Published ${new Date(schedule.publishedAt).toISOString()}` : '',
+    schedule.publishedAt
+      ? `Published schedule - ${new Date(schedule.publishedAt).toISOString()}`
+      : 'Draft schedule',
   ]);
   sheet.getCell('A2').font = { size: 11, color: { argb: 'FF64748B' } };
   sheet.getCell('A2').alignment = { vertical: 'middle', horizontal: 'center' };
@@ -234,6 +236,7 @@ function createScheduleWorkbook(schedule, options = {}) {
 
 function shapeProtectedSchedule(block) {
   return {
+    scheduleState: 'draft',
     block: {
       number: block.number ?? null,
       startDate: block.startDate,

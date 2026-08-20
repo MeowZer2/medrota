@@ -90,6 +90,7 @@ function shapePublicSchedule({ snapshot, publishedAt, flags = [] }) {
   const endDate = toDateKey(block.endDate);
 
   return {
+    scheduleState: 'published',
     block: {
       number: block.number ?? null,
       startDate: publicDate(startDate),

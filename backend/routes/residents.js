@@ -1,7 +1,12 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const auth = require('../middleware/auth');
-const { requireProgramPermission, requireBlockPermission } = require('../lib/roles');
+const {
+  assertResidentBelongsToBlockProgram,
+  getProgramIdForBlock,
+  requireProgramPermission,
+  requireBlockPermission,
+} = require('../lib/roles');
 
 const router = express.Router();
 router.use(auth);
@@ -71,6 +76,14 @@ router.get('/', async (req, res) => {
     try {
       const membership = await requireProgramPermission(req, res, programId, 'edit_residents');
       if (!membership) return;
+      if (blockId) {
+        const blockMembership = await requireBlockPermission(req, res, blockId, 'edit_residents');
+        if (!blockMembership) return;
+        const blockAccess = await getProgramIdForBlock(blockId);
+        if (blockAccess?.programId !== programId) {
+          return res.status(400).json({ error: 'Block must belong to the requested program' });
+        }
+      }
       // 1. All service residents for the program
       const serviceResidents = await prisma.residentProfile.findMany({
         where: { programId, isServiceResident: true },
@@ -196,6 +209,14 @@ router.post('/', async (req, res) => {
   }
   const membership = await requireProgramPermission(req, res, programId, 'edit_residents');
   if (!membership) return;
+  if (blockId) {
+    const blockMembership = await requireBlockPermission(req, res, blockId, 'edit_residents');
+    if (!blockMembership) return;
+    const blockAccess = await getProgramIdForBlock(blockId);
+    if (blockAccess?.programId !== programId) {
+      return res.status(400).json({ error: 'Resident and block must belong to the same program' });
+    }
+  }
 
   // Medical students are always off-service and always require a block
   const isMed = isMedStudent ?? false;
@@ -263,12 +284,13 @@ router.post('/:id/enroll', async (req, res) => {
   try {
     const membership = await requireBlockPermission(req, res, blockId, 'edit_residents');
     if (!membership) return;
-    const existing = await prisma.blockEnrollment.findFirst({ where: { blockId, residentId: id } });
-    if (existing) return res.json(existing); // already enrolled
-
+    const ownership = await assertResidentBelongsToBlockProgram(res, id, blockId);
+    if (!ownership) return;
     const cleanDates = sanitizeVacationDates(vacationDates ?? []);
-    const enrollment = await prisma.blockEnrollment.create({
-      data: {
+    const enrollment = await prisma.blockEnrollment.upsert({
+      where: { blockId_residentId: { blockId, residentId: id } },
+      update: {},
+      create: {
         blockId,
         residentId: id,
         vacationDates: cleanDates,
@@ -291,6 +313,8 @@ router.delete('/:id/enroll/:blockId', async (req, res) => {
   try {
     const membership = await requireBlockPermission(req, res, blockId, 'edit_residents');
     if (!membership) return;
+    const ownership = await assertResidentBelongsToBlockProgram(res, id, blockId);
+    if (!ownership) return;
     await prisma.blockEnrollment.deleteMany({ where: { residentId: id, blockId } });
     res.json({ ok: true });
   } catch (err) {
@@ -319,6 +343,10 @@ router.put('/:id', async (req, res) => {
       ? await requireBlockPermission(req, res, blockId, 'edit_residents')
       : await requireProgramPermission(req, res, existingResident.programId, 'edit_residents');
     if (!membership) return;
+    if (blockId) {
+      const ownership = await assertResidentBelongsToBlockProgram(res, id, blockId);
+      if (!ownership) return;
+    }
     const resident = await prisma.residentProfile.update({
       where: { id },
       data: {
@@ -334,7 +362,9 @@ router.put('/:id', async (req, res) => {
 
     if (blockId) {
       const cleanDates = sanitizeVacationDates(vacationDates ?? []);
-      const enrollment = await prisma.blockEnrollment.findFirst({ where: { blockId, residentId: id } });
+      const enrollment = await prisma.blockEnrollment.findUnique({
+        where: { blockId_residentId: { blockId, residentId: id } },
+      });
       if (enrollment) {
         await prisma.blockEnrollment.update({
           where: { id: enrollment.id },

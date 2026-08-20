@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 const PASSWORD = 'QA_only_password_123!';
-const MOJIBAKE_PATTERNS = ['Ã¢', 'Ãƒ', 'Ã‚', 'ï¿½', 'Â'];
+test.describe.configure({ mode: 'serial' });
+const MOJIBAKE_PATTERNS = ['Ã', 'Â', 'â€', 'ðŸ', 'ï¿½', '�'];
 
 async function login(page, email, targetPath = '/calendar') {
   await page.goto('/login');
@@ -30,6 +31,16 @@ function seededDayCell(page) {
     .filter({ hasText: 'QA_ONLY Dr Avery' })
     .first();
 }
+
+test('logged-out protected routes redirect while login and registration remain public', async ({ page }) => {
+  await page.goto('/calendar');
+  await expect(page).toHaveURL(/\/login$/);
+  await expectNoMojibake(page);
+
+  await page.goto('/register');
+  await expect(page).toHaveURL(/\/register$/);
+  await expectNoMojibake(page);
+});
 
 test('chief resident can use the calendar day modal and persist assignment changes', async ({ page }) => {
   await login(page, 'qa-chief@medrota.local');
@@ -71,6 +82,68 @@ test('chief resident can use the calendar day modal and persist assignment chang
   ).toBeVisible();
 });
 
+test('invalid duplicate-resident day update is rejected without changing stored assignments', async ({ page }) => {
+  await login(page, 'qa-chief@medrota.local');
+  const result = await page.evaluate(async () => {
+    const headers = {
+      Authorization: `Bearer ${localStorage.getItem('token')}`,
+      'Content-Type': 'application/json',
+    };
+    const program = await fetch('/api/programs/mine', { headers }).then(response => response.json());
+    const before = await fetch(`/api/assignments?blockId=${program.currentBlock.id}`, { headers }).then(response => response.json());
+    const senior = before.find(item => item.roleOnDay === 'senior');
+    const response = await fetch('/api/assignments/day', {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        blockId: program.currentBlock.id,
+        date: '2026-06-15',
+        seniorId: senior.residentId,
+        juniorId: senior.residentId,
+      }),
+    });
+    const body = await response.json();
+    const after = await fetch(`/api/assignments?blockId=${program.currentBlock.id}`, { headers }).then(item => item.json());
+    return {
+      status: response.status,
+      error: body.error,
+      before: before.filter(item => item.callDay.date.startsWith('2026-06-15')).map(item => `${item.roleOnDay}:${item.residentId}`).sort(),
+      after: after.filter(item => item.callDay.date.startsWith('2026-06-15')).map(item => `${item.roleOnDay}:${item.residentId}`).sort(),
+    };
+  });
+
+  expect(result.status).toBe(400);
+  expect(result.error).toContain('same resident');
+  expect(result.after).toEqual(result.before);
+});
+
+test('violating calendar edit requires a reason and remains visible to validation', async ({ page }) => {
+  await login(page, 'qa-chief@medrota.local');
+  await page.getByRole('button', { name: 'Edit Tuesday, 16 June 2026' }).click();
+  await page.locator('select[name="seniorId"]').selectOption({ label: 'QA_ONLY Alternate Senior' });
+  await page.locator('select[name="juniorId"]').selectOption({ label: 'QA_ONLY Junior Resident' });
+  await page.getByRole('button', { name: /^Save$/ }).click();
+
+  await expect(page.getByRole('heading', { name: 'Rule violation requires an override' })).toBeVisible();
+  const confirm = page.getByRole('button', { name: 'Confirm override' });
+  await expect(confirm).toBeDisabled();
+  await page.getByLabel('Override reason').fill('QA_ONLY consecutive coverage exception');
+  await confirm.click();
+  await expect(page.getByText('Manual override saved with reason')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Validate schedule' }).click();
+  await expect(page.getByRole('heading', { name: 'Schedule needs attention' })).toBeVisible();
+  await expect(page.getByText('Recorded manual override').first()).toBeVisible();
+});
+
+test('seeded public holiday is visible on the authenticated calendar', async ({ page }) => {
+  await login(page, 'qa-chief@medrota.local');
+  await expect(page.getByText('QA_ONLY Holiday').first()).toBeVisible();
+  await expectNoMojibake(page);
+  await page.goto('/dashboard');
+  await expectNoMojibake(page);
+});
+
 test('viewer can read published schedule but cannot edit calendar data', async ({ page }) => {
   await login(page, 'qa-viewer@medrota.local');
   await expectNoMojibake(page);
@@ -89,7 +162,7 @@ test('viewer can read published schedule but cannot edit calendar data', async (
 
   await expect(page.getByRole('button', { name: /Auto-generate/i })).toBeDisabled();
   await expect(page.getByRole('button', { name: /Clear schedule/i })).toBeDisabled();
-  await expect(page.getByRole('button', { name: /Publish/i })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /^(Re-)?publish$/i })).toBeDisabled();
 
   const mutationStatus = await page.evaluate(async () => {
     const program = await fetch('/api/programs/mine', {
@@ -170,4 +243,28 @@ test('login password eye stays fixed and toggles visibility', async ({ page }) =
   expect(Math.abs(afterHover.y - before.y)).toBeLessThanOrEqual(1);
   expect(Math.abs(afterClick.y - before.y)).toBeLessThanOrEqual(1);
   await expect(password).toHaveAttribute('type', 'text');
+});
+
+test('published schedule remains accessible without authentication', async ({ page }) => {
+  await login(page, 'qa-chief@medrota.local');
+  const token = await page.evaluate(async () => {
+    const headers = {
+      Authorization: `Bearer ${localStorage.getItem('token')}`,
+      'Content-Type': 'application/json',
+    };
+    const program = await fetch('/api/programs/mine', { headers }).then(response => response.json());
+    const response = await fetch('/api/schedule/publish', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ blockId: program.currentBlock.id }),
+    });
+    if (!response.ok) throw new Error(`publish failed: ${response.status}`);
+    return (await response.json()).publicToken;
+  });
+
+  await page.evaluate(() => localStorage.clear());
+  await page.goto(`/schedule/${token}`);
+  await expect(page.getByText('Read-only published schedule')).toBeVisible();
+  await expect(page.getByText('Published', { exact: true })).toBeVisible();
+  await expectNoMojibake(page);
 });

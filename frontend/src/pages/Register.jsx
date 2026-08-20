@@ -25,6 +25,10 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (form.password.length < 10) {
+      setError('Password must be at least 10 characters');
+      return;
+    }
     setLoading(true);
     try {
       await api.post('/auth/register', { ...form, ...(inviteToken ? { inviteToken } : {}) });
@@ -75,8 +79,10 @@ export default function Register() {
             value={form.password}
             onChange={handleChange}
             required
+            minLength={10}
             autoComplete="new-password"
           />
+          <p style={styles.note}>Use at least 10 characters.</p>
 
           <label style={styles.label}>User category</label>
           <select style={styles.input} name="category" value={form.category} onChange={handleChange}>

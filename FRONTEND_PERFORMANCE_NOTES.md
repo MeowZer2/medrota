@@ -90,6 +90,8 @@ Current known warning:
 - `src/pages/Calendar.jsx` has an animated box-shadow used for a low-frequency publish pulse. The guard passes and reports it as a review warning, not a blocker.
 - `npm run build` currently reports a Vite chunk-size warning above 500 kB. Defer code splitting until it becomes a measured performance issue or release requirement.
 
+Recovery verification confirmed that the original full-page infinite animation has not returned. Calendar cells use native, narrowly scoped transitions; the remaining publish-pulse shadow is short and user-triggered. The guard is a pattern detector, not a profiler, so changes that pass it still require measurement if users report lag.
+
 ## Review Checklist
 
 Before importing or adapting design-tool output, search for:
