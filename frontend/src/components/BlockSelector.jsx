@@ -35,6 +35,9 @@ export default function BlockSelector({ blocks, activeBlockId, onSelect }) {
       {/* Trigger */}
       <button
         onClick={() => setOpen(o => !o)}
+        aria-label="Select block"
+        aria-haspopup="listbox"
+        aria-expanded={open}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
           padding: '7px 11px', borderRadius: 8,
@@ -74,6 +77,7 @@ export default function BlockSelector({ blocks, activeBlockId, onSelect }) {
             return (
               <button
                 key={b.id}
+                data-testid={`block-option-${b.number}`}
                 onClick={() => { onSelect(b); setOpen(false); }}
                 style={{
                   display: 'block', width: '100%', textAlign: 'left',

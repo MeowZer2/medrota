@@ -24,7 +24,8 @@
     "data:integrity-repair": "node scripts/data-integrity-repair.js",
     "data:integrity-smoke": "node scripts/data-integrity-smoke.js",
     "scheduler:acceptance": "node scripts/scheduler-acceptance.js",
-    "scheduler:fairness": "node scripts/scheduler-fairness.js"
+    "scheduler:fairness": "node scripts/scheduler-fairness.js",
+    "availability:smoke": "node scripts/block-availability-smoke.js"
   },
   "keywords": [],
   "author": "",

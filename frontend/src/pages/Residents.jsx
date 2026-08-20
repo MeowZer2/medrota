@@ -9,6 +9,7 @@ import api from '../api/axios';
 import { useBlock, useUser } from '../context/AppContext';
 import BlockSelector from '../components/BlockSelector';
 import { PlusIcon, PgyBadge, CallBadge, VacationRangePill, parseVacationRanges, labelStyle, inputStyle } from '../components/ResidentPanels';
+import BlockAvailabilityModal from '../components/BlockAvailabilityModal';
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
@@ -62,11 +63,14 @@ function vacationDatesToFormRanges(dates = []) {
 
 // ── ServiceToggle — the "Available this block" pill toggle ───────────────────
 
-function ServiceToggle({ on, onChange, disabled }) {
+function ServiceToggle({ on, onChange, disabled, residentName }) {
   return (
     <button
       onClick={() => !disabled && onChange(!on)}
       disabled={disabled}
+      role="switch"
+      aria-checked={on}
+      aria-label={`Active this block${residentName ? `: ${residentName}` : ''}`}
       title={on ? 'Available this block — click to unenroll' : 'Not enrolled this block — click to enroll'}
       style={{
         display: 'flex', alignItems: 'center', gap: 5,
@@ -172,6 +176,7 @@ function ResidentCard({ resident, blockId, onToggleEnroll, onEdit, onRemove }) {
       {blockId && isService && (
         <ServiceToggle
           on={resident.isEnrolledThisBlock}
+          residentName={resident.name}
           onChange={() => onToggleEnroll(resident)}
         />
       )}
@@ -580,6 +585,7 @@ export default function Residents() {
   const [residents, setResidents]         = useState([]);
   const [loading, setLoading]             = useState(false);
   const [modalOpen, setModalOpen]         = useState(false);
+  const [availabilityOpen, setAvailabilityOpen] = useState(false);
   const [editingResident, setEditingResident] = useState(null);
   const latestBlockIdRef = useRef(blockId);
 
@@ -696,14 +702,27 @@ export default function Residents() {
               </div>
             )}
           </div>
-          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white"
-            style={{ background: '#1A3A5C', border: 'none', cursor: 'pointer', flexShrink: 0, alignSelf: 'flex-start' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#2C5F8A'}
-            onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}>
-            <PlusIcon /> Add Resident
-          </motion.button>
+          <div className="flex flex-wrap gap-2" style={{ flexShrink: 0, alignSelf: 'flex-start' }}>
+            {blockId && (
+              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
+                onClick={() => setAvailabilityOpen(true)}
+                data-testid="set-block-availability"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold"
+                style={{ background: '#fff', color: '#2C5F8A', border: '1px solid #BFD4EA', cursor: 'pointer' }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#F0F5FF'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}>
+                Set block availability
+              </motion.button>
+            )}
+            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
+              onClick={() => setModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white"
+              style={{ background: '#1A3A5C', border: 'none', cursor: 'pointer' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#2C5F8A'}
+              onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}>
+              <PlusIcon /> Add Resident
+            </motion.button>
+          </div>
         </motion.div>
 
         {!programId && (
@@ -767,6 +786,18 @@ export default function Residents() {
           {editingResident && (
             <EditModal resident={editingResident} blockId={blockId}
               onClose={() => setEditingResident(null)} onSaved={handleEdited} />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {availabilityOpen && blockId && (
+            <BlockAvailabilityModal
+              blockId={blockId}
+              blockNumber={currentBlock?.number}
+              residents={residents}
+              allYearBlocks={allYearBlocks}
+              onClose={() => setAvailabilityOpen(false)}
+              onApplied={fetchResidents}
+            />
           )}
         </AnimatePresence>
       </Layout>

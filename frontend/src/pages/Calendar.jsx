@@ -11,6 +11,7 @@ import {
   getDaysInBlock, isWeekend,
   toISODate, fmtShort, fmtDay, fmtFull, DAYS_OF_WEEK,
 } from '../lib/blockUtils';
+import ReadinessPanel from '../components/ReadinessPanel';
 
 // â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -154,7 +155,7 @@ const DayCell = memo(function DayCell({ dayData, onClick, canEdit }) {
         )}
       </div>
 
-      {/* TOP SECTION â€” non-call attendings as subtle gray chips */}
+      {/* TOP SECTION — non-call attendings as subtle gray chips */}
       {nonCallAtts.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {nonCallAtts.map((a, i) => {
@@ -164,12 +165,12 @@ const DayCell = memo(function DayCell({ dayData, onClick, canEdit }) {
         </div>
       )}
 
-      {/* Divider â€” only when both sections have content */}
+      {/* Divider — only when both sections have content */}
       {showDivider && (
         <div style={{ borderTop: '1px solid #E2E8F0', margin: '4px 0' }} />
       )}
 
-      {/* BOTTOM SECTION â€” call-day attendings (red chip) + resident chips */}
+      {/* BOTTOM SECTION — call-day attendings (red chip) + resident chips */}
       {hasBottomSection && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {callAtts.map((a, i) => (
@@ -231,12 +232,12 @@ function DayRow({ dayData, onClick, canEdit }) {
       </div>
       <div className="flex flex-col gap-0.5 flex-1 pt-0.5">
         {isHoliday && <span style={{ fontSize: 11, fontWeight: 600, color: '#DC2626' }}>{holidayName || 'Holiday'}</span>}
-        {/* Non-call attendings â€” plain text */}
+        {/* Non-call attendings — plain text */}
         {nonCallAtts.map((a, i) => {
           const text = [a.attendingName, a.activityLabel].filter(Boolean).join(' - ');
           return text ? <span key={i} style={{ fontSize: 11, color: '#475569' }}>{text}</span> : null;
         })}
-        {/* Call attendings â€” navy bold */}
+        {/* Call attendings — navy bold */}
         {callAtts.map((a, i) => (
           <span key={`c${i}`} style={{ fontSize: 11, fontWeight: 600, color: '#1A3A5C' }}>{a.attendingName}</span>
         ))}
@@ -1290,6 +1291,7 @@ export default function Calendar() {
   const [selectedDateKey, setSelectedDateKey]   = useState(null);
   const [loadingData, setLoadingData]           = useState(false);
   const [generating, setGenerating]             = useState(false);
+  const [readiness, setReadiness]               = useState(null);
   const [genSummary, setGenSummary]             = useState(null);
   const [publishPulsing, setPublishPulsing]     = useState(false);
   const [showPublishModal, setShowPublishModal]     = useState(false);
@@ -1311,6 +1313,7 @@ export default function Calendar() {
   const canEditResidents = can('edit_residents');
   const canEditAttending = can('edit_attendings');
   const canEditSchedule = can('manual_assign_calls') || canEditAttending;
+  const canGenerate = can('generate_schedule');
 
   useEffect(() => {
     latestBlockIdRef.current = blockId;
@@ -1338,7 +1341,7 @@ export default function Calendar() {
     return () => { cancelled = true; };
   }, [blockId, can]);
 
-  // Derived from context â€” persists across tab switches
+  // Derived from context — persists across tab switches
   const isPublished = currentBlock?.isPublished ?? false;
   const publicToken = currentBlock?.publicToken ?? null;
 
@@ -1352,13 +1355,16 @@ export default function Calendar() {
     async function fetchBlockData() {
       setLoadingData(true);
       try {
-        const [att, asgn, res, ros, fl, hol] = await Promise.all([
+        const [att, asgn, res, ros, fl, hol, ready] = await Promise.all([
           api.get(`/attending?blockId=${currentBlockId}`, { signal }),
           api.get(`/assignments?blockId=${currentBlockId}`, { signal }),
           programId && canEditResidents ? api.get(`/residents?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
           programId && canEditAttending ? api.get(`/attending/roster?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
           api.get(`/flags?blockId=${currentBlockId}`, { signal }),
           api.get(`/blocks/${currentBlockId}/holidays`, { signal }),
+          canGenerate
+            ? api.get(`/blocks/${currentBlockId}/readiness`, { signal }).catch(() => ({ data: null }))
+            : Promise.resolve({ data: null }),
         ]);
 
         if (cancelled || latestBlockIdRef.current !== currentBlockId) return;
@@ -1368,6 +1374,7 @@ export default function Calendar() {
         setRoster(ros.data.map(r => ({ id: r.id, name: r.attendingName, activities: r.typicalActivities })));
         setFlags(fl.data);
         setHolidays(hol.data);
+        setReadiness(ready.data);
       } catch (err) {
         if (!cancelled && err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') {
           // Keep the existing silent failure behavior for transient API errors.
@@ -1382,7 +1389,7 @@ export default function Calendar() {
       cancelled = true;
       controller.abort();
     };
-  }, [blockId, canEditAttending, canEditResidents, programId]);
+  }, [blockId, canEditAttending, canEditResidents, canGenerate, programId]);
 
   const attendingMap = useMemo(() => {
     const map = {};
@@ -1738,6 +1745,13 @@ export default function Calendar() {
           canPublishSchedule={can('publish_schedule')}
           canValidateSchedule={can('view_draft_schedule')}
         />
+
+        {canGenerate && readiness && !readiness.dismissed && (
+          <ReadinessPanel
+            readiness={readiness}
+            onDismiss={() => setReadiness(current => (current ? { ...current, dismissed: true } : current))}
+          />
+        )}
 
         {can('edit_block_settings') && (
           <details className="mb-4 rounded-xl" style={{ border: '1px solid #E8EFF6', background: '#fff' }}>

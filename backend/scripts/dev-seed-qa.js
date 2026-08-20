@@ -7,6 +7,10 @@ const ORG_NAME = 'MedRota QA';
 const PROGRAM_NAME = 'QA Vascular Surgery';
 const START = new Date(Date.UTC(2026, 5, 15));
 const END = new Date(Date.UTC(2026, 5, 28));
+// Block 2 is deliberately left without resident availability so the readiness
+// check and the bulk/copy availability workflow have something to act on.
+const BLOCK2_START = new Date(Date.UTC(2026, 5, 29));
+const BLOCK2_END = new Date(Date.UTC(2026, 6, 12));
 
 const USERS = [
   {
@@ -88,11 +92,11 @@ async function findOrCreateAcademicYear(programId) {
   if (existing) {
     return prisma.academicYear.update({
       where: { id: existing.id },
-      data: { endDate: END },
+      data: { endDate: BLOCK2_END },
     });
   }
   return prisma.academicYear.create({
-    data: { programId, startDate: START, endDate: END },
+    data: { programId, startDate: START, endDate: BLOCK2_END },
   });
 }
 
@@ -106,6 +110,19 @@ async function findOrCreateBlock(academicYearId) {
   }
   return prisma.block.create({
     data: { academicYearId, number: 1, startDate: START, endDate: END, isPublished: true },
+  });
+}
+
+async function findOrCreateSecondBlock(academicYearId) {
+  const existing = await prisma.block.findFirst({ where: { academicYearId, number: 2 } });
+  if (existing) {
+    return prisma.block.update({
+      where: { id: existing.id },
+      data: { startDate: BLOCK2_START, endDate: BLOCK2_END, isPublished: false },
+    });
+  }
+  return prisma.block.create({
+    data: { academicYearId, number: 2, startDate: BLOCK2_START, endDate: BLOCK2_END, isPublished: false },
   });
 }
 
@@ -263,6 +280,13 @@ async function main() {
   const academicYear = await findOrCreateAcademicYear(program.id);
   const block = await findOrCreateBlock(academicYear.id);
   await upsertBlockSettings(block.id);
+  const blockTwo = await findOrCreateSecondBlock(academicYear.id);
+  await upsertBlockSettings(blockTwo.id);
+  // Reset block two to the unconfigured state each run so the availability
+  // workflow tests always start from the same place.
+  await prisma.blockEnrollment.deleteMany({
+    where: { blockId: blockTwo.id, resident: { name: { startsWith: 'QA_ONLY' } } },
+  });
 
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
   for (const user of USERS) {
@@ -300,7 +324,8 @@ async function main() {
   console.log(JSON.stringify({
     organization: ORG_NAME,
     program: PROGRAM_NAME,
-    block: 'Block 1, 2026-06-15 to 2026-06-28',
+    block: 'Block 1, 2026-06-15 to 2026-06-28 (published)',
+    blockTwo: 'Block 2, 2026-06-29 to 2026-07-12 (draft, no resident availability)',
     users: USERS.map(u => ({ email: u.email, role: u.role })),
     password: PASSWORD,
   }, null, 2));
