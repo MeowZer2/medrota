@@ -31,17 +31,19 @@ export function confirmDiscardUnsavedChanges() {
 }
 
 /**
- * Register the guard for as long as the calling component wants it, and keep
- * the browser's own "leave site?" prompt in step with it. `isDirty` is read at
- * call time, so a component may pass a fresh closure on every render.
+ * Register the guard for as long as the calling component is mounted, and keep
+ * the browser's own "leave site?" prompt in step with it. The guard is
+ * re-registered whenever `isDirty` changes, and the unload listener exists only
+ * while there is something to lose.
  */
 export function useUnsavedChangesGuard(isDirty) {
   useEffect(() => {
     const unregister = registerUnsavedChangesGuard(() => isDirty);
+    if (!isDirty) return unregister;
+
+    // Reload, tab close and off-site navigation only accept the browser's own
+    // wording; preventDefault is what makes Chromium show it at all.
     const warnOnUnload = (event) => {
-      if (!isDirty) return;
-      // Reload, tab close and off-site navigation only accept the browser's
-      // own wording; preventDefault is what makes Chromium show it at all.
       event.preventDefault();
       event.returnValue = DISCARD_PROMPT;
     };
