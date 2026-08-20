@@ -30,7 +30,8 @@
     "publish:safety-smoke": "node scripts/publish-safety-smoke.js",
     "audit:smoke": "node scripts/audit-smoke.js",
     "publish:revocation-smoke": "node scripts/publish-revocation-smoke.js",
-    "deploy:smoke": "node scripts/deployment-smoke.js"
+    "deploy:smoke": "node scripts/deployment-smoke.js",
+    "registry:lifecycle-smoke": "node scripts/registry-lifecycle-smoke.js"
   },
   "keywords": [],
   "author": "",

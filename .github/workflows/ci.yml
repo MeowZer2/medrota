@@ -84,6 +84,8 @@ jobs:
           npm run data:integrity-audit
           npm run data:integrity-smoke
           npm run availability:smoke
+          npm run program-config:smoke
+          npm run registry:lifecycle-smoke
           npm run publish:safety-smoke
           npm run publish:revocation-smoke
           npm run audit:smoke
