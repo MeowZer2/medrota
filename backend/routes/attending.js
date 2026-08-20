@@ -3,6 +3,7 @@ const prisma = require('../lib/prisma');
 const auth = require('../middleware/auth');
 const { getMembership, resolvePermissions, getProgramIdForBlock, requireProgramPermission, requireBlockPermission, requireBlockView } = require('../lib/roles');
 const { resolveActivityType } = require('../lib/activityRegistry');
+const { normalizeOptionalEmail } = require('../lib/email');
 
 const router = express.Router();
 router.use(auth);
@@ -50,15 +51,25 @@ router.get('/roster', async (req, res) => {
 // POST /api/attending/roster
 router.post('/roster', async (req, res) => {
   const { programId, attendingName, typicalActivities, email, phone, officeLocation } = req.body;
-  if (!programId || !attendingName) {
+  const nextName = typeof attendingName === 'string' ? attendingName.trim() : '';
+  if (!programId || !nextName) {
     console.warn('[attending/roster POST] missing fields', { programId, attendingName });
     return res.status(400).json({ error: 'programId and attendingName required' });
   }
   const membership = await requireProgramPermission(req, res, programId, 'manage_attending_roster');
   if (!membership) return;
+  const normalizedEmail = normalizeOptionalEmail(email ?? '');
+  if (!normalizedEmail.valid) return res.status(400).json({ error: 'Enter a valid email address.' });
   try {
     const entry = await prisma.attendingRoster.create({
-      data: { programId, attendingName: attendingName.trim(), typicalActivities: typicalActivities ?? [], email: email || null, phone: phone || null, officeLocation: officeLocation || null },
+      data: {
+        programId,
+        attendingName: nextName,
+        typicalActivities: typicalActivities ?? [],
+        email: normalizedEmail.value,
+        phone: typeof phone === 'string' ? phone.trim() || null : null,
+        officeLocation: typeof officeLocation === 'string' ? officeLocation.trim() || null : null,
+      },
     });
     console.log(`[attending/roster POST] created id=${entry.id} programId=${programId} name=${attendingName}`);
     res.status(201).json(entry);
@@ -80,14 +91,16 @@ router.put('/roster/:id', async (req, res) => {
     if (!existing) return res.status(404).json({ error: 'Roster entry not found' });
     const membership = await requireProgramPermission(req, res, existing.programId, 'manage_attending_roster');
     if (!membership) return;
+    const normalizedEmail = email === undefined ? null : normalizeOptionalEmail(email);
+    if (normalizedEmail && !normalizedEmail.valid) return res.status(400).json({ error: 'Enter a valid email address.' });
     const entry = await prisma.attendingRoster.update({
       where: { id: req.params.id },
       data: {
         ...(nextName !== undefined && { attendingName: nextName }),
         ...(typicalActivities !== undefined && { typicalActivities }),
-        ...(email !== undefined && { email: email || null }),
-        ...(phone !== undefined && { phone: phone || null }),
-        ...(officeLocation !== undefined && { officeLocation: officeLocation || null }),
+        ...(email !== undefined && { email: normalizedEmail.value }),
+        ...(phone !== undefined && { phone: typeof phone === 'string' ? phone.trim() || null : null }),
+        ...(officeLocation !== undefined && { officeLocation: typeof officeLocation === 'string' ? officeLocation.trim() || null : null }),
         ...(typeof isActive === 'boolean' && { isActive }),
       },
     });

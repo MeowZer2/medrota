@@ -50,6 +50,28 @@ const restoreButtonStyle = {
   color: '#15803D', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 34, whiteSpace: 'nowrap',
 };
 
+const SERVICE_DESCRIPTION_MAX_LENGTH = 500;
+
+function isValidOptionalEmail(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  if (trimmed.length > 254 || /\s/.test(trimmed)) return false;
+  const at = trimmed.indexOf('@');
+  if (at <= 0 || at !== trimmed.lastIndexOf('@')) return false;
+  const local = trimmed.slice(0, at);
+  const labels = trimmed.slice(at + 1).split('.');
+  return local.length <= 64
+    && !local.startsWith('.')
+    && !local.endsWith('.')
+    && !local.includes('..')
+    && labels.length >= 2
+    && labels.every(label => label.length > 0
+      && label.length <= 63
+      && /^[a-zA-Z0-9-]+$/.test(label)
+      && !label.startsWith('-')
+      && !label.endsWith('-'));
+}
+
 // Paired edit controls. Every inline editor in this page shows both, so an edit
 // is always reversible without reloading the section.
 const editSaveButtonStyle = {
@@ -165,14 +187,17 @@ function InactiveGroup({ noun, items, labelOf, renderItem }) {
 // name really differs from the stored one, Escape puts the stored name back, and
 // a blank name is never savable. A rejected save keeps the row in edit state so
 // the typed text is not thrown away.
-function RegistryRow({ item, canManage, onSave, onEditingChange }) {
+function RegistryRow({ item, canManage, onSave, onEditingChange, showDescription = false }) {
   const [name, setName] = useState(item.name);
+  const [description, setDescription] = useState(item.description ?? '');
   const [saving, setSaving] = useState(false);
   useEffect(() => setName(item.name), [item.name]);
+  useEffect(() => setDescription(item.description ?? ''), [item.description]);
 
   const references = (item._count?.attendingEntries ?? 0) + (item._count?.attendingTemplates ?? 0);
   const trimmed = name.trim();
-  const isEdited = trimmed !== item.name;
+  const trimmedDescription = description.trim();
+  const isEdited = trimmed !== item.name || (showDescription && trimmedDescription !== (item.description ?? ''));
   const isBlank = trimmed.length === 0;
 
   useEffect(() => {
@@ -180,12 +205,18 @@ function RegistryRow({ item, canManage, onSave, onEditingChange }) {
     return () => onEditingChange?.(item.id, false);
   }, [item.id, isEdited, onEditingChange]);
 
-  const cancel = () => setName(item.name);
+  const cancel = () => {
+    setName(item.name);
+    setDescription(item.description ?? '');
+  };
 
   const save = async () => {
     if (isBlank || saving) return;
     setSaving(true);
-    const saved = await onSave(item.id, { name: trimmed });
+    const saved = await onSave(item.id, {
+      name: trimmed,
+      ...(showDescription && { description: trimmedDescription }),
+    });
     setSaving(false);
     if (saved) setName(trimmed);
   };
@@ -205,6 +236,20 @@ function RegistryRow({ item, canManage, onSave, onEditingChange }) {
           style={{ ...inputStyle, background: canManage ? '#F8FAFC' : '#fff', borderColor: isBlank ? '#FCA5A5' : '#E2E8F0' }}
         />
         {isBlank && <span role="alert" style={{ display: 'block', fontSize: 11, color: '#B91C1C', marginTop: 3 }}>A name is required.</span>}
+        {showDescription && (
+          <>
+            <input
+              aria-label={`${item.name} description`}
+              value={description}
+              onChange={event => setDescription(event.target.value)}
+              onKeyDown={event => { if (event.key === 'Escape' && isEdited) { event.preventDefault(); cancel(); } }}
+              disabled={!canManage}
+              maxLength={SERVICE_DESCRIPTION_MAX_LENGTH}
+              placeholder="Optional description"
+              style={{ ...inputStyle, marginTop: 6, background: canManage ? '#F8FAFC' : '#fff', color: '#64748B', fontSize: 12 }}
+            />
+          </>
+        )}
         {references > 0 && <span style={{ display: 'block', fontSize: 11, color: '#94A3B8', marginTop: 3 }}>{references} schedule reference{references === 1 ? '' : 's'} preserved</span>}
       </div>
       <div className="settings-registry-actions">
@@ -240,7 +285,7 @@ function RegistryRow({ item, canManage, onSave, onEditingChange }) {
 
 // Active-first registry list. Deactivated entries leave the main list entirely
 // instead of sitting in it greyed out.
-function RegistryList({ items, canManage, noun, emptyMessage, onSave, onEditingChange }) {
+function RegistryList({ items, canManage, noun, emptyMessage, onSave, onEditingChange, showDescription = false }) {
   const [showInactive, setShowInactive] = useState(false);
   const active = items.filter(item => item.isActive);
   const inactive = items.filter(item => !item.isActive);
@@ -258,13 +303,13 @@ function RegistryList({ items, canManage, noun, emptyMessage, onSave, onEditingC
       />
       {active.length === 0
         ? <p style={{ fontSize: 13, color: '#94A3B8' }}>No active {noun}.</p>
-        : active.map(item => <RegistryRow key={item.id} item={item} canManage={canManage} onSave={onSave} onEditingChange={onEditingChange} />)}
+        : active.map(item => <RegistryRow key={item.id} item={item} canManage={canManage} onSave={onSave} onEditingChange={onEditingChange} showDescription={showDescription} />)}
       {showInactive && (
         <InactiveGroup
           noun={noun}
           items={inactive}
           labelOf={registryLabel}
-          renderItem={item => <RegistryRow key={item.id} item={item} canManage={canManage} onSave={onSave} onEditingChange={onEditingChange} />}
+          renderItem={item => <RegistryRow key={item.id} item={item} canManage={canManage} onSave={onSave} onEditingChange={onEditingChange} showDescription={showDescription} />}
         />
       )}
     </div>
@@ -297,6 +342,7 @@ function RosterRow({ item, canManage, onSave, onSetActive, onEditingChange }) {
   const persisted = rosterDraftFrom(item);
   const trimmedName = (draft?.attendingName ?? '').trim();
   const isBlank = draft !== null && trimmedName.length === 0;
+  const emailInvalid = draft !== null && !isValidOptionalEmail(draft.email);
   const isEdited = draft !== null && ROSTER_FIELDS.some(([field]) => draft[field].trim() !== persisted[field].trim());
 
   useEffect(() => {
@@ -307,7 +353,7 @@ function RosterRow({ item, canManage, onSave, onSetActive, onEditingChange }) {
   const cancel = () => setDraft(null);
 
   const save = async () => {
-    if (isBlank || saving) return;
+    if (isBlank || emailInvalid || saving) return;
     if (!isEdited) { setDraft(null); return; }
     setSaving(true);
     const saved = await onSave(item.id, {
@@ -336,8 +382,12 @@ function RosterRow({ item, canManage, onSave, onSetActive, onEditingChange }) {
                 value={draft[field]}
                 onChange={event => setDraft(current => ({ ...current, [field]: event.target.value }))}
                 onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); save(); } }}
-                style={{ ...inputStyle, borderColor: field === 'attendingName' && isBlank ? '#FCA5A5' : '#E2E8F0' }}
+                type={field === 'email' ? 'email' : 'text'}
+                aria-invalid={field === 'email' && emailInvalid ? 'true' : undefined}
+                aria-describedby={field === 'email' && emailInvalid ? `roster-${item.id}-email-error` : undefined}
+                style={{ ...inputStyle, borderColor: (field === 'attendingName' && isBlank) || (field === 'email' && emailInvalid) ? '#FCA5A5' : '#E2E8F0' }}
               />
+              {field === 'email' && emailInvalid && <span id={`roster-${item.id}-email-error`} role="alert" style={{ display: 'block', fontSize: 11, color: '#B91C1C', marginTop: 3 }}>Enter a valid email address.</span>}
             </div>
           ))}
         </div>
@@ -347,8 +397,8 @@ function RosterRow({ item, canManage, onSave, onSetActive, onEditingChange }) {
             type="button"
             aria-label={`Save ${item.attendingName}`}
             onClick={save}
-            disabled={isBlank || saving}
-            style={{ ...editSaveButtonStyle, cursor: isBlank || saving ? 'not-allowed' : 'pointer', opacity: isBlank || saving ? 0.6 : 1 }}
+            disabled={isBlank || emailInvalid || saving}
+            style={{ ...editSaveButtonStyle, cursor: isBlank || emailInvalid || saving ? 'not-allowed' : 'pointer', opacity: isBlank || emailInvalid || saving ? 0.6 : 1 }}
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
@@ -669,6 +719,7 @@ export default function ProgramSettings() {
   const [showInactiveAttendings, setShowInactiveAttendings] = useState(false);
   const [newAttending, setNewAttending] = useState({ attendingName: '', email: '', phone: '', officeLocation: '' });
   const [newServiceName, setNewServiceName] = useState('');
+  const [newServiceDescription, setNewServiceDescription] = useState('');
   const [newActivityName, setNewActivityName] = useState('');
   const [chiefPermissions, setChiefPermissions] = useState([]);
   const [savedChiefPermissions, setSavedChiefPermissions] = useState([]);
@@ -715,12 +766,51 @@ export default function ProgramSettings() {
 
   useEffect(() => { loadProgramConfiguration(); }, [loadProgramConfiguration]);
 
-  const addRegistryItem = async (kind, name, clear) => {
+  const mergeRecord = (setter, record) => {
+    setter(current => current.map(item => item.id === record.id ? record : item));
+  };
+
+  const addRecord = (setter, record) => {
+    setter(current => [...current, record]);
+  };
+
+  const setterForRegistry = kind => kind === 'clinical-services' ? setClinicalServices : setAttendingActivities;
+
+  const offerUndo = (label, restore) => {
+    toast(t => (
+      <span style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <span>{label} was deactivated.</span>
+        <button
+          type="button"
+          aria-label={`Undo deactivation of ${label}`}
+          onClick={async () => {
+            try {
+              await restore();
+              toast.dismiss(t.id);
+              toast.success(`${label} restored`);
+            } catch (err) {
+              toast.dismiss(t.id);
+              toast.error(err.response?.data?.error ?? `Unable to restore ${label}`);
+            }
+          }}
+          style={{ border: 0, background: 'transparent', color: '#2C5F8A', fontWeight: 700, cursor: 'pointer', padding: '2px 0' }}
+        >
+          Undo
+        </button>
+      </span>
+    ), { duration: 6000 });
+  };
+
+  const addRegistryItem = async (kind, name, clear, description = '') => {
     if (!name.trim()) return;
     try {
-      await api.post(`/program-configuration/${programId}/${kind}`, { name });
+      const { data } = await api.post(`/program-configuration/${programId}/${kind}`, {
+        name,
+        ...(kind === 'clinical-services' && { description }),
+      });
+      addRecord(setterForRegistry(kind), data);
       clear('');
-      await loadProgramConfiguration();
+      if (kind === 'clinical-services') setNewServiceDescription('');
       toast.success(kind === 'clinical-services' ? 'Clinical service added' : 'Attending activity added');
     } catch (err) {
       toast.error(err.response?.data?.error ?? 'Unable to add item');
@@ -731,11 +821,19 @@ export default function ProgramSettings() {
   // close or stay open with the rejected text still in it.
   const updateRegistryItem = async (kind, id, changes) => {
     try {
-      await api.put(`/program-configuration/${programId}/${kind}/${id}`, changes);
-      await loadProgramConfiguration();
-      if (changes.isActive === true) toast.success('Restored');
-      else if (changes.isActive === false) toast.success('Deactivated');
-      else toast.success('Saved');
+      const { data } = await api.put(`/program-configuration/${programId}/${kind}/${id}`, changes);
+      const setter = setterForRegistry(kind);
+      mergeRecord(setter, data);
+      if (changes.isActive === true) {
+        toast.success('Restored');
+      } else if (changes.isActive === false) {
+        offerUndo(data.name, async () => {
+          const response = await api.put(`/program-configuration/${programId}/${kind}/${id}`, { isActive: true });
+          mergeRecord(setter, response.data);
+        });
+      } else {
+        toast.success('Saved');
+      }
       return true;
     } catch (err) {
       toast.error(err.response?.data?.error ?? 'Unable to save item');
@@ -744,11 +842,11 @@ export default function ProgramSettings() {
   };
 
   const addAttending = async () => {
-    if (!newAttending.attendingName.trim()) return;
+    if (!newAttending.attendingName.trim() || !isValidOptionalEmail(newAttending.email)) return;
     try {
-      await api.post('/attending/roster', { programId, ...newAttending, typicalActivities: [] });
+      const { data } = await api.post('/attending/roster', { programId, ...newAttending, typicalActivities: [] });
+      addRecord(setAttendingRoster, data);
       setNewAttending({ attendingName: '', email: '', phone: '', officeLocation: '' });
-      await loadProgramConfiguration();
       toast.success('Attending added to the program roster');
     } catch (err) {
       toast.error(err.response?.data?.error ?? 'Unable to add attending');
@@ -757,8 +855,8 @@ export default function ProgramSettings() {
 
   const updateAttending = async (id, changes) => {
     try {
-      await api.put(`/attending/roster/${id}`, changes);
-      await loadProgramConfiguration();
+      const { data } = await api.put(`/attending/roster/${id}`, changes);
+      mergeRecord(setAttendingRoster, data);
       toast.success('Attending updated');
       return true;
     } catch (err) {
@@ -769,9 +867,16 @@ export default function ProgramSettings() {
 
   const setAttendingActive = async (item, isActive) => {
     try {
-      await api.put(`/attending/roster/${item.id}`, { isActive });
-      await loadProgramConfiguration();
-      toast.success(isActive ? 'Attending restored' : 'Attending deactivated');
+      const { data } = await api.put(`/attending/roster/${item.id}`, { isActive });
+      mergeRecord(setAttendingRoster, data);
+      if (isActive) {
+        toast.success('Attending restored');
+      } else {
+        offerUndo(data.attendingName, async () => {
+          const response = await api.put(`/attending/roster/${item.id}`, { isActive: true });
+          mergeRecord(setAttendingRoster, response.data);
+        });
+      }
     } catch (err) {
       toast.error(err.response?.data?.error ?? 'Unable to update attending');
     }
@@ -805,7 +910,7 @@ export default function ProgramSettings() {
   const dirtyBySection = {
     general: name !== savedName || specialty !== savedSpecialty,
     scheduling: juniorInHouseCall !== savedJuniorInHouseCall || seniorInHouseCall !== savedSeniorInHouseCall,
-    clinical: rowsBeingEdited.size > 0 || newServiceName.trim() !== '',
+    clinical: rowsBeingEdited.size > 0 || newServiceName.trim() !== '' || newServiceDescription.trim() !== '',
     attendings: rowsBeingEdited.size > 0 || newActivityName.trim() !== '' || newAttendingDirty,
     access: permissionsDirty,
     history: false,
@@ -822,7 +927,10 @@ export default function ProgramSettings() {
       setSeniorInHouseCall(savedSeniorInHouseCall);
     }
     if (section === 'access') setChiefPermissions(savedChiefPermissions);
-    if (section === 'clinical') setNewServiceName('');
+    if (section === 'clinical') {
+      setNewServiceName('');
+      setNewServiceDescription('');
+    }
     if (section === 'attendings') {
       setNewActivityName('');
       setNewAttending({ attendingName: '', email: '', phone: '', officeLocation: '' });
@@ -932,9 +1040,25 @@ export default function ProgramSettings() {
     clinical: () => (
       <Card title="Clinical services" subtitle="Optional program-defined services or subspecialty rotations. No specialty defaults are imposed.">
         {canManageServices && (
-          <div className="settings-inline-form">
-            <input aria-label="New clinical service" value={newServiceName} onChange={event => setNewServiceName(event.target.value)} onKeyDown={event => event.key === 'Enter' && addRegistryItem('clinical-services', newServiceName, setNewServiceName)} style={inputStyle} placeholder="e.g. Acute Care Surgery" />
-            <button onClick={() => addRegistryItem('clinical-services', newServiceName, setNewServiceName)} style={primaryButtonStyle}>Add service</button>
+          <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
+            <div>
+              <Label htmlFor="new-clinical-service">Service</Label>
+              <input id="new-clinical-service" aria-label="New clinical service" value={newServiceName} onChange={event => setNewServiceName(event.target.value)} style={inputStyle} placeholder="e.g. Acute Care Surgery" />
+            </div>
+            <div>
+              <Label htmlFor="new-clinical-service-description">Description <span style={{ color: '#94A3B8', fontWeight: 400 }}>(optional)</span></Label>
+              <textarea
+                id="new-clinical-service-description"
+                aria-label="New clinical service description"
+                value={newServiceDescription}
+                onChange={event => setNewServiceDescription(event.target.value)}
+                maxLength={SERVICE_DESCRIPTION_MAX_LENGTH}
+                rows={2}
+                style={{ ...inputStyle, resize: 'vertical', minHeight: 60 }}
+                placeholder="e.g. Emergency general surgery and inpatient consult service"
+              />
+            </div>
+            <div><button onClick={() => addRegistryItem('clinical-services', newServiceName, setNewServiceName, newServiceDescription)} style={primaryButtonStyle}>Add service</button></div>
           </div>
         )}
         <RegistryList
@@ -944,6 +1068,7 @@ export default function ProgramSettings() {
           emptyMessage="No clinical services configured. This feature is optional."
           onSave={(id, changes) => updateRegistryItem('clinical-services', id, changes)}
           onEditingChange={trackRowEditing}
+          showDescription
         />
       </Card>
     ),
@@ -952,8 +1077,11 @@ export default function ProgramSettings() {
       <>
         {canManageActivities && <Card title="Attending roster" subtitle="Persistent program staff. Contact details stay inside authenticated program settings and are never added to the public schedule.">
           <div className="settings-field-grid" style={{ marginBottom: 14 }}>
-            {[['attendingName', 'Name', 'Dr. Smith'], ['email', 'Email', 'name@example.org'], ['phone', 'Phone', 'Optional'], ['officeLocation', 'Office / location', 'Optional']].map(([field, label, placeholder]) => <div key={field}><Label htmlFor={`new-attending-${field}`}>{label}</Label><input id={`new-attending-${field}`} value={newAttending[field]} onChange={event => setNewAttending(previous => ({ ...previous, [field]: event.target.value }))} placeholder={placeholder} style={inputStyle} /></div>)}
-            <button onClick={addAttending} style={primaryButtonStyle}>Add attending</button>
+            {[['attendingName', 'Name', 'Dr. Smith'], ['email', 'Email', 'name@example.org'], ['phone', 'Phone', 'Optional'], ['officeLocation', 'Office / location', 'Optional']].map(([field, label, placeholder]) => {
+              const emailInvalid = field === 'email' && !isValidOptionalEmail(newAttending.email);
+              return <div key={field}><Label htmlFor={`new-attending-${field}`}>{label}</Label><input id={`new-attending-${field}`} type={field === 'email' ? 'email' : 'text'} value={newAttending[field]} onChange={event => setNewAttending(previous => ({ ...previous, [field]: event.target.value }))} placeholder={placeholder} aria-invalid={emailInvalid ? 'true' : undefined} aria-describedby={emailInvalid ? 'new-attending-email-error' : undefined} style={{ ...inputStyle, borderColor: emailInvalid ? '#FCA5A5' : '#E2E8F0' }} />{emailInvalid && <span id="new-attending-email-error" role="alert" style={{ display: 'block', fontSize: 11, color: '#B91C1C', marginTop: 3 }}>Enter a valid email address.</span>}</div>;
+            })}
+            <button onClick={addAttending} disabled={!newAttending.attendingName.trim() || !isValidOptionalEmail(newAttending.email)} style={{ ...primaryButtonStyle, opacity: !newAttending.attendingName.trim() || !isValidOptionalEmail(newAttending.email) ? 0.6 : 1, cursor: !newAttending.attendingName.trim() || !isValidOptionalEmail(newAttending.email) ? 'not-allowed' : 'pointer' }}>Add attending</button>
           </div>
           {attendingRoster.length === 0 ? <p style={{ fontSize: 13, color: '#94A3B8' }}>No attending staff configured.</p> : (
             <div>

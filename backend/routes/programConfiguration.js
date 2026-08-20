@@ -13,12 +13,24 @@ const {
 const router = express.Router();
 router.use(auth);
 
+const MAX_SERVICE_DESCRIPTION_LENGTH = 500;
+
 function cleanName(value) {
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
 }
 
 function normalizedName(value) {
   return cleanName(value).toLocaleLowerCase('en-CA');
+}
+
+function cleanDescription(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function validateDescription(value, res) {
+  if (value.length <= MAX_SERVICE_DESCRIPTION_LENGTH) return true;
+  res.status(400).json({ error: `Description must be ${MAX_SERVICE_DESCRIPTION_LENGTH} characters or fewer` });
+  return false;
 }
 
 function duplicateResponse(err, res, label) {
@@ -50,6 +62,8 @@ router.post('/:programId/clinical-services', async (req, res) => {
   if (!await requireProgramPermission(req, res, programId, 'manage_clinical_services')) return;
   const name = cleanName(req.body.name);
   if (!name) return res.status(400).json({ error: 'Service name is required' });
+  const description = cleanDescription(req.body.description);
+  if (!validateDescription(description, res)) return;
   try {
     const count = await prisma.programService.count({ where: { programId } });
     const service = await prisma.programService.create({
@@ -57,7 +71,7 @@ router.post('/:programId/clinical-services', async (req, res) => {
         programId,
         name,
         normalizedName: normalizedName(name),
-        description: cleanName(req.body.description) || null,
+        description: description || null,
         sortOrder: Number.isInteger(req.body.sortOrder) ? req.body.sortOrder : count,
       },
     });
@@ -76,12 +90,14 @@ router.put('/:programId/clinical-services/:id', async (req, res) => {
   if (!existing || existing.programId !== programId) return res.status(404).json({ error: 'Clinical service not found' });
   const name = req.body.name === undefined ? undefined : cleanName(req.body.name);
   if (name !== undefined && !name) return res.status(400).json({ error: 'Service name is required' });
+  const description = req.body.description === undefined ? undefined : cleanDescription(req.body.description);
+  if (description !== undefined && !validateDescription(description, res)) return;
   try {
     const service = await prisma.programService.update({
       where: { id },
       data: {
         ...(name !== undefined && { name, normalizedName: normalizedName(name) }),
-        ...(req.body.description !== undefined && { description: cleanName(req.body.description) || null }),
+        ...(description !== undefined && { description: description || null }),
         ...(typeof req.body.isActive === 'boolean' && { isActive: req.body.isActive }),
         ...(Number.isInteger(req.body.sortOrder) && { sortOrder: req.body.sortOrder }),
       },
@@ -119,6 +135,7 @@ router.post('/:programId/attending-activities', async (req, res) => {
         normalizedName: normalizedName(name),
         sortOrder: Number.isInteger(req.body.sortOrder) ? req.body.sortOrder : count,
       },
+      include: { _count: { select: { attendingEntries: true, attendingTemplates: true } } },
     });
     res.status(201).json(activity);
   } catch (err) {

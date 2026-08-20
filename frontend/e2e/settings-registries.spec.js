@@ -131,6 +131,16 @@ test('an attending leaves the active roster when deactivated and returns when re
   await expect(page.getByRole('button', { name: `Restore ${attendingName}` })).toHaveCount(0);
   await expect(page.getByRole('button', { name: `Show inactive attendings (${beforeCount + 1})` })).toBeVisible();
 
+  // The toast offers a real authorized restore. The row only returns after the
+  // restore response succeeds.
+  await expect(page.getByText(`${attendingName} was deactivated.`)).toBeVisible();
+  await page.getByRole('button', { name: `Undo deactivation of ${attendingName}` }).click();
+  await expect(page.getByRole('button', { name: `Deactivate ${attendingName}` })).toBeVisible();
+
+  // Deactivate once more to keep coverage of the longer inactive-list route.
+  await page.getByRole('button', { name: `Deactivate ${attendingName}` }).click();
+  await expect(page.getByRole('button', { name: `Show inactive attendings (${beforeCount + 1})` })).toBeVisible();
+
   // The active summary and the disclosure describe the same registry.
   await expect(page.getByText(/^\d+ active attendings$/)).toBeVisible();
 
@@ -385,6 +395,91 @@ test('an attending row edits in place, cancels on Escape, and refuses a blank na
 
   await page.getByRole('button', { name: `Deactivate ${editedName}` }).click();
   await expect(page.getByText(editedName, { exact: true })).toHaveCount(0);
+});
+
+test('attending email validation is inline and valid email persists after reload', async ({ page }) => {
+  const attendingName = ownedName('Email Validation Attending');
+  await login(page, 'qa-admin@medrota.local', '/settings?tab=attendings');
+
+  await page.locator('#new-attending-attendingName').fill(attendingName);
+  await page.locator('#new-attending-email').fill('not-an-email');
+  await expect(page.getByText('Enter a valid email address.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add attending' })).toBeDisabled();
+
+  const programId = (await api(page, '/programs/mine')).body.programId;
+  const before = (await api(page, `/attending/roster?programId=${programId}&includeInactive=true`)).body;
+  expect(before.some(item => item.attendingName === attendingName), 'the invalid draft was not saved').toBe(false);
+
+  await page.locator('#new-attending-email').fill('  Mixed.Local+Tag@Example.ORG  ');
+  await expect(page.getByText('Enter a valid email address.')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Add attending' }).click();
+  await expect(page.getByText(attendingName, { exact: true })).toBeVisible();
+  await expect(page.getByText('Mixed.Local+Tag@example.org', { exact: true })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByText(attendingName, { exact: true })).toBeVisible();
+  await expect(page.getByText('Mixed.Local+Tag@example.org', { exact: true })).toBeVisible();
+
+  const stored = (await api(page, `/attending/roster?programId=${programId}&includeInactive=true`)).body.find(item => item.attendingName === attendingName);
+  await api(page, `/attending/roster/${stored.id}`, { method: 'PUT', body: JSON.stringify({ isActive: false }) });
+});
+
+test('registry mutations merge server responses without refetching Settings configuration', async ({ page }) => {
+  const activityName = ownedName('Immediate Activity');
+  const renamed = `${activityName} Renamed`;
+  await login(page, 'qa-admin@medrota.local', '/settings?tab=attendings');
+  await page.waitForLoadState('networkidle');
+
+  const configurationGets = [];
+  page.on('request', request => {
+    if (request.method() === 'GET' && (/\/api\/program-configuration\//.test(request.url()) || /\/api\/attending\/roster/.test(request.url()))) {
+      configurationGets.push(request.url());
+    }
+  });
+
+  // Keep an unrelated draft on screen: a registry merge must not discard it or
+  // move the user away from the selected Settings section.
+  await page.locator('#new-attending-phone').fill('draft-contact-value');
+  await page.getByLabel('New attending activity').fill(activityName);
+  await page.getByRole('button', { name: 'Add activity' }).click();
+  const field = page.getByLabel(`${activityName} name`);
+  await expect(field).toBeVisible();
+  await field.fill(renamed);
+  await page.getByRole('button', { name: `Save ${activityName}` }).click();
+
+  await expect(page.getByLabel(`${renamed} name`)).toBeVisible();
+  await expect(page.locator('#new-attending-phone')).toHaveValue('draft-contact-value');
+  await expect(page.getByRole('tab', { name: 'Attendings' })).toHaveAttribute('aria-selected', 'true');
+  expect(configurationGets, 'simple registry mutations do not reload Settings registries').toEqual([]);
+
+  const programId = (await api(page, '/programs/mine')).body.programId;
+  const stored = (await api(page, `/program-configuration/${programId}/attending-activities`)).body.find(item => item.name === renamed);
+  await api(page, `/program-configuration/${programId}/attending-activities/${stored.id}`, { method: 'PUT', body: JSON.stringify({ isActive: false }) });
+});
+
+test('clinical service descriptions create and edit inline and persist', async ({ page }) => {
+  const serviceName = ownedName('Acute Care Surgery');
+  const initialDescription = 'Emergency general surgery and inpatient consult service';
+  const editedDescription = 'Emergency surgery, inpatient consults, and transfer coverage';
+  await login(page, 'qa-admin@medrota.local', '/settings?tab=clinical');
+
+  await page.getByLabel('New clinical service', { exact: true }).fill(serviceName);
+  await page.getByLabel('New clinical service description').fill(`  ${initialDescription}  `);
+  await page.getByRole('button', { name: 'Add service' }).click();
+  const description = page.getByLabel(`${serviceName} description`);
+  await expect(description).toHaveValue(initialDescription);
+
+  await description.fill(`  ${editedDescription}  `);
+  await page.getByRole('button', { name: `Save ${serviceName}` }).click();
+  await expect(description).toHaveValue(editedDescription);
+
+  await page.reload();
+  await expect(page.getByLabel(`${serviceName} description`)).toHaveValue(editedDescription);
+
+  const programId = (await api(page, '/programs/mine')).body.programId;
+  const stored = (await api(page, `/program-configuration/${programId}/clinical-services`)).body.find(item => item.name === serviceName);
+  expect(stored.description).toBe(editedDescription);
+  await api(page, `/program-configuration/${programId}/clinical-services/${stored.id}`, { method: 'PUT', body: JSON.stringify({ isActive: false }) });
 });
 
 // This one runs last on purpose: it fills the inactive activity list past a

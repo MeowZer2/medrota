@@ -14,6 +14,7 @@ const assert = require('assert/strict');
 const jwt = require('jsonwebtoken');
 const app = require('../index');
 const prisma = require('../lib/prisma');
+const { CONFIGURABLE_CHIEF_PERMISSIONS } = require('../lib/roles');
 
 const tag = `SAVE_${Date.now()}`;
 const created = { orgIds: [], programIds: [], userIds: [] };
@@ -50,9 +51,15 @@ async function main() {
     });
     created.programIds.push(program.id);
     const adminRow = await prisma.user.create({ data: { name: `${tag} Admin`, email: `${tag.toLowerCase()}-admin@example.invalid`, passwordHash: 'not-used', orgId: org.id } });
-    created.userIds.push(adminRow.id);
+    const viewerRow = await prisma.user.create({ data: { name: `${tag} Viewer`, email: `${tag.toLowerCase()}-viewer@example.invalid`, passwordHash: 'not-used', orgId: org.id } });
+    const chiefRow = await prisma.user.create({ data: { name: `${tag} Chief`, email: `${tag.toLowerCase()}-chief@example.invalid`, passwordHash: 'not-used', orgId: org.id } });
+    created.userIds.push(adminRow.id, viewerRow.id, chiefRow.id);
     await prisma.programMember.create({ data: { programId: program.id, userId: adminRow.id, role: 'program_admin' } });
+    await prisma.programMember.create({ data: { programId: program.id, userId: viewerRow.id, role: 'viewer' } });
+    await prisma.programMember.create({ data: { programId: program.id, userId: chiefRow.id, role: 'chief_resident' } });
     const admin = token(adminRow);
+    const viewer = token(viewerRow);
+    const chief = token(chiefRow);
 
     const stored = () => prisma.program.findUnique({
       where: { id: program.id },
@@ -142,11 +149,18 @@ async function main() {
     assert.equal(blankActivity.status, 400, 'an activity cannot be renamed to blank');
     assert.equal((await prisma.attendingActivityType.findUnique({ where: { id: activity.body.id } })).name, 'Endoscopy Suite', 'a refused rename leaves the stored name');
 
-    const service = await request(`/program-configuration/${program.id}/clinical-services`, admin, { method: 'POST', body: JSON.stringify({ name: 'Acute Care', description: 'Original description' }) });
+    const service = await request(`/program-configuration/${program.id}/clinical-services`, admin, { method: 'POST', body: JSON.stringify({ name: 'Acute Care', description: '  Emergency general surgery and inpatient consult service  ' }) });
     assert.equal(service.status, 201);
+    assert.equal(service.body.description, 'Emergency general surgery and inpatient consult service', 'a service description is trimmed and stored');
     const renamedService = await request(`/program-configuration/${program.id}/clinical-services/${service.body.id}`, admin, { method: 'PUT', body: JSON.stringify({ name: 'Acute Care Surgery' }) });
     assert.equal(renamedService.status, 200);
-    assert.equal(renamedService.body.description, 'Original description', 'renaming a service keeps its description');
+    assert.equal(renamedService.body.description, 'Emergency general surgery and inpatient consult service', 'renaming a service keeps its description');
+    const editedService = await request(`/program-configuration/${program.id}/clinical-services/${service.body.id}`, admin, { method: 'PUT', body: JSON.stringify({ description: '  Updated consult coverage  ' }) });
+    assert.equal(editedService.body.description, 'Updated consult coverage', 'a service description edit persists trimmed');
+    assert.equal((await request(`/program-configuration/${program.id}/clinical-services/${service.body.id}`, admin, { method: 'PUT', body: JSON.stringify({ description: 'x'.repeat(501) }) })).status, 400, 'an excessively long service description is rejected');
+    assert.equal((await prisma.programService.findUnique({ where: { id: service.body.id } })).description, 'Updated consult coverage', 'a rejected description edit leaves the stored value intact');
+    assert.equal((await request(`/program-configuration/${program.id}/clinical-services/${service.body.id}`, admin, { method: 'PUT', body: JSON.stringify({ isActive: false }) })).body.description, 'Updated consult coverage', 'deactivation preserves a service description');
+    assert.equal((await request(`/program-configuration/${program.id}/clinical-services/${service.body.id}`, admin, { method: 'PUT', body: JSON.stringify({ isActive: true }) })).body.description, 'Updated consult coverage', 'restore preserves a service description');
     assert.equal((await request(`/program-configuration/${program.id}/clinical-services/${service.body.id}`, admin, { method: 'PUT', body: JSON.stringify({ name: '' }) })).status, 400, 'a service cannot be renamed to blank');
 
     // -- Attending rows save the fields they edit -----------------------------
@@ -156,6 +170,42 @@ async function main() {
       body: JSON.stringify({ programId: program.id, attendingName: 'Dr. Original', email: 'original@example.invalid', phone: '555-0100', officeLocation: 'Level 3', typicalActivities: ['Clinic'] }),
     });
     assert.equal(staff.status, 201);
+
+    const blankEmailStaff = await request('/attending/roster', admin, {
+      method: 'POST',
+      body: JSON.stringify({ programId: program.id, attendingName: 'Dr. Blank Email', email: '   ', typicalActivities: [] }),
+    });
+    assert.equal(blankEmailStaff.status, 201, 'a blank attending email is accepted');
+    assert.equal(blankEmailStaff.body.email, null, 'a blank attending email is stored as null');
+
+    const validEmailStaff = await request('/attending/roster', admin, {
+      method: 'POST',
+      body: JSON.stringify({ programId: program.id, attendingName: 'Dr. Valid Email', email: '  Mixed.Local+Tag@Example.ORG  ', typicalActivities: [] }),
+    });
+    assert.equal(validEmailStaff.status, 201, 'a valid attending email is accepted');
+    assert.equal(validEmailStaff.body.email, 'Mixed.Local+Tag@example.org', 'only the email domain is normalized to lowercase');
+
+    const malformedCreate = await request('/attending/roster', admin, {
+      method: 'POST',
+      body: JSON.stringify({ programId: program.id, attendingName: 'Dr. Invalid Email', email: 'not-an-email', typicalActivities: [] }),
+    });
+    assert.equal(malformedCreate.status, 400, 'a malformed attending email is rejected during creation');
+    assert.equal(malformedCreate.body.error, 'Enter a valid email address.');
+
+    const malformedEdit = await request(`/attending/roster/${validEmailStaff.body.id}`, admin, { method: 'PUT', body: JSON.stringify({ email: 'two@@example.org' }) });
+    assert.equal(malformedEdit.status, 400, 'a malformed attending email is rejected during editing');
+    assert.equal((await prisma.attendingRoster.findUnique({ where: { id: validEmailStaff.body.id } })).email, 'Mixed.Local+Tag@example.org', 'a rejected email edit leaves the previous value intact');
+
+    assert.equal((await request(`/attending/roster/${validEmailStaff.body.id}`, viewer, { method: 'PUT', body: JSON.stringify({ email: 'viewer-change@example.org' }) })).status, 403, 'a Viewer cannot change attending contact information');
+    assert.equal((await prisma.attendingRoster.findUnique({ where: { id: validEmailStaff.body.id } })).email, 'Mixed.Local+Tag@example.org', 'a Viewer contact edit changes nothing');
+
+    const withoutRosterPermission = CONFIGURABLE_CHIEF_PERMISSIONS.filter(permission => permission !== 'manage_attending_roster');
+    assert.equal((await request(`/program-configuration/${program.id}/role-permissions`, admin, { method: 'PUT', body: JSON.stringify({ role: 'chief_resident', permissions: withoutRosterPermission }) })).status, 200);
+    assert.equal((await request(`/attending/roster/${validEmailStaff.body.id}`, chief, { method: 'PUT', body: JSON.stringify({ email: 'chief-denied@example.org' }) })).status, 403, 'a Chief without roster permission cannot change contact information');
+    assert.equal((await request(`/program-configuration/${program.id}/role-permissions`, admin, { method: 'PUT', body: JSON.stringify({ role: 'chief_resident', permissions: CONFIGURABLE_CHIEF_PERMISSIONS }) })).status, 200);
+    const chiefEdit = await request(`/attending/roster/${validEmailStaff.body.id}`, chief, { method: 'PUT', body: JSON.stringify({ email: 'Chief.Local@EXAMPLE.ORG' }) });
+    assert.equal(chiefEdit.status, 200, 'a Chief with roster permission can change contact information');
+    assert.equal(chiefEdit.body.email, 'Chief.Local@example.org');
 
     const renamedStaff = await request(`/attending/roster/${staff.body.id}`, admin, { method: 'PUT', body: JSON.stringify({ attendingName: '  Dr. Renamed  ' }) });
     assert.equal(renamedStaff.status, 200);

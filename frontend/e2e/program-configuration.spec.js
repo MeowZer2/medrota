@@ -36,7 +36,7 @@ test('program identity, custom registries, weekly activity selection, and Chief 
 
   // Registries and permissions each live in their own settings section.
   await page.getByRole('tab', { name: 'Clinical Structure' }).click();
-  await page.getByLabel('New clinical service').fill(serviceName);
+  await page.getByLabel('New clinical service', { exact: true }).fill(serviceName);
   await page.getByRole('button', { name: 'Add service' }).click();
   await expect(page.getByLabel(`${serviceName} name`)).toBeVisible();
 

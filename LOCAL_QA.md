@@ -87,7 +87,7 @@ If browsers have not been installed on the machine yet, run once from `frontend`
 npx playwright install chromium
 ```
 
-Current E2E coverage is 55 tests across eight spec files:
+Current E2E coverage is 58 tests across nine spec files:
 
 | Spec | Covers |
 |---|---|
@@ -97,7 +97,8 @@ Current E2E coverage is 55 tests across eight spec files:
 | `onboarding.spec.js` | Registration fields, auto-login, the no-invite explanation, invited registration joining at the invited role |
 | `responsive.spec.js` | No horizontal scroll at 375/768/1024/1440, dialogs fit a phone, touch-target sizes |
 | `accessibility.spec.js` | Named controls, labelled modal dialogs, Escape and focus restore, keyboard-only login, calendar and every program settings section, role conveyed by text |
-| `settings-registries.spec.js` | Program Settings section navigation and URL persistence, per-role section visibility, attending and activity deactivate/restore, inline rename with Save/Cancel/Escape and blank-name refusal, in-place attending editing, sorted and capped inactive lists with search, Viewer denial, and pointer reachability of registry actions at 375/768/1280px |
+| `program-configuration.spec.js` | Program identity, custom registries, weekly activity selection, and configured Chief permissions working together |
+| `settings-registries.spec.js` | Program Settings navigation, per-role visibility, email validation, roster/activity/service local mutations and Undo, clinical service descriptions, inline editing, inactive-list search, Viewer denial, and pointer reachability at 375/768/1280px |
 | `settings-unsaved-changes.spec.js` | Section-scoped saving of the program record, the discard warning on section change, sidebar navigation and browser Back, silence when nothing changed, and the browser unload prompt arming only while a section is dirty |
 
 The onboarding tests create accounts with unique throwaway emails. They join no
