@@ -20,6 +20,12 @@ const PAGES = [
   { label: 'attending schedule', path: '/attending' },
   { label: 'block settings', path: '/blocks/1/settings' },
   { label: 'program settings', path: '/settings' },
+  // Each Program Settings section mounts different rows, so each is measured.
+  { label: 'settings: clinical structure', path: '/settings?tab=clinical' },
+  { label: 'settings: attendings', path: '/settings?tab=attendings' },
+  { label: 'settings: scheduling', path: '/settings?tab=scheduling' },
+  { label: 'settings: access', path: '/settings?tab=access' },
+  { label: 'settings: history', path: '/settings?tab=history' },
   { label: 'dashboard', path: '/dashboard' },
 ];
 

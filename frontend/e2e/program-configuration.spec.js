@@ -34,10 +34,13 @@ test('program identity, custom registries, weekly activity selection, and Chief 
   await expect(page.getByLabel('Program display name')).toBeVisible();
   await expect(page.getByLabel('Primary specialty')).toBeVisible();
 
+  // Registries and permissions each live in their own settings section.
+  await page.getByRole('tab', { name: 'Clinical Structure' }).click();
   await page.getByLabel('New clinical service').fill(serviceName);
   await page.getByRole('button', { name: 'Add service' }).click();
   await expect(page.getByLabel(`${serviceName} name`)).toBeVisible();
 
+  await page.getByRole('tab', { name: 'Attendings' }).click();
   await page.getByLabel('New attending activity').fill(activityName);
   await page.getByRole('button', { name: 'Add activity' }).click();
   await expect(page.getByLabel(`${activityName} name`)).toBeVisible();
@@ -52,7 +55,7 @@ test('program identity, custom registries, weekly activity selection, and Chief 
   await page.getByRole('button', { name: /Attending Roster & Weekly Pattern/i }).click();
   await expect(page.locator('select').filter({ has: page.locator(`option[value="${activityName}"]`) }).first()).toBeVisible();
 
-  await page.goto('/settings');
+  await page.goto('/settings?tab=access');
   const residentsToggle = page.getByLabel('Manage residents');
   await expect(residentsToggle).toBeChecked();
   await residentsToggle.uncheck();
@@ -65,7 +68,7 @@ test('program identity, custom registries, weekly activity selection, and Chief 
   await login(page, 'qa-chief@medrota.local', '/dashboard');
   await expect(page.getByRole('button', { name: /^Residents$/ })).toHaveCount(0);
 
-  await login(page, 'qa-admin@medrota.local');
+  await login(page, 'qa-admin@medrota.local', '/settings?tab=access');
   await expect(page.getByLabel('Manage residents')).not.toBeChecked();
   await page.getByLabel('Manage residents').check();
   const enableResponsePromise = page.waitForResponse(response => response.url().includes('/role-permissions') && response.request().method() === 'PUT');
@@ -80,7 +83,7 @@ test('program identity, custom registries, weekly activity selection, and Chief 
   const viewerMutation = await api(page, `/program-configuration/${programId}/clinical-services`, { method: 'POST', body: JSON.stringify({ name: `QA_ONLY Viewer ${suffix}` }) });
   expect(viewerMutation.status).toBe(403);
 
-  await login(page, 'qa-admin@medrota.local');
+  await login(page, 'qa-admin@medrota.local', '/settings?tab=access');
   await api(page, `/program-configuration/${programId}/role-permissions`, { method: 'PUT', body: JSON.stringify({ role: 'chief_resident', permissions: initialPermissions }) });
   const services = await api(page, `/program-configuration/${programId}/clinical-services`);
   const activities = await api(page, `/program-configuration/${programId}/attending-activities`);

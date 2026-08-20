@@ -257,6 +257,9 @@ test('program admin can persist program call-type settings', async ({ page }) =>
   await login(page, 'qa-admin@medrota.local', '/settings');
   await expect(page.getByRole('heading', { name: 'Program Settings' })).toBeVisible();
 
+  // Call configuration lives in the Scheduling section of Program Settings.
+  await page.getByRole('tab', { name: 'Scheduling' }).click();
+
   const juniorToggle = page.getByRole('checkbox', { name: /Junior in-house call/i });
   const seniorToggle = page.getByRole('checkbox', { name: /Senior in-house call/i });
   await expect(juniorToggle).toBeVisible();

@@ -60,7 +60,8 @@ test('an invited registration joins the program automatically at the invited rol
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.waitForURL(/\/dashboard|\/setup/, { timeout: 20_000 });
 
-  await page.goto('/settings');
+  // Invitations live in the Access & Permissions section of Program Settings.
+  await page.goto('/settings?tab=access');
   await page.waitForLoadState('networkidle');
   await page.getByLabel('Invite role').selectOption('viewer');
   await page.getByRole('button', { name: /Generate invite link/i }).click();

@@ -75,7 +75,9 @@ test('public and authenticated pages name every control', async ({ page }) => {
   await expectAccessible(page, 'register');
 
   await login(page, 'qa-admin@medrota.local');
-  for (const path of ['/dashboard', '/calendar', '/residents', '/attending', '/blocks/1/settings', '/settings']) {
+  // Every Program Settings section is audited: each one mounts its own controls.
+  const settingsSections = ['general', 'clinical', 'attendings', 'scheduling', 'access', 'history'].map(tab => `/settings?tab=${tab}`);
+  for (const path of ['/dashboard', '/calendar', '/residents', '/attending', '/blocks/1/settings', ...settingsSections]) {
     await page.goto(path);
     await page.waitForLoadState('networkidle');
     await expectAccessible(page, path);
@@ -183,6 +185,13 @@ test('program settings is operable from the keyboard', async ({ page }) => {
   const specialty = page.getByLabel('Primary specialty');
   await specialty.focus();
   await expect(specialty).toBeFocused();
+
+  // Sections are reachable from the keyboard, and the call toggles live in one.
+  const schedulingTab = page.getByRole('tab', { name: 'Scheduling' });
+  await schedulingTab.focus();
+  await expect(schedulingTab).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(schedulingTab).toHaveAttribute('aria-selected', 'true');
 
   // The call-type checkboxes are label-associated, so they toggle with Space.
   const juniorCall = page.getByLabel(/Junior in-house call/);
