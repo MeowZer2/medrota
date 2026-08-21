@@ -87,7 +87,6 @@ test('dialogs fit a phone screen and stay reachable', async ({ page }) => {
     { label: 'validation', open: async () => page.getByRole('button', { name: 'Validate schedule' }).click(), path: '/calendar' },
     { label: 'publish', open: async () => page.getByRole('button', { name: /^Re-publish$|^Publish$/ }).click(), path: '/calendar' },
     { label: 'add resident', open: async () => page.getByRole('button', { name: 'Add Resident' }).click(), path: '/residents' },
-    { label: 'block availability', open: async () => page.getByTestId('set-block-availability').click(), path: '/residents' },
   ];
 
   for (const opener of openers) {

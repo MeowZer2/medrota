@@ -84,6 +84,7 @@ jobs:
           npm run data:integrity-audit
           npm run data:integrity-smoke
           npm run availability:smoke
+          npm run resident:workflow-smoke
           npm run program-config:smoke
           npm run registry:lifecycle-smoke
           npm run settings:save-smoke

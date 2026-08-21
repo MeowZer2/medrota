@@ -58,7 +58,7 @@ time the seed runs, so the availability tests can be re-run.
 1. Login as `qa-chief@medrota.local`.
 2. Open the calendar for QA Block 1.
 3. Confirm no visible mojibake strings such as `Ã¢`, `â`, or `Â`.
-4. Confirm the day `2026-06-15` shows `QA_ONLY Senior Resident`, `QA_ONLY Junior Resident`, and `QA_ONLY Dr Avery`.
+4. Confirm the day `2026-06-15` shows the centralized resident display names and `QA_ONLY Dr Avery`.
 5. Click `2026-06-15` and confirm the modal opens.
 6. Confirm the senior/junior selects preselect the same residents shown on the calendar cell.
 7. Confirm the attending shown on the cell appears in the modal.
@@ -92,7 +92,8 @@ Current E2E coverage is 58 tests across nine spec files:
 | Spec | Covers |
 |---|---|
 | `core-calendar.spec.js` | Route guards, calendar prefill/save/reload, duplicate-resident rejection, override confirmation and reason, actionable validation detail, unfilled-slot explanations, publishing with documented overrides, holidays, Viewer restrictions and direct mutation rejection, call-type settings, password visibility, public access, mojibake checks |
-| `availability.spec.js` | Readiness before generation, bulk enrollment, copy-forward, dialog keyboard behaviour, block history visible to a Chief Resident and hidden from a Viewer |
+| `availability.spec.js` | Block-centered readiness, per-resident availability confirmation, compatibility bulk confirmation, block history visible to a Chief Resident and hidden from a Viewer |
+| `resident-workflow.spec.js` | Resident Directory creation/editing, calculated PGY, in-service auto-participation, off-service/student enrollment, one Medical Student badge, Tuesday academic time, workload summaries, duplicate-name handling, assigned-removal protection, mobile and Viewer behavior |
 | `publishing.spec.js` | Public link rotation invalidating the old link, unpublish and republish, Viewer sees no revocation controls |
 | `onboarding.spec.js` | Registration fields, auto-login, the no-invite explanation, invited registration joining at the invited role |
 | `responsive.spec.js` | No horizontal scroll at 375/768/1024/1440, dialogs fit a phone, touch-target sizes |
@@ -197,6 +198,41 @@ Program Settings browser QA should confirm:
 13. Saving **General** does not change the call-type settings, and saving **Scheduling** does not change the program name or specialty, including when the other section holds an unsaved edit.
 
 `manage_scheduling_rules` is only a permission toggle in this milestone; there is no custom rule-builder UI yet.
+
+## Resident and block workflow QA
+
+Run the focused backend behavior suite after applying migrations:
+
+```bash
+cd backend
+npm run resident:workflow-smoke
+```
+
+It covers training-window auto-participation, exclusion outside training dates,
+explicit reusable off-service and medical-student enrollment, enrollment
+uniqueness, calculated/manual PGY, configurable junior/senior mapping, display
+name disambiguation, structured academic time, days-on-service and call limits,
+assignment-protected removal, cross-program rejection, permissions and audit.
+
+Manual or browser QA should follow the Chief Resident path:
+
+1. Open **Residents** and confirm it says **Resident Directory**, with active and inactive program-level records.
+2. Add an in-service resident with program start/completion dates and verify PGY is marked **Calculated**. Clear the dates on a legacy record and verify its manual PGY remains readable.
+3. Open a Block and confirm **Residents this block** immediately shows counts and a compact roster.
+4. Open **Manage block residents**. Eligible in-service residents should already be in the right-hand pool; an off-service resident and medical student should stay available until **Add** is used.
+5. Create one rotating resident with a free-text home program, add them, then open another block and verify the same directory record is available but not enrolled.
+6. Confirm a medical student has exactly one **Medical Student** badge.
+7. Configure vacation, other unavailable dates and an arbitrary `Tuesday | PM` academic-time row. Reload and verify all persist.
+8. Compare block days, unavailable-day deductions, days on service, call type, PARO maximum, local maximum and assigned count with the Calendar/validator results.
+9. Create residents with the same surname and then the same first initial; verify the directory, dropdowns, Calendar, validation and exports stay unambiguous without showing contact data.
+10. Assign the rotating resident to call, try to remove them from the block, and verify removal is blocked until the assignment is resolved.
+11. At 375px width, confirm both pools stack without horizontal page overflow and Add/Remove buttons remain usable.
+12. As Viewer, confirm the block roster is readable but mutation controls and direct mutation requests are denied.
+
+The recurring academic-time limitation is intentional: Full day is a hard avoid
+when academic avoidance is on; AM/PM produces a review warning because call is
+currently a whole-day model. Published `ScheduleVersion` snapshots are never
+rewritten by later resident-directory or block-composition changes.
 
 ## Current Milestone Status
 

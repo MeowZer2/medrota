@@ -41,6 +41,19 @@ risk.
   mutations, with secrets and tokens stripped and role-scoped visibility.
 * Block availability can be set in bulk or copied forward, and a readiness panel
   reports what is missing **before** generation.
+* The Resident Directory is program-level, while each Block is now the operational
+  roster center. Eligible in-service residents auto-participate inside their
+  training window; off-service residents and medical students are explicitly
+  enrolled and reusable without duplicate profiles.
+* Training dates calculate PGY with off-cycle anniversary handling. Program-defined
+  junior PGY levels calculate scheduling roles, with explicit overrides and legacy
+  manual PGY/role fallback retained.
+* Recurring academic time supports Monday through Sunday and AM, PM or Full day;
+  full days are hard avoids and half days are explicit whole-day-model warnings.
+* Block rows expose authoritative days-on-service, call type, PARO maximum, local
+  maximum and assigned count. Assigned residents cannot be silently removed.
+* One resident display-name policy now disambiguates duplicate surnames without
+  exposing private identifiers in schedules, validation, exports or public views.
 * Registration asks only for name, email and password, signs the user in, and
   takes its role from the invitation.
 
@@ -55,7 +68,7 @@ risk.
 
 ## Behavioral Protection
 
-Twenty-one backend suites and 55 Playwright tests. The full matrix is in
+Twenty-two backend suites and 64 Playwright tests. The full matrix is in
 `PRIVATE_BETA_READINESS.md` §7. The ones that earn their keep:
 
 * `authz:smoke` — real HTTP and database isolation, role, auth, invite,
@@ -116,9 +129,10 @@ Twenty-one backend suites and 55 Playwright tests. The full matrix is in
   500 kB warning; no measured problem.
 * On Windows, Playwright-owned server teardown can hang after tests pass;
   `LOCAL_QA.md` documents the verified server-reuse run.
-* Only vacation is a reliable days-on-service deduction. Academic flags use a
-  label convention; other time away, multi-month averaging, shift work,
-  emergency clauses and formal approvals remain unsupported.
+* Vacation and explicit other-unavailable dates reduce days on service. Recurring
+  half-day academic time is surfaced as a warning, not converted into an invented
+  call rule; multi-month averaging, shift work, emergency clauses and formal
+  approvals remain unsupported.
 * "Print / PDF" is printable HTML for browser Save-as-PDF.
 
 ## Program structure and access update
@@ -132,7 +146,8 @@ The program configuration milestone is implemented on top of the private-beta ba
 * Backend authorization resolves program-level Chief Resident permission configuration. Program Admin and Program Director remain full-access; Viewer remains fixed read-only.
 * `manage_scheduling_rules` prepares authorization for a later custom-rule project only.
 
-No resident composition redesign, specialty-specific subspecialty tree, or custom scheduling-rule engine was added.
+The resident/block composition redesign is complete. No specialty-specific
+subspecialty tree or custom scheduling-rule engine was added.
 
 ## Next Priorities
 

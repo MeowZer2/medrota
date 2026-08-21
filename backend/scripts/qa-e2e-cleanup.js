@@ -17,8 +17,19 @@ async function main() {
     return;
   }
   const removed = await pruneE2ERegistryRecords(program.id);
+  const e2eResidents = await prisma.residentProfile.findMany({
+    where: { programId: program.id, name: { startsWith: E2E_PREFIX } },
+    select: { id: true },
+  });
+  const residentIds = e2eResidents.map(item => item.id);
+  if (residentIds.length) {
+    await prisma.callAssignment.deleteMany({ where: { residentId: { in: residentIds } } });
+    await prisma.blockEnrollment.deleteMany({ where: { residentId: { in: residentIds } } });
+    await prisma.residentProfile.deleteMany({ where: { id: { in: residentIds } } });
+  }
   const remaining = await inactiveRegistryCounts(program.id);
   console.log(`[qa:cleanup-e2e] Removed ${removed.attendings} attendings, ${removed.activities} activities and ${removed.services} services named "${E2E_PREFIX}*".`);
+  console.log(`[qa:cleanup-e2e] Removed ${residentIds.length} resident workflow records named "${E2E_PREFIX}*".`);
   console.log(`[qa:cleanup-e2e] Inactive records still held by the QA program: ${JSON.stringify(remaining)}`);
 }
 

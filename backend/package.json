@@ -32,6 +32,7 @@
     "publish:revocation-smoke": "node scripts/publish-revocation-smoke.js",
     "deploy:smoke": "node scripts/deployment-smoke.js",
     "registry:lifecycle-smoke": "node scripts/registry-lifecycle-smoke.js",
+    "resident:workflow-smoke": "node scripts/resident-workflow-smoke.js",
     "settings:save-smoke": "node scripts/settings-save-smoke.js",
     "qa:cleanup-e2e": "node scripts/qa-e2e-cleanup.js",
     "qa:isolation-smoke": "node scripts/qa-isolation-smoke.js"

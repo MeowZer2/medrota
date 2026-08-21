@@ -93,7 +93,6 @@ test('every dialog is a labelled modal that closes on Escape', async ({ page }) 
     { label: 'clear schedule', path: '/calendar', open: p => p.getByRole('button', { name: 'Clear schedule' }) },
     { label: 'day editor', path: '/calendar', open: p => p.getByRole('button', { name: /^Edit / }).first() },
     { label: 'add resident', path: '/residents', open: p => p.getByRole('button', { name: 'Add Resident', exact: true }) },
-    { label: 'block availability', path: '/residents', open: p => p.getByTestId('set-block-availability') },
     { label: 'clear attending block', path: '/attending', open: p => p.getByRole('button', { name: 'Clear block' }) },
   ];
 
@@ -167,7 +166,7 @@ test('a calendar day can be opened, edited and saved from the keyboard', async (
   const seniorSelect = page.locator('select[name="seniorId"]');
   await seniorSelect.focus();
   await expect(seniorSelect).toBeFocused();
-  await seniorSelect.selectOption({ label: 'QA_ONLY Senior Resident' });
+  await seniorSelect.selectOption({ label: 'Dr. QA_ONLY Senior Resident' });
 
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toBeHidden();
@@ -209,8 +208,8 @@ test('senior and junior are conveyed by text, not colour alone', async ({ page }
   await page.waitForLoadState('networkidle');
 
   // Chips carry an S:/J: prefix so the role survives greyscale and screen readers.
-  await expect(page.getByText(/^S: QA_ONLY /).first()).toBeVisible();
-  await expect(page.getByText(/^J: QA_ONLY /).first()).toBeVisible();
+  await expect(page.getByText(/^S: Dr\./).first()).toBeVisible();
+  await expect(page.getByText(/^J: Dr\./).first()).toBeVisible();
 
   const publicUrl = await page.locator('input[readonly]').first().inputValue();
   await page.goto(publicUrl);

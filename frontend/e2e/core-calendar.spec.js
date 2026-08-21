@@ -2,6 +2,11 @@ import { expect, test } from '@playwright/test';
 
 const PASSWORD = 'QA_only_password_123!';
 test.describe.configure({ mode: 'serial' });
+const DISPLAY = {
+  senior: 'Dr. QA_ONLY Senior Resident',
+  alternateSenior: 'Dr. Senior',
+  junior: 'Dr. QA_ONLY Junior Resident',
+};
 const MOJIBAKE_PATTERNS = ['Ã', 'Â', 'â€', 'ðŸ', 'ï¿½', '�'];
 
 async function login(page, email, targetPath = '/calendar') {
@@ -26,8 +31,8 @@ async function expectNoMojibake(page) {
 function seededDayCell(page) {
   return page
     .locator('button')
-    .filter({ hasText: /QA_ONLY (Senior Resident|Alternate Senior)/ })
-    .filter({ hasText: 'QA_ONLY Junior Resident' })
+    .filter({ hasText: /Dr\. (QA_ONLY Senior Resident|Senior)/ })
+    .filter({ hasText: DISPLAY.junior })
     .filter({ hasText: 'QA_ONLY Dr Avery' })
     .first();
 }
@@ -48,37 +53,37 @@ test('chief resident can use the calendar day modal and persist assignment chang
 
   const dayCell = seededDayCell(page);
   await expect(dayCell).toBeVisible();
-  await expect(dayCell).toContainText('QA_ONLY Junior Resident');
+  await expect(dayCell).toContainText(DISPLAY.junior);
   await expect(dayCell).toContainText('QA_ONLY Dr Avery');
 
   await dayCell.click();
   const seniorSelect = page.locator('select[name="seniorId"]');
   const juniorSelect = page.locator('select[name="juniorId"]');
   await expect(seniorSelect).toBeVisible();
-  await expect(seniorSelect.locator('option:checked')).toHaveText('QA_ONLY Senior Resident');
-  await expect(juniorSelect.locator('option:checked')).toHaveText('QA_ONLY Junior Resident');
+  await expect(seniorSelect.locator('option:checked')).toHaveText(DISPLAY.senior);
+  await expect(juniorSelect.locator('option:checked')).toHaveText(DISPLAY.junior);
   await expect(page.locator('.modal-panel.open').last()).toContainText('QA_ONLY Dr Avery');
 
-  await seniorSelect.selectOption({ label: 'QA_ONLY Alternate Senior' });
+  await seniorSelect.selectOption({ label: DISPLAY.alternateSenior });
   await page.getByRole('button', { name: /^Save$/ }).click();
   await expect(seniorSelect).toBeHidden();
 
   const updatedCell = page
     .locator('button')
-    .filter({ hasText: 'QA_ONLY Alternate Senior' })
-    .filter({ hasText: 'QA_ONLY Junior Resident' })
+    .filter({ hasText: DISPLAY.alternateSenior })
+    .filter({ hasText: DISPLAY.junior })
     .filter({ hasText: 'QA_ONLY Dr Avery' })
     .first();
   await expect(updatedCell).toBeVisible();
 
   await updatedCell.click();
-  await expect(seniorSelect.locator('option:checked')).toHaveText('QA_ONLY Alternate Senior');
-  await expect(juniorSelect.locator('option:checked')).toHaveText('QA_ONLY Junior Resident');
+  await expect(seniorSelect.locator('option:checked')).toHaveText(DISPLAY.alternateSenior);
+  await expect(juniorSelect.locator('option:checked')).toHaveText(DISPLAY.junior);
   await page.getByRole('button', { name: /^Cancel$/ }).click();
 
   await page.reload();
   await expect(
-    page.locator('button').filter({ hasText: 'QA_ONLY Alternate Senior' }).filter({ hasText: 'QA_ONLY Junior Resident' }).first()
+    page.locator('button').filter({ hasText: DISPLAY.alternateSenior }).filter({ hasText: DISPLAY.junior }).first()
   ).toBeVisible();
 });
 
@@ -120,8 +125,8 @@ test('invalid duplicate-resident day update is rejected without changing stored 
 test('violating calendar edit requires a reason and remains visible to validation', async ({ page }) => {
   await login(page, 'qa-chief@medrota.local');
   await page.getByRole('button', { name: 'Edit Tuesday, 16 June 2026' }).click();
-  await page.locator('select[name="seniorId"]').selectOption({ label: 'QA_ONLY Alternate Senior' });
-  await page.locator('select[name="juniorId"]').selectOption({ label: 'QA_ONLY Junior Resident' });
+  await page.locator('select[name="seniorId"]').selectOption({ label: DISPLAY.alternateSenior });
+  await page.locator('select[name="juniorId"]').selectOption({ label: DISPLAY.junior });
   await page.getByRole('button', { name: /^Save$/ }).click();
 
   await expect(page.getByRole('heading', { name: 'Rule violation requires an override' })).toBeVisible();
@@ -146,11 +151,11 @@ test('validation explains who, when, which rule, why and what to do', async ({ p
 
   const card = dialog
     .getByTestId('violation-CONSECUTIVE_CALL')
-    .filter({ hasText: 'QA_ONLY Alternate Senior' })
+    .filter({ hasText: DISPLAY.alternateSenior })
     .first();
   await expect(card).toBeVisible();
   // Who and when.
-  await expect(card).toContainText('QA_ONLY Alternate Senior');
+  await expect(card).toContainText(DISPLAY.alternateSenior);
   await expect(card).toContainText('16 Jun');
   // Which rule and why it matters.
   await expect(card).toContainText('Consecutive call');
@@ -209,11 +214,7 @@ test('viewer can read published schedule but cannot edit calendar data', async (
   await login(page, 'qa-viewer@medrota.local');
   await expectNoMojibake(page);
 
-  const dayCell = page
-    .locator('button')
-    .filter({ hasText: /QA_ONLY (Senior Resident|Alternate Senior)/ })
-    .filter({ hasText: 'QA_ONLY Junior Resident' })
-    .first();
+  const dayCell = seededDayCell(page);
   await expect(dayCell).toBeVisible();
   await expectNoMojibake(page);
 

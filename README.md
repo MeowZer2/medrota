@@ -1,6 +1,6 @@
 # MedRota
 
-MedRota is a single-program residency call-scheduling MVP. It helps a Chief Resident maintain a roster and block availability, generate a PARO-aware draft, make documented exceptions, validate the stored schedule, publish an immutable snapshot, and share or export it.
+MedRota is a single-program residency call-scheduling MVP. It helps a Chief Resident maintain a Resident Directory, compose each block roster, confirm availability, generate a PARO-aware draft, make documented exceptions, validate the stored schedule, publish an immutable snapshot, and share or export it.
 
 MedRota provides scheduling assistance; it does not certify legal, contractual, PARO, privacy, or regulatory compliance. It is not PARO certified, PHIPA compliant, HIPAA compliant or production ready. A program must validate current institutional and jurisdictional requirements before real-world use.
 
@@ -54,17 +54,21 @@ Canonical program roles are `chief_resident`, `program_admin`, `program_director
 
 ## Chief Resident workflow
 
-1. **Residents** — add the roster once, then use *Set block availability* to enroll everyone for a block in one click, or copy the previous block's configuration forward. Vacation is entered as date ranges.
-2. **Attending Schedule** — build attending coverage from the roster or a weekly template.
-3. **Calendar** — the readiness panel above *Generate* shows how many residents have block availability, how many vacation periods are entered, and whether attending coverage is complete, with each gap linking to the fix.
-4. **Auto-generate**, then adjust individual days. A violating edit needs explicit confirmation and a reason.
-5. **Validate** — every violation says who, what date, what rule, why it matters, what to do about it, and whether it was an intentional override. Unfilled slots list which residents were unavailable and why.
-6. **Publish** — validation runs first; an unreviewed non-compliant schedule is never published silently. Share the public link, or unpublish or rotate it later.
+1. **Resident Directory** — maintain program-level identity, classification, optional contact information and training dates. In-service residents are reusable across the program; off-service residents and medical students remain directory records without being copied.
+2. **Open a Block** — immediately review *Residents this block*, then use *Manage block residents* to add reusable rotating residents and confirm availability, vacation, other unavailable days and academic time. Eligible in-service residents appear automatically; off-service residents and medical students are added only to selected blocks.
+3. **Attending Schedule** — build attending coverage from the roster or a weekly template.
+4. **Calendar** — the readiness panel above *Generate* shows how many block residents have confirmed availability, how many vacation periods are entered, and whether attending coverage is complete, with each gap linking to the fix.
+5. **Auto-generate**, then adjust individual days. A violating edit needs explicit confirmation and a reason.
+6. **Validate** — every violation says who, what date, what rule, why it matters, what to do about it, and whether it was an intentional override. Unfilled slots list which residents were unavailable and why.
+7. **Publish** — validation runs first; an unreviewed non-compliant schedule is never published silently. Share the public link, or unpublish or rotate it later.
 
 ## Scheduling behavior
 
 - Auto-generation preserves and counts manual overrides, and is idempotent.
-- Residents without explicit `BlockEnrollment` availability are excluded with actionable warnings.
+- Eligible active in-service residents receive an automatic, unconfirmed `BlockEnrollment`; off-service residents and medical students require explicit enrollment. Unconfirmed availability is excluded with actionable warnings.
+- Program start and expected completion dates calculate PGY against the block academic year, with off-cycle anniversary handling. Legacy manual PGY and `residentRole` remain the fallback, and a program-defined junior-PGY set drives automatic junior/senior classification unless a resident has an override.
+- Structured recurring academic time supports every weekday and AM, PM or Full day. Full days are hard avoids when academic-day avoidance is enabled; half days produce a review warning because call remains a whole-day model.
+- Days on service deducts vacation and other unavailable dates. Workload summaries use the same in-house/home-call PARO helpers and local ceilings as generation and validation.
 - Vacation, pre-vacation post-call, consecutive call, call maximum, blended-call, weekend-off, and consecutive home-weekend rules are checked.
 - Hard conflicts leave slots unassigned; the generator does not silently relax constraints.
 - A violating manual edit requires backend-confirmed violations, explicit confirmation, and a non-empty reason.
@@ -109,6 +113,7 @@ npm run scheduler:acceptance
 npm run schedule:validate-smoke
 npm run data:integrity-smoke
 npm run availability:smoke
+npm run resident:workflow-smoke
 npm run publish:safety-smoke
 npm run publish:revocation-smoke
 npm run audit:smoke
@@ -157,11 +162,19 @@ Deactivating a roster entry, an activity type or a clinical service takes it out
 
 The canonical roles remain Program Admin, Program Director, Chief Resident, and Viewer. Admins and Directors always resolve to full program-management access, and Viewers always remain read-only. Admins and Directors may configure a bounded canonical set of Chief Resident operational permissions. `manage_scheduling_rules` is included for the future rule builder, but this release does not add that builder.
 
+## Resident and block model
+
+`ResidentProfile` is the durable program directory record; `BlockEnrollment` is participation and availability for one block. Adding someone to a block never creates another person. In-service residents are automatically attached only to blocks overlapping their active training window. Changing dates or deactivating a resident updates safe future automatic participation, while historical enrollments, assignments and published snapshots remain readable and are never silently rewritten.
+
+Off-service residents can store a free-text home program/specialty and be reused in later blocks. Medical students follow the same explicit block-enrollment rule and use one canonical **Medical Student** badge. Optional resident email and phone are private authenticated-directory fields and are excluded from public schedules.
+
+Resident names are shaped centrally for schedules and exports: a unique surname is `Dr. Smith`, duplicate surnames use first initials, and duplicate initials expand to full names with a non-private fallback if still needed. Removing an off-service resident or medical student from a block is refused while assignments remain. Resident creation, profile/training changes, enrollment changes and block availability changes are permission checked and written to the append-only audit trail without contact values.
+
 ## Current limitations
 
 - MVP scope is one active program per user experience, although backend resources are program-isolated.
 - Generation is greedy, not optimal. Roster order can still shift a small number of calls between individuals.
-- Only vacation is modeled as a reliable days-on-service deduction.
-- Academic days are recognized by a centralized case-insensitive `academic` label convention on flags.
+- Vacation and explicit other-unavailable dates reduce days on service; recurring academic time does not, because half-day impact has no defined call rule.
+- Half-day academic time is warning/preference information only while call is modeled at whole-day granularity.
 - Multi-month averaging, shift-work rules, emergency coverage, formal exception approval, swaps, notifications, and server-generated PDFs are deferred.
 - The Vite build reports a main-chunk warning above 500 kB; optimize only after measurement or a deployment requirement.

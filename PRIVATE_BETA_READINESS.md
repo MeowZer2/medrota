@@ -18,8 +18,11 @@ Residents**. One program's schedule, one block at a time.
 
 | Capability | State |
 |---|---|
-| Roster of residents, seniors, juniors and medical students | Supported |
-| Explicit per-block availability, entered as vacation date ranges | Supported |
+| Program Resident Directory plus explicit per-block roster | Supported |
+| In-service auto-participation within training dates; reusable off-service/student records | Supported |
+| Calculated PGY and configurable junior/senior mapping with legacy fallback | Supported |
+| Per-block vacation, other unavailable dates and recurring academic time | Supported |
+| Days-on-service and authoritative call-limit summary | Supported |
 | Bulk "set block availability" and copy-forward from an earlier block | Supported |
 | Attending coverage per day, from a roster or a weekly template | Supported |
 | PARO-aware auto-generation of resident call | Supported |
@@ -41,9 +44,9 @@ Not partially built — absent, and it will be obvious.
 * **Any optimizing solver.** Generation is greedy; see §5.
 * **Shift work, night float, multi-month averaging, emergency-coverage
   clauses.** None are modeled.
-* **Time away other than vacation.** Only vacation reduces days on service.
-  Academic days are recognized by a case-insensitive `academic` label on a day
-  flag, and affect eligibility, but are not general time-away.
+* **Partial-day call semantics.** Full-day recurring academic time can be a hard
+  avoid, but AM/PM entries are warnings because resident call is modeled at
+  whole-day granularity. MedRota does not invent a clinical half-day rule.
 * **Swaps, requests, or a formal exception-approval workflow.** An override is
   recorded by whoever makes it; nobody countersigns.
 * **Notifications.** No email, no reminders. Invite links are generated in the
@@ -192,6 +195,7 @@ Full commands in `DEPLOYMENT.md`.
 | Publish safety | `npm run publish:safety-smoke` | Actionable violations, publish gate, unfilled-slot reasons |
 | Publish revocation | `npm run publish:revocation-smoke` | Unpublish, link rotation, token never audited |
 | Availability | `npm run availability:smoke` | Bulk enroll, copy-forward, readiness, authorization |
+| Resident/block workflow | `npm run resident:workflow-smoke` | Auto-participation windows, reusable rotating residents, PGY/role mapping, names, academic time, workload, safe removal, permissions and audit |
 | Data integrity | `npm run data:integrity-audit`, `npm run data:integrity-smoke` | Role-slot uniqueness, repair classification |
 | Audit trail | `npm run audit:smoke` | Recording, redaction, role visibility |
 | Privacy and exports | `npm run phase6:smoke` | Public shape, Excel, printable |
@@ -200,7 +204,7 @@ Full commands in `DEPLOYMENT.md`.
 | Program configuration | `npm run program-config:smoke` | Clinical services, activity lifecycle, history preservation, dynamic Chief authorization, fixed role hierarchy |
 | Program settings saving | `npm run settings:save-smoke` | Section-scoped program saves, registry and roster field updates, blank-name refusal |
 | QA test isolation | `npm run qa:isolation-smoke` | Two consecutive QA seed/test cycles leave the QA registries at their baseline |
-| Browser | `npm run e2e` | 55 Playwright tests: calendar, overrides, validation, availability, audit, publishing, onboarding, program configuration, settings sections and registries, unsaved-change protection, responsive, accessibility |
+| Browser | `npm run e2e` | 64 Playwright tests: calendar, resident directory/block composition, PGY, academic time, workload, safe removal, overrides, validation, audit, publishing, permissions, responsive and accessibility |
 
 **What the tests do not cover:** real clinician data, a real program's rule
 interpretation, concurrent multi-user editing, load or soak, browsers other than
@@ -211,6 +215,13 @@ Chromium, and assistive technology beyond keyboard and accessible-name checks.
 Program display name identifies the local residency program; Primary specialty remains its medical category. Clinical services and attending activity types are optional program-level registries, not global specialty defaults. Deactivation is non-destructive and historical attending labels remain stored and readable.
 
 Program Admin and Program Director always receive the full canonical program permission set. Only those roles can change the Chief Resident's bounded operational permission configuration. Viewer permissions are fixed to published, read-only access; permission payloads cannot promote a Viewer. The future rules capability is represented by `manage_scheduling_rules`, with no rule engine included in this release.
+
+Resident identity is durable at program scope. Block enrollment is a separate,
+unique relationship and never duplicates the person record. Contact fields are
+optional and are excluded from public schedule shapes. Historical assignments
+and immutable published snapshots are retained when training dates, active state
+or future automatic participation changes. Block removal is refused while the
+resident has assignments.
 
 ## 9. Deployment prerequisites
 
