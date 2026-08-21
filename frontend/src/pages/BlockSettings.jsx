@@ -20,14 +20,14 @@ function Toggle({ checked, onChange, disabled, id, label }) {
       onClick={() => !disabled && onChange(!checked)}
       style={{
         width: 40, height: 22, borderRadius: 11, border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
-        background: checked ? '#1A3A5C' : '#E2E8F0', position: 'relative',
+        background: checked ? 'var(--brand)' : 'var(--surface-3)', position: 'relative',
         transition: 'background 0.2s', flexShrink: 0, padding: 0,
       }}
     >
       <span style={{
         position: 'absolute', top: 3, left: checked ? 21 : 3,
-        width: 16, height: 16, borderRadius: '50%', background: '#fff',
-        transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+        width: 16, height: 16, borderRadius: '50%', background: 'var(--surface-1)',
+        transition: 'left 0.2s', boxShadow: 'var(--shadow-sm)',
         display: 'block',
       }} />
     </button>
@@ -38,10 +38,10 @@ function Toggle({ checked, onChange, disabled, id, label }) {
 
 function SettingRow({ controlId, label, description, children }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4" style={{ borderBottom: '1px solid #F1F5F9' }}>
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
       <div style={{ minWidth: 0, flex: '1 1 220px' }}>
-        <label htmlFor={controlId} style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#1A3A5C', margin: 0 }}>{label}</label>
-        {description && <p style={{ fontSize: 12, color: '#94A3B8', margin: '2px 0 0' }}>{description}</p>}
+        <label htmlFor={controlId} style={{ display: 'block', fontSize: 14, fontWeight: 500, color: 'var(--ink-1)', margin: 0 }}>{label}</label>
+        {description && <p style={{ fontSize: 12, color: 'var(--ink-5)', margin: '2px 0 0' }}>{description}</p>}
       </div>
       <div style={{ flexShrink: 0 }}>{children}</div>
     </div>
@@ -61,9 +61,9 @@ function NumberInput({ value, onChange, min = 0, max = 30, id }) {
       onChange={e => onChange(Number(e.target.value))}
       style={{
         width: 72, padding: '6px 10px', borderRadius: 8,
-        border: '1px solid #E2E8F0', fontSize: 14, color: '#1A3A5C',
+        border: '1px solid var(--border-strong)', fontSize: 14, color: 'var(--ink-1)',
         fontWeight: 600, textAlign: 'center', outline: 'none',
-        background: '#F8FAFC',
+        background: 'var(--surface-2)',
       }}
     />
   );
@@ -123,7 +123,7 @@ export default function BlockSettings() {
     <PageWrapper>
       <Layout>
         {!can('edit_block_settings') ? (
-          <div style={{ background: '#fff', border: '1px solid #E8EFF6', borderRadius: 12, padding: 24, color: '#64748B' }}>
+          <div style={{ background: 'var(--surface-1)', border: '1px solid var(--border-1)', borderRadius: 12, padding: 24, color: 'var(--ink-4)' }}>
             Block settings are available to Chief Residents, Program Admins, and Program Directors.
           </div>
         ) : (
@@ -136,16 +136,16 @@ export default function BlockSettings() {
           <div className="flex items-center gap-3 mb-6">
             <button
               onClick={() => navigate(`/blocks/${blockNumber}/calendar`)}
-              style={{ background: '#F0F5FF', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: '#2C5F8A', fontSize: 13, fontWeight: 500 }}
-              onMouseEnter={e => e.currentTarget.style.background = '#DCE9F5'}
-              onMouseLeave={e => e.currentTarget.style.background = '#F0F5FF'}
+              style={{ background: 'var(--accent-soft-2)', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: 'var(--accent)', fontSize: 13, fontWeight: 500 }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--border-3)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-soft-2)'}
             >
               ← Back
             </button>
             <div>
-              <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1A3A5C', margin: 0 }}>Block {blockNumber} Settings</h1>
+              <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-1)', margin: 0 }}>Block {blockNumber} Settings</h1>
               {block && (
-                <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>
+                <p style={{ fontSize: 12, color: 'var(--ink-5)', marginTop: 2 }}>
                   {new Date(block.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                   {' – '}
                   {new Date(block.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -155,20 +155,20 @@ export default function BlockSettings() {
           </div>
 
           {!blockId ? (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: '#94A3B8' }}>
+            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ink-5)' }}>
               Block not found. Select a block from the sidebar first.
             </div>
           ) : loading ? (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: '#94A3B8' }}>Loading…</div>
+            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ink-5)' }}>Loading…</div>
           ) : (
             <div
               className="rounded-xl"
-              style={{ background: '#fff', border: '1px solid #E8EFF6', boxShadow: '0 1px 3px rgba(26,58,92,0.05)', overflow: 'hidden' }}
+              style={{ background: 'var(--surface-1)', border: '1px solid var(--border-1)', boxShadow: 'var(--shadow-xs)', overflow: 'hidden' }}
             >
               {/* Card header */}
-              <div style={{ padding: '18px 24px', borderBottom: '1px solid #E8EFF6', background: '#F8FAFC' }}>
-                <h2 style={{ fontSize: 15, fontWeight: 700, color: '#1A3A5C', margin: 0 }}>Scheduling Constraints</h2>
-                <p style={{ fontSize: 12, color: '#94A3B8', margin: '3px 0 0' }}>These settings control the auto-generate algorithm for this block.</p>
+              <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-1)', background: 'var(--surface-2)' }}>
+                <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-1)', margin: 0 }}>Scheduling Constraints</h2>
+                <p style={{ fontSize: 12, color: 'var(--ink-5)', margin: '3px 0 0' }}>These settings control the auto-generate algorithm for this block.</p>
               </div>
 
               <div style={{ padding: '0 24px' }}>
@@ -215,7 +215,7 @@ export default function BlockSettings() {
                 </SettingRow>
               </div>
 
-              <div style={{ padding: '16px 24px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'flex-end' }}>
+              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end' }}>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}
@@ -223,11 +223,11 @@ export default function BlockSettings() {
                   disabled={saving}
                   style={{
                     padding: '10px 24px', borderRadius: 10, border: 'none',
-                    background: '#1A3A5C', color: '#fff', fontSize: 14, fontWeight: 600,
+                    background: 'var(--brand)', color: 'var(--ink-inverse)', fontSize: 14, fontWeight: 600,
                     cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1,
                   }}
-                  onMouseEnter={e => { if (!saving) e.currentTarget.style.background = '#2C5F8A'; }}
-                  onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}
+                  onMouseEnter={e => { if (!saving) e.currentTarget.style.background = 'var(--accent)'; }}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--brand)'}
                 >
                   {saving ? 'Saving…' : 'Save settings'}
                 </motion.button>

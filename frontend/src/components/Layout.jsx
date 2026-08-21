@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Sidebar from './Sidebar';
+import ThemeToggle from './ThemeToggle';
 
 export default function Layout({ children }) {
   const [activeBlock, setActiveBlock] = useState(3);
@@ -32,7 +33,7 @@ export default function Layout({ children }) {
         <div className="fixed inset-0 z-40 md:hidden">
           <div
             className="absolute inset-0"
-            style={{ background: 'rgba(15,23,42,0.34)' }}
+            style={{ background: 'var(--overlay)' }}
             onClick={() => setSidebarOpen(false)}
           />
           <div className="relative z-50 h-full">
@@ -49,25 +50,30 @@ export default function Layout({ children }) {
       <div className="flex flex-col flex-1 md:ml-[220px] min-w-0">
         {/* Mobile top bar */}
         <header
-          className="flex md:hidden items-center justify-between px-4 py-3 bg-white sticky top-0 z-30"
-          style={{ borderBottom: '1px solid #E8EFF6' }}
+          className="flex md:hidden items-center justify-between px-4 py-3 sticky top-0 z-30"
+          style={{ background: 'var(--sidebar-bg)', borderBottom: '1px solid var(--sidebar-border)' }}
         >
           <div>
-            <p style={{ fontSize: 16, fontWeight: 700, color: '#1A3A5C', lineHeight: 1.2 }}>MedRota</p>
-            <p style={{ fontSize: 10, color: '#94A3B8', marginTop: 1 }}>Vascular Surgery</p>
+            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-1)', lineHeight: 1.2 }}>MedRota</p>
+            <p style={{ fontSize: 10, color: 'var(--ink-5)', marginTop: 1 }}>Vascular Surgery</p>
           </div>
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-lg transition-colors duration-100"
-            style={{ color: '#64748B' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#F0F5FF'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-            aria-label="Open menu"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-1">
+            {/* The sidebar's three-way control does not fit here, so the phone
+                header gets a straight light/dark flip. */}
+            <ThemeToggle variant="icon" />
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 rounded-lg transition-colors duration-100"
+              style={{ color: 'var(--ink-4)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+              aria-label="Open menu"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          </div>
         </header>
 
         <main className="animated-bg flex-1 p-4 md:p-8">

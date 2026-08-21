@@ -49,29 +49,29 @@ export default function JoinProgram() {
   }[status];
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8FAFC', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-canvas)', fontFamily: 'Inter, sans-serif' }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        style={{ background: '#fff', borderRadius: 20, border: '1px solid #E8EFF6', boxShadow: '0 20px 60px rgba(26,58,92,0.10)', padding: '40px 48px', textAlign: 'center', maxWidth: 360, width: '100%' }}
+        style={{ background: 'var(--surface-1)', borderRadius: 20, border: '1px solid var(--border-1)', boxShadow: 'var(--shadow-lg)', padding: '40px 48px', textAlign: 'center', maxWidth: 360, width: '100%' }}
       >
-        <p style={{ fontSize: 20, fontWeight: 700, color: '#1A3A5C', marginBottom: 4 }}>MedRota</p>
+        <p style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink-1)', marginBottom: 4 }}>MedRota</p>
         {content.spinner && (
-          <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #E8EFF6', borderTopColor: '#1A3A5C', animation: 'spin 0.8s linear infinite', margin: '20px auto 12px' }} />
+          <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid var(--border-1)', borderTopColor: 'var(--brand)', animation: 'spin 0.8s linear infinite', margin: '20px auto 12px' }} />
         )}
         {content.icon && (
           <div style={{ fontSize: 36, margin: '16px 0 8px' }}>{content.icon}</div>
         )}
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1A3A5C', margin: '8px 0 6px' }}>{content.title}</h2>
-        {content.sub && <p style={{ fontSize: 13, color: '#94A3B8' }}>{content.sub}</p>}
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-1)', margin: '8px 0 6px' }}>{content.title}</h2>
+        {content.sub && <p style={{ fontSize: 13, color: 'var(--ink-5)' }}>{content.sub}</p>}
         {status === 'error' && (
           <button
             onClick={() => navigate('/dashboard')}
-            style={{ marginTop: 20, padding: '9px 22px', borderRadius: 9, border: 'none', background: '#1A3A5C', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#2C5F8A'}
-            onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}
+            style={{ marginTop: 20, padding: '9px 22px', borderRadius: 9, border: 'none', background: 'var(--brand)', color: 'var(--ink-inverse)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--brand)'}
           >
             Go to Dashboard
           </button>

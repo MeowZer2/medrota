@@ -85,6 +85,80 @@ Publishing validates the stored schedule first. Documented manual overrides are 
 
 A published schedule can be **unpublished**, which stops the public link resolving while keeping version history and the draft untouched, or given a **new public link**, which invalidates the previous one. Both are confirmed and audited.
 
+## Theming
+
+MedRota ships a light and a dark theme. The control is in the sidebar (and the
+phone header): **Light**, **Match system**, or **Dark**. The choice is stored in
+`localStorage` under `medrota-theme`, applies to the login screen as well as the
+app, and follows the OS while it is set to *Match system*.
+
+Every colour in the frontend resolves through a design token in
+[`frontend/src/styles/theme.css`](frontend/src/styles/theme.css). Nothing else
+may hard-code one. That is a structural requirement rather than a style
+preference: most of this app is styled with inline `style={{ … }}` objects, and
+an inline style cannot be reached by a `.dark .card { … }` override — which is
+exactly why an earlier attempt at dark mode ended up applied to some surfaces
+and not others. Inline styles *can* read custom properties, so tokens are the
+only mechanism that reaches the whole product at once.
+
+The file has two blocks: `:root` (light) and `:root[data-theme="dark"]`, plus a
+deliberate `@media print` palette so an exported schedule prints as ink on paper
+regardless of the theme on screen. There is no `prefers-color-scheme` block —
+`frontend/src/context/ThemeContext.jsx` resolves the stored preference to an
+explicit `data-theme` attribute before the first paint (a small inline script in
+`index.html` does this pre-hydration, so there is no flash), which keeps the
+palette in exactly two places.
+
+Working on the frontend:
+
+- use a token, never a literal — `var(--surface-1)`, not `#fff` or `white`;
+- match the token to the property. `--ink-*` and `*-ink` are text, `--surface-*`
+  / `--border-*` / `*-soft` are fills. `#1A3A5C` is `--ink-1` as a `color` and
+  `--brand` as a `background`, and those two diverge in dark;
+- text drawn on a solid fill takes that fill's `--on-*` token;
+- for Tailwind, use the token-backed utilities (`bg-surface-1`, `text-on-solid`,
+  `border-hairline`) declared in the `@theme` block in `frontend/src/index.css`.
+  Literal utilities such as `bg-white` cannot be themed.
+
+Both themes are held to WCAG 2.1 AA — 4.5:1 for normal text, 3:1 for large text
+and for the boundary that identifies a control. There are no theme-specific
+exemptions: the light ramp was re-spaced so it meets the same bar as dark, rather
+than being graded on a curve against it.
+
+Two guards enforce this, and both run in CI:
+
+```bash
+cd frontend
+npm run theme:guard        # both checks
+npm run theme:tokens       # no colour literals; tokens used in the right role
+npm run theme:contrast     # WCAG AA across both themes, and dark never worse than light
+```
+
+`theme:tokens` also rejects named CSS colours and undefined tokens. A colour that
+genuinely must be a literal — a value persisted as user data, such as the day-flag
+presets — is opted out explicitly between `theme-guard-allow-start` /
+`theme-guard-allow-end` comments with a stated reason.
+
+Two Playwright specs cover what a token check cannot see:
+
+- `e2e/theme.spec.js` loads every authenticated page and the calendar day dialog
+  in dark and fails on any large light fill or unreadable text.
+- `e2e/contrast.spec.js` measures what the browser actually paints — every text
+  node against the background it is really composited onto, and every form
+  control boundary against the surface around it — in both themes, failing on
+  anything below AA. The light theme rendered about 280 failing text nodes before
+  this existed; that count is zero now, and this is what holds it there.
+
+Two notes on the ink ramp, since both look like mistakes otherwise. AA on a
+near-white ground leaves only the band between roughly 40% and 47% lightness for
+"quieter than body copy", so `--ink-4` and `--ink-5` sit closer together than
+they used to; hierarchy below body copy is carried by size, weight and case as
+much as by colour. And `--ink-6` and `--ink-disabled` are gone: neither could be
+made legible while staying distinct from `--ink-5`, and `--ink-disabled` was not
+describing disabled controls at all — it styled "Unassigned", "No entries" and
+other text that carries meaning. Disabled controls are dimmed with `opacity`,
+which is untouched.
+
 ## Audit trail
 
 Scheduling and administrative changes are recorded in an append-only `AuditEvent` table: who, what changed, and when. Passwords, hashes, tokens and request bodies are never stored. Program Admins and Directors see the full history in Program Settings; Chief Residents see scheduling history for a block on the Calendar; Viewers see none.

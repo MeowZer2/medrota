@@ -34,14 +34,14 @@ export function PencilIcon() {
 // ── avatar gradient (deterministic from name) ─────────────────────────────────
 
 const AVATAR_GRADIENTS = [
-  ['#1A3A5C', '#2C5F8A'],
-  ['#16A34A', '#15803D'],
-  ['#6D28D9', '#7C3AED'],
-  ['#D97706', '#B45309'],
-  ['#0369A1', '#0284C7'],
-  ['#DC2626', '#B91C1C'],
-  ['#0891B2', '#0E7490'],
-  ['#7C3AED', '#6D28D9'],
+  ['var(--brand)', 'var(--accent)'],
+  ['var(--success)', 'var(--success-hover)'],
+  ['var(--violet-ink)', 'var(--violet)'],
+  ['var(--warn)', 'var(--warn-hover)'],
+  ['var(--info-ink)', 'var(--info)'],
+  ['var(--danger)', 'var(--danger-hover)'],
+  ['var(--cyan)', 'var(--teal)'],
+  ['var(--violet)', 'var(--violet-ink)'],
 ];
 
 function avatarGradient(name = '') {
@@ -57,7 +57,7 @@ export function PgyBadge({ level }) {
   return (
     <span
       className="inline-flex items-center justify-center rounded-full text-[11px] font-semibold whitespace-nowrap px-2"
-      style={{ background: '#EEF4FF', color: '#2C5F8A', height: 22, minWidth: 40 }}
+      style={{ background: 'var(--accent-soft)', color: 'var(--accent)', height: 22, minWidth: 40 }}
     >
       {label}
     </span>
@@ -66,9 +66,9 @@ export function PgyBadge({ level }) {
 
 export function CallBadge({ count, max }) {
   let bg, color;
-  if (count >= 9)      { bg = '#FEF2F2'; color = '#DC2626'; }
-  else if (count >= 7) { bg = '#FFFBEB'; color = '#B45309'; }
-  else                 { bg = '#F0FDF4'; color = '#15803D'; }
+  if (count >= 9)      { bg = 'var(--danger-soft)'; color = 'var(--danger)'; }
+  else if (count >= 7) { bg = 'var(--warn-soft)'; color = 'var(--warn-ink)'; }
+  else                 { bg = 'var(--success-soft)'; color = 'var(--success-ink)'; }
 
   return (
     <motion.span
@@ -89,7 +89,7 @@ export function VacationRangePill({ from, to }) {
   return (
     <span
       className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-      style={{ background: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA', whiteSpace: 'nowrap' }}
+      style={{ background: 'var(--orange-soft)', color: 'var(--orange)', border: '1px solid var(--orange-border)', whiteSpace: 'nowrap' }}
     >
       {to ? `${fmt(from)} – ${fmt(to)}` : fmt(from)}
     </span>
@@ -116,8 +116,8 @@ export function ResidentRow({ resident, onRemove, onEdit }) {
     <div
       className="flex items-center gap-3 px-4 py-3 rounded-xl group"
       style={{
-        border: '1px solid #E8EFF6',
-        background: '#fff',
+        border: '1px solid var(--border-1)',
+        background: 'var(--surface-1)',
         cursor: 'default',
         transition: 'background 100ms ease, border-color 100ms ease',
       }}
@@ -125,16 +125,16 @@ export function ResidentRow({ resident, onRemove, onEdit }) {
       {/* Avatar */}
       <div
         className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold"
-        style={{ background: avatarGradient(resident.name), color: '#fff' }}
+        style={{ background: avatarGradient(resident.name), color: 'var(--ink-inverse)' }}
       >
         {resident.name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()}
       </div>
 
       {/* Name + meta */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate" style={{ color: '#1A3A5C' }}>{resident.name}</p>
+        <p className="text-sm font-medium truncate" style={{ color: 'var(--ink-1)' }}>{resident.name}</p>
         {resident.academicDayPref && resident.academicDayPref !== 'None' && (
-          <p className="text-[11px] truncate" style={{ color: '#94A3B8' }}>{resident.academicDayPref}</p>
+          <p className="text-[11px] truncate" style={{ color: 'var(--ink-5)' }}>{resident.academicDayPref}</p>
         )}
         {ranges.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
@@ -155,9 +155,9 @@ export function ResidentRow({ resident, onRemove, onEdit }) {
           <button
             onClick={() => onEdit(resident)}
             className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-100"
-            style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#EEF4FF'; e.currentTarget.style.color = '#2C5F8A'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = '#94A3B8'; }}
+            style={{ color: 'var(--ink-5)', background: 'none', border: 'none', cursor: 'pointer' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft)'; e.currentTarget.style.color = 'var(--accent)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--ink-5)'; }}
             title="Edit resident"
           >
             <PencilIcon />
@@ -168,9 +168,9 @@ export function ResidentRow({ resident, onRemove, onEdit }) {
           <button
             onClick={() => onRemove(resident.id)}
             className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-100"
-            style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = '#94A3B8'; }}
+            style={{ color: 'var(--ink-5)', background: 'none', border: 'none', cursor: 'pointer' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--danger-soft)'; e.currentTarget.style.color = 'var(--danger)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--ink-5)'; }}
             title="Remove resident"
           >
             <TrashIcon />
@@ -187,26 +187,26 @@ export function ResidentPanel({ title, accent, residents, onRemove, onEdit, empt
   return (
     <div
       className="flex flex-col rounded-xl overflow-hidden"
-      style={{ border: '1px solid #E8EFF6', boxShadow: '0 1px 3px rgba(26,58,92,0.05)' }}
+      style={{ border: '1px solid var(--border-1)', boxShadow: 'var(--shadow-xs)' }}
     >
-      <div className="flex items-center gap-2.5 px-5 py-4" style={{ background: '#fff', borderBottom: '1px solid #E8EFF6' }}>
+      <div className="flex items-center gap-2.5 px-5 py-4" style={{ background: 'var(--surface-1)', borderBottom: '1px solid var(--border-1)' }}>
         <div className="w-1 h-5 rounded-full" style={{ background: accent }} />
-        <h2 style={{ fontSize: 14, fontWeight: 600, color: '#1A3A5C' }}>{title}</h2>
+        <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-1)' }}>{title}</h2>
         <motion.span
           key={residents.length}
           initial={{ scale: 1.3 }}
           animate={{ scale: 1 }}
           className="text-xs font-semibold px-2 py-0.5 rounded-full"
-          style={{ background: '#F0F5FF', color: '#4A6FA5' }}
+          style={{ background: 'var(--accent-soft-2)', color: 'var(--accent-muted)' }}
         >
           {residents.length}
         </motion.span>
       </div>
 
-      <div className="flex flex-col gap-2 p-3" style={{ background: '#F8FAFC', minHeight: 120 }}>
+      <div className="flex flex-col gap-2 p-3" style={{ background: 'var(--surface-2)', minHeight: 120 }}>
         {residents.length === 0 ? (
           <div className="flex items-center justify-center py-8">
-            <p className="text-sm" style={{ color: '#CBD5E1' }}>{emptyLabel}</p>
+            <p className="text-sm" style={{ color: 'var(--ink-5)' }}>{emptyLabel}</p>
           </div>
         ) : (
           residents.map(r => <ResidentRow key={r.id} resident={r} onRemove={onRemove} onEdit={onEdit} />)
@@ -219,11 +219,11 @@ export function ResidentPanel({ title, accent, residents, onRemove, onEdit, empt
 // ── shared styles ─────────────────────────────────────────────────────────────
 
 export const labelStyle = {
-  display: 'block', fontSize: 12, fontWeight: 500, color: '#64748B', marginBottom: 5,
+  display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-4)', marginBottom: 5,
 };
 
 export const inputStyle = {
   width: '100%', padding: '8px 12px', borderRadius: 8,
-  border: '1px solid #E2E8F0', fontSize: 13, color: '#1A3A5C',
-  background: '#F8FAFC', outline: 'none',
+  border: '1px solid var(--border-strong)', fontSize: 13, color: 'var(--ink-1)',
+  background: 'var(--surface-2)', outline: 'none',
 };

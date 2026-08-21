@@ -111,7 +111,7 @@ export default function Modal({
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,23,42,0.34)' }}
+      style={{ background: 'var(--overlay)' }}
       onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}
     >
       <motion.div
@@ -127,13 +127,13 @@ export default function Modal({
         exit={{ opacity: 0, scale: 0.97, y: 8 }}
         transition={{ duration: 0.14, ease: 'easeOut' }}
         className={`w-full ${maxWidth} rounded-2xl overflow-hidden max-h-[90vh] flex flex-col outline-none`}
-        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6' }}
+        style={{ background: 'var(--surface-raised)', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border-1)' }}
       >
-        <div className="flex items-center justify-between gap-3 px-6 py-5 shrink-0" style={{ borderBottom: '1px solid #E8EFF6' }}>
+        <div className="flex items-center justify-between gap-3 px-6 py-5 shrink-0" style={{ borderBottom: '1px solid var(--border-1)' }}>
           <div style={{ minWidth: 0 }}>
-            <h3 id={headingId} style={{ fontSize: 16, fontWeight: 600, color: '#1A3A5C' }}>{title}</h3>
+            <h3 id={headingId} style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink-1)' }}>{title}</h3>
             {description && (
-              <p id={descriptionId} style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>{description}</p>
+              <p id={descriptionId} style={{ fontSize: 12, color: 'var(--ink-4)', marginTop: 2 }}>{description}</p>
             )}
           </div>
           <button
@@ -141,8 +141,8 @@ export default function Modal({
             onClick={onClose}
             aria-label={closeLabel}
             className="rounded-lg shrink-0"
-            style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 36, minHeight: 36 }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#F0F5FF'; }}
+            style={{ color: 'var(--ink-5)', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 36, minHeight: 36 }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft-2)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = ''; }}
           >
             <CloseIcon />
@@ -152,7 +152,7 @@ export default function Modal({
         <div className="px-6 py-5 overflow-y-auto">{children}</div>
 
         {footer && (
-          <div className="px-6 py-4 shrink-0" style={{ borderTop: '1px solid #E8EFF6', background: '#F8FAFC' }}>
+          <div className="px-6 py-4 shrink-0" style={{ borderTop: '1px solid var(--border-1)', background: 'var(--surface-2)' }}>
             {footer}
           </div>
         )}

@@ -19,7 +19,7 @@ export default function AcademicTimeEditor({ value = [], onChange, disabled = fa
             <select aria-label={`Academic period ${index + 1}`} value={entry.period} disabled={disabled} onChange={event => update(index, 'period', event.target.value)} className="form-input">
               {PERIODS.map(period => <option key={period}>{period}</option>)}
             </select>
-            <button type="button" aria-label={`Remove academic time ${index + 1}`} disabled={disabled} onClick={() => onChange(entries.filter((_, itemIndex) => itemIndex !== index))} style={{ minWidth: 40, minHeight: 40, border: '1px solid #FECACA', background: '#fff', color: '#B91C1C', borderRadius: 9 }}>×</button>
+            <button type="button" aria-label={`Remove academic time ${index + 1}`} disabled={disabled} onClick={() => onChange(entries.filter((_, itemIndex) => itemIndex !== index))} style={{ minWidth: 40, minHeight: 40, border: '1px solid var(--danger-border-2)', background: 'var(--surface-1)', color: 'var(--danger-ink)', borderRadius: 9 }}>×</button>
           </div>
         ))}
       </div>
@@ -30,11 +30,11 @@ export default function AcademicTimeEditor({ value = [], onChange, disabled = fa
           const candidate = DAYS.flatMap(day => PERIODS.map(period => ({ day, period }))).find(item => !entries.some(entry => entry.day === item.day && entry.period === item.period));
           if (candidate) onChange([...entries, candidate]);
         }}
-        style={{ marginTop: 10, border: 0, background: 'transparent', color: '#2C5F8A', fontSize: 13, fontWeight: 700, padding: '6px 0' }}
+        style={{ marginTop: 10, border: 0, background: 'transparent', color: 'var(--accent)', fontSize: 13, fontWeight: 700, padding: '6px 0' }}
       >
         + Add academic time
       </button>
-      <p style={{ marginTop: 4, color: '#64748B', fontSize: 11 }}>
+      <p style={{ marginTop: 4, color: 'var(--ink-4)', fontSize: 11 }}>
         Full days are hard avoids when academic-day avoidance is enabled. AM/PM entries are warnings because call is currently modeled by whole day.
       </p>
     </div>

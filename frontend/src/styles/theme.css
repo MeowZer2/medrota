@@ -1,0 +1,490 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   MedRota design tokens — the single source of colour for the whole product.
+   ─────────────────────────────────────────────────────────────────────────────
+
+   Every colour in the app resolves through one of these variables. Nothing in a
+   component may hard-code a hex value: that is what made the previous dark-mode
+   attempt land half-finished, because an inline `style={{ background: '#fff' }}`
+   cannot be reached by a `.dark .card { ... }` override. Inline styles *can*
+   read custom properties, so tokens are the only mechanism that reaches every
+   surface in this app at once.
+
+   Two blocks only — `:root` (light) and `:root[data-theme="dark"]`. The runtime
+   in `context/ThemeContext.jsx` resolves the stored preference (which may be
+   `system`) down to an explicit light/dark attribute before first paint, so no
+   `prefers-color-scheme` query is needed here and there is no third block that
+   can drift out of sync.
+
+   Naming
+     --surface-*   things content sits on, ordered by elevation
+     --ink-*       text: 1 strongest ... 6 faintest
+     --border-*    hairlines, subtle -> strong
+     --brand / --accent / status families, each carrying a matching
+       `-soft` (tinted fill), `-border`, and `-ink` (text drawn on that fill)
+     --on-*        the readable foreground for a solid fill
+
+   Contrast: `npm run theme:contrast` checks every text-on-surface pair in both
+   themes against WCAG AA and exits non-zero on a regression.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: light;
+
+  /* Canvas */
+  --bg-canvas: #F8FAFC;
+  --bg-canvas-2: #EEF4FF;
+  --bg-canvas-glow: rgba(238, 244, 255, 0.72);
+  --bg-canvas-fade: rgba(248, 250, 252, 0);
+
+  /* Surfaces, by elevation */
+  --surface-1: #FFFFFF;        /* cards, panels, the default content surface */
+  --surface-2: #F8FAFC;        /* inset wells inside a card */
+  --surface-3: #F1F5F9;        /* muted fills, table stripes */
+  --surface-raised: #FFFFFF;   /* modals, popovers */
+  --surface-hover: #F0F5FF;
+  --surface-active: #E4EDFF;
+  --surface-inverse: #1A3A5C;
+
+  --overlay: rgba(15, 23, 42, 0.34);
+
+  /* Ink */
+  --ink-1: #1A3A5C;            /* headings, primary copy */
+  --ink-2: #334155;
+  --ink-3: #475569;            /* body */
+  --ink-4: #57657A;            /* secondary */
+  --ink-5: #5A6D88;            /* muted labels, empty states, timestamps */
+  --ink-placeholder: #5D728B;  /* subordinate, still AA */
+  --ink-inverse: #FFFFFF;      /* text on any solid fill */
+
+  /* Borders */
+  --border-subtle: #F1F5F9;
+  --border-1: #E8EFF6;         /* the default card hairline */
+  --border-2: #E2E8F0;
+  --border-3: #DCE9F5;
+  --border-strong: #768FAF;
+
+  /* Brand — the solid primary action */
+  --brand: #1A3A5C;
+  --brand-hover: #16324F;
+  --on-brand: #FFFFFF;
+  /* Treatments layered *on top of* a brand fill — the public-schedule header
+     bar, spinners inside a primary button. These cannot be plain white alphas:
+     in dark the brand fill is light, so they are tinted from --on-brand instead
+     and keep working when the fill flips. */
+  --on-brand-fill: rgba(255, 255, 255, 0.10);
+  --on-brand-fill-hover: rgba(255, 255, 255, 0.18);
+  --on-brand-border: rgba(255, 255, 255, 0.22);
+  --on-brand-muted: rgba(255, 255, 255, 0.68);
+  --on-brand-track: rgba(255, 255, 255, 0.30);
+
+  /* Accent — links, selection, informational emphasis */
+  --accent: #2C5F8A;
+  --accent-hover: #24506F;
+  --accent-ink: #2C5F8A;
+  --accent-strong: #1E3A5F;
+  --accent-muted: #4A6FA5;
+  --accent-muted-2: #557392;
+  --accent-bright: #4A8FC0;
+  --accent-soft: #EEF4FF;
+  --accent-soft-2: #F0F5FF;
+  --accent-soft-3: #E4EDFF;
+  --accent-border: #D6E4F7;
+  --accent-border-2: #C7D9EC;
+  --accent-border-3: #C0D5EB;
+  --on-accent: #FFFFFF;
+
+  /* Danger */
+  --danger: #CC2121;
+  --danger-hover: #B91C1C;
+  --danger-ink: #B91C1C;
+  --danger-ink-strong: #991B1B;
+  --danger-ink-deep: #7F1D1D;
+  --danger-soft: #FEF2F2;
+  --danger-soft-2: #FEE2E2;
+  --danger-soft-3: #FFF5F5;
+  --danger-border: #FCA5A5;
+  --danger-border-2: #FECACA;
+  --on-danger: #FFFFFF;
+
+  /* Success */
+  --success: #12853D;
+  --success-hover: #15803D;
+  --success-ink: #15803D;
+  --success-ink-strong: #166534;
+  --success-soft: #F0FDF4;
+  --success-soft-2: #DCFCE7;
+  --success-border: #BBF7D0;
+  --success-border-2: #86EFAC;
+  --on-success: #FFFFFF;
+  --success-glow-0: rgba(22, 163, 74, 0);
+  --success-glow-1: rgba(22, 163, 74, 0.25);
+
+  /* Warning */
+  --warn: #AE5F05;
+  --warn-hover: #B45309;
+  --warn-ink: #B45309;
+  --warn-ink-strong: #92400E;
+  --warn-ink-deep: #78350F;
+  --warn-soft: #FFFBEB;
+  --warn-soft-2: #FEF3C7;
+  --warn-border: #FDE68A;
+  --warn-border-2: #FCD34D;
+  --on-warn: #FFFFFF;
+
+  /* Orange — "reset", destructive but recoverable */
+  --orange: #C2410C;
+  --orange-ink: #9A3412;
+  --orange-soft: #FFF7ED;
+  --orange-soft-2: #FFEDD5;
+  --orange-border: #FED7AA;
+  --orange-accent: #FB923C;
+  --on-orange: #FFFFFF;
+
+  /* Info */
+  --info: #0276B3;
+  --info-ink: #0369A1;
+  --info-strong: #1D4ED8;
+  --info-soft: #EFF6FF;
+  --info-soft-2: #DBEAFE;
+  --info-border: #BFDBFE;
+  --info-border-2: #93C5FD;
+  --on-info: #FFFFFF;
+
+  /* Violet — academic / teaching time */
+  --violet: #7C3AED;
+  --violet-ink: #6D28D9;
+  --violet-hover: #6D28D9;
+  --violet-soft: #F3F0FF;
+  --violet-soft-2: #EDE9FE;
+  --on-violet: #FFFFFF;
+
+  /* Secondary categorical hues */
+  --teal: #0E7490;
+  --cyan: #077A97;
+  --indigo: #4F46E5;
+
+  /* Call-distribution chart fills. Separate from the -border tokens they used
+     to borrow, because a hairline colour and a data-bar fill have different
+     jobs: these must stay visible against the card in both themes. */
+  --chart-normal: #D6E4F7;
+  --chart-high: #FDE68A;
+  --chart-over: #FECACA;
+  --chart-normal-edge: #6096E0;
+  --chart-high-edge: #B49103;
+  --chart-over-edge: #FC6060;
+
+  /* Calendar day states */
+  --day-weekend: #F8FAFC;
+  --day-holiday: #FFF5F5;
+  --day-holiday-ring: rgba(220, 38, 38, 0.16);
+  --day-today-ring: #2C5F8A;
+  /* How far a stored day-flag colour is lifted toward the foreground when it is
+     drawn as text. Flag hues are user data and identical in both themes; only
+     their legibility against the card changes. */
+  --flag-lift: 0%;
+
+  /* Effects */
+  --shadow-xs: 0 1px 2px rgba(26, 58, 92, 0.05);
+  --shadow-sm: 0 1px 3px rgba(26, 58, 92, 0.06);
+  --shadow-md: 0 4px 12px rgba(26, 58, 92, 0.10);
+  --shadow-lg: 0 8px 30px rgba(26, 58, 92, 0.15);
+
+  --focus-ring: 0 0 0 3px rgba(44, 95, 138, 0.28);
+  --focus-ring-color: #2C5F8A;
+
+  --skeleton-base: #EEF4FF;
+  --skeleton-highlight: #E0EBFA;
+
+  --scrollbar-thumb: #E2E8F0;
+
+  --on-color-light: #FFFFFF;
+  --on-color-dark: #000000;
+
+  --selection-bg: #D6E4F7;
+  --selection-ink: #1A3A5C;
+
+  --sidebar-bg: #FFFFFF;
+  --sidebar-border: #E8EFF6;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Dark.
+
+   Not an inversion. The ramp is built in the brand's own navy hue so the product
+   still reads as MedRota: a near-black navy canvas, cards that step *up* in
+   lightness rather than down, hairlines lighter than the surface they divide,
+   and accents lifted into the range where they hold contrast against a dark
+   field. Solid actions flip to a light fill with dark ink — a navy button would
+   vanish against this canvas.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-canvas: #0B0F17;
+  --bg-canvas-2: #121A2B;
+  --bg-canvas-glow: rgba(38, 56, 96, 0.40);
+  --bg-canvas-fade: rgba(11, 15, 23, 0);
+
+  --surface-1: #131826;
+  --surface-2: #0F1420;
+  --surface-3: #1B2233;
+  --surface-raised: #171D2D;
+  --surface-hover: #1E2536;
+  --surface-active: #253048;
+  --surface-inverse: #E3E7EE;
+
+  --overlay: rgba(3, 6, 12, 0.66);
+
+  --ink-1: #F4F6FA;
+  --ink-2: #E3E7EE;
+  --ink-3: #CDD3DF;
+  --ink-4: #AEB6C4;
+  --ink-5: #8F97A6;
+  --ink-placeholder: #818998;
+  --ink-inverse: #0A0E17;
+
+  --border-subtle: #1A2130;
+  --border-1: #232B3D;
+  --border-2: #2A3349;
+  --border-3: #303B54;
+  --border-strong: #5D6F9B;
+
+  --brand: #5B8DEF;
+  --brand-hover: #7BA5F5;
+  --on-brand: #08101F;
+  --on-brand-fill: rgba(8, 16, 31, 0.12);
+  --on-brand-fill-hover: rgba(8, 16, 31, 0.20);
+  --on-brand-border: rgba(8, 16, 31, 0.26);
+  --on-brand-muted: rgba(8, 16, 31, 0.72);
+  --on-brand-track: rgba(8, 16, 31, 0.32);
+
+  --accent: #7AA1FF;
+  --accent-hover: #93B1FF;
+  --accent-ink: #9DBAFF;
+  --accent-strong: #B7CCFF;
+  --accent-muted: #93A9D0;
+  --accent-muted-2: #9AACC6;
+  --accent-bright: #6FB4E8;
+  --accent-soft: #1A2545;
+  --accent-soft-2: #182036;
+  --accent-soft-3: #202C50;
+  --accent-border: #2E3E68;
+  --accent-border-2: #35456F;
+  --accent-border-3: #2A3760;
+  --on-accent: #08101F;
+
+  --danger: #F2726A;
+  --danger-hover: #FF8A82;
+  --danger-ink: #FF9089;
+  --danger-ink-strong: #FFAFA9;
+  --danger-ink-deep: #FFC9C5;
+  --danger-soft: #2A1413;
+  --danger-soft-2: #331817;
+  --danger-soft-3: #241110;
+  --danger-border: #5C2724;
+  --danger-border-2: #6E2F2B;
+  --on-danger: #2A0B09;
+
+  --success: #45C97A;
+  --success-hover: #63D793;
+  --success-ink: #6ED79A;
+  --success-ink-strong: #96E5B7;
+  --success-soft: #0E2A1A;
+  --success-soft-2: #123521;
+  --success-border: #245C3B;
+  --success-border-2: #2E7049;
+  --on-success: #04210F;
+  --success-glow-0: rgba(69, 201, 122, 0);
+  --success-glow-1: rgba(69, 201, 122, 0.30);
+
+  --warn: #E9A245;
+  --warn-hover: #F2B463;
+  --warn-ink: #F0B368;
+  --warn-ink-strong: #F5C68C;
+  --warn-ink-deep: #F8D6AC;
+  --warn-soft: #2A1E10;
+  --warn-soft-2: #332415;
+  --warn-border: #5C4520;
+  --warn-border-2: #6E5427;
+  --on-warn: #2A1B05;
+
+  --orange: #F08A5D;
+  --orange-ink: #F5A17C;
+  --orange-soft: #2E1A11;
+  --orange-soft-2: #3A2116;
+  --orange-border: #5E3620;
+  --orange-accent: #FB9E6B;
+  --on-orange: #2A1206;
+
+  --info: #56B6EA;
+  --info-ink: #7CC7F0;
+  --info-strong: #8FB8FF;
+  --info-soft: #0E2333;
+  --info-soft-2: #142E42;
+  --info-border: #24455C;
+  --info-border-2: #2E5B7A;
+  --on-info: #04161F;
+
+  --violet: #A78BFA;
+  --violet-ink: #BCA6FC;
+  --violet-hover: #BCA6FC;
+  --violet-soft: #201A38;
+  --violet-soft-2: #281F45;
+  --on-violet: #150C2B;
+
+  --teal: #4FC4D6;
+  --cyan: #45B8D6;
+  --indigo: #8E86F5;
+
+  --chart-normal: #4C71B8;
+  --chart-high: #9E7A29;
+  --chart-over: #B0554E;
+  --chart-normal-edge: #4C71B8;
+  --chart-high-edge: #9E7A29;
+  --chart-over-edge: #B0554E;
+
+  --day-weekend: #0E121C;
+  --day-holiday: #241110;
+  --day-holiday-ring: rgba(242, 114, 106, 0.28);
+  --day-today-ring: #7AA1FF;
+  --flag-lift: 46%;
+
+  /* Dark surfaces separate by lightness rather than by shadow, so shadows only
+     deepen the ground under a floating element instead of drawing its edge. */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.44);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.50);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 12px 34px rgba(0, 0, 0, 0.62);
+
+  --focus-ring: 0 0 0 3px rgba(122, 161, 255, 0.34);
+  --focus-ring-color: #7AA1FF;
+
+  --skeleton-base: #171E2E;
+  --skeleton-highlight: #222B3F;
+
+  --scrollbar-thumb: #2A3349;
+
+  --on-color-light: #FFFFFF;
+  --on-color-dark: #000000;
+
+  --selection-bg: #2B3C68;
+  --selection-ink: #F4F6FA;
+
+  --sidebar-bg: #0F1420;
+  --sidebar-border: #1F2739;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Print.
+
+   Paper is white whatever the screen is doing, so a dark session would
+   otherwise send pale ink onto a white page and print almost nothing. This is
+   deliberately not a copy of the light palette: print has its own needs — no
+   tinted panel fills to burn through ink, hairlines dark enough to survive a
+   laser printer, and text pushed to near-black for contrast. It applies to both
+   themes so the exported schedule looks the same either way.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@media print {
+  :root,
+  :root[data-theme="dark"] {
+    color-scheme: light;
+
+    --bg-canvas: #FFFFFF;
+    --bg-canvas-2: #FFFFFF;
+    --bg-canvas-glow: transparent;
+    --bg-canvas-fade: transparent;
+
+    --surface-1: #FFFFFF;
+    --surface-2: #FFFFFF;
+    --surface-3: #F4F4F4;
+    --surface-raised: #FFFFFF;
+    --surface-hover: #FFFFFF;
+    --surface-active: #EFEFEF;
+    --surface-inverse: #1A1A1A;
+
+    --ink-1: #111111;
+    --ink-2: #1F1F1F;
+    --ink-3: #333333;
+    --ink-4: #444444;
+    --ink-5: #555555;
+    --ink-placeholder: #666666;
+    --ink-inverse: #FFFFFF;
+
+    --border-subtle: #DDDDDD;
+    --border-1: #CCCCCC;
+    --border-2: #BBBBBB;
+    --border-3: #BBBBBB;
+    --border-strong: #999999;
+
+    --brand: #1A3A5C;
+    --brand-hover: #1A3A5C;
+    --on-brand: #FFFFFF;
+    --on-brand-fill: transparent;
+    --on-brand-fill-hover: transparent;
+    --on-brand-border: rgba(255, 255, 255, 0.5);
+    --on-brand-muted: rgba(255, 255, 255, 0.85);
+
+    --accent: #1F4E79;
+    --accent-ink: #1F4E79;
+    --accent-soft: #F4F7FB;
+    --accent-soft-2: #F7F9FC;
+    --accent-soft-3: #F2F5F9;
+    --accent-border: #BBBBBB;
+    --accent-border-2: #BBBBBB;
+    --accent-border-3: #BBBBBB;
+
+    --danger: #B3261E;
+    --danger-ink: #B3261E;
+    --danger-ink-strong: #8C1D18;
+    --danger-soft: #FBF3F3;
+    --danger-soft-2: #F7EAE9;
+    --danger-soft-3: #FDF7F7;
+    --danger-border: #C9928F;
+
+    --success: #1B6E3C;
+    --success-ink: #1B6E3C;
+    --success-soft: #F2F8F4;
+    --success-soft-2: #EAF3ED;
+    --success-border: #9DBFA9;
+
+    --warn: #8A5A00;
+    --warn-ink: #8A5A00;
+    --warn-ink-strong: #6B4600;
+    --warn-soft: #FAF6EE;
+    --warn-soft-2: #F5EEE0;
+    --warn-border: #C7B189;
+
+    --day-weekend: #F4F4F4;
+    --day-holiday: #F7EAE9;
+    --day-holiday-ring: #C9928F;
+    --day-today-ring: #1F4E79;
+    --flag-lift: 0%;
+
+    --chart-normal: #C9D6E6;
+    --chart-high: #E4D3A8;
+    --chart-over: #E4BDBA;
+    --chart-normal-edge: #6B87AD;
+    --chart-high-edge: #9A8442;
+    --chart-over-edge: #B08A87;
+
+    /* Shadows do not print; they only muddy the page. */
+    --shadow-xs: none;
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+  }
+
+  /* The page ground itself, independent of any token a component picked up. */
+  html,
+  body {
+    background: #FFFFFF;
+  }
+
+  /* Fills are the first thing a printer wastes ink on and the first thing that
+     makes a schedule hard to read on paper. */
+  .animated-bg {
+    background: #FFFFFF;
+  }
+}

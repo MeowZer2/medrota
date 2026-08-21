@@ -8,8 +8,8 @@ import { useEffect, useState } from 'react';
 import api from '../api/axios';
 
 const CATEGORY_STYLE = {
-  administrative: { bg: '#F3F0FF', color: '#6D28D9', label: 'Admin' },
-  scheduling: { bg: '#EEF4FF', color: '#2C5F8A', label: 'Scheduling' },
+  administrative: { bg: 'var(--violet-soft)', color: 'var(--violet-ink)', label: 'Admin' },
+  scheduling: { bg: 'var(--accent-soft)', color: 'var(--accent)', label: 'Scheduling' },
 };
 
 function formatWhen(iso) {
@@ -46,13 +46,13 @@ export default function AuditHistory({ programId, blockId = null, limit = 50 }) 
   }, [programId, blockId, limit]);
 
   if (state.status === 'loading' || state.status === 'idle') {
-    return <p style={{ fontSize: 13, color: '#94A3B8' }}>Loading history…</p>;
+    return <p style={{ fontSize: 13, color: 'var(--ink-5)' }}>Loading history…</p>;
   }
   if (state.status === 'error') {
-    return <p style={{ fontSize: 13, color: '#B45309' }}>{state.error}</p>;
+    return <p style={{ fontSize: 13, color: 'var(--warn-ink)' }}>{state.error}</p>;
   }
   if (state.events.length === 0) {
-    return <p style={{ fontSize: 13, color: '#94A3B8', fontStyle: 'italic' }}>No recorded changes yet.</p>;
+    return <p style={{ fontSize: 13, color: 'var(--ink-5)', fontStyle: 'italic' }}>No recorded changes yet.</p>;
   }
 
   return (
@@ -63,20 +63,20 @@ export default function AuditHistory({ programId, blockId = null, limit = 50 }) 
           <li
             key={event.id}
             data-testid={`audit-${event.action}`}
-            style={{ background: '#fff', border: '1px solid #E8EFF6', borderRadius: 11, padding: '10px 13px' }}
+            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-1)', borderRadius: 11, padding: '10px 13px' }}
           >
             <div className="flex flex-wrap items-center gap-2">
               <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 99, background: style.bg, color: style.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 {style.label}
               </span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#1A3A5C', flex: '1 1 220px', minWidth: 0 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-1)', flex: '1 1 220px', minWidth: 0 }}>
                 {event.summary}
               </span>
-              <span style={{ fontSize: 11, color: '#94A3B8', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 11, color: 'var(--ink-5)', whiteSpace: 'nowrap' }}>
                 {formatWhen(event.createdAt)}
               </span>
             </div>
-            <p style={{ fontSize: 11.5, color: '#64748B', marginTop: 3 }}>
+            <p style={{ fontSize: 11.5, color: 'var(--ink-4)', marginTop: 3 }}>
               {event.actorName ?? 'System'}
             </p>
           </li>

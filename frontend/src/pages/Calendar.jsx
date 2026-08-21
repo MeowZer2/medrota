@@ -86,6 +86,17 @@ function Chip({ label, color, bg }) {
 
 // â”€â”€ FLAG presets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+/*
+ * Day-flag colours are stored per flag in the database and fed straight back
+ * into the colour input, so they must stay literal hex. A token here would be
+ * persisted as the string "var(--danger)" and then concatenated with an alpha
+ * suffix below into invalid CSS.
+ *
+ * They are the same hue in both themes, which is correct: a flag colour is the
+ * user's data, not part of the palette. Only its legibility is themed, by
+ * flagInk() below.
+ */
+/* theme-guard-allow-start: persisted per-flag user data, not palette values */
 const FLAG_PRESETS = [
   { color: '#EF4444', label: 'Holiday' },
   { color: '#F59E0B', label: 'Academic day' },
@@ -94,6 +105,38 @@ const FLAG_PRESETS = [
   { color: '#8B5CF6', label: 'Teaching day' },
   { color: '#14B8A6', label: 'Other' },
 ];
+/* theme-guard-allow-end */
+
+/*
+ * A flag colour used as text. The stored hue is a saturated mid-tone picked
+ * against a white card, and on the dark canvas it reads too dark. --flag-lift
+ * blends it toward the page foreground: 0% in light, so nothing there changes,
+ * and enough in dark to clear the card while keeping the hue recognisable
+ * against its own tint.
+ */
+const flagInk = (color) => `color-mix(in srgb, var(--ink-1) var(--flag-lift), ${color})`;
+
+/*
+ * A label drawn *on* a flag colour. The fill is whatever the user picked, so no
+ * fixed foreground works for every choice — white on the default red is 3.8:1,
+ * below AA. This picks the foreground by the fill's own luminance, using the two
+ * tokens that stay constant across themes because the colour they sit on does.
+ *
+ * The two candidates are white and black, and the crossover — where they give
+ * equal contrast — is at (L+0.05)^2 = 1.05 x 0.05, i.e. L = 0.179. Picking the
+ * better side of that line guarantees at least 4.58:1 for any colour a user can
+ * choose, which is why the dark candidate has to be black rather than a softer
+ * near-black: the violet preset sits close enough to the crossover that #0B0F17
+ * would leave it at 4.37:1.
+ */
+function onFlagColor(color) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(color).trim());
+  if (!m) return 'var(--on-color-light)';
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.179 ? 'var(--on-color-dark)' : 'var(--on-color-light)';
+}
 
 // â”€â”€ DayCell (grid) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -113,16 +156,16 @@ const DayCell = memo(function DayCell({ dayData, onClick, canEdit }) {
   const monthAbbr = day.toLocaleDateString('en-GB', { month: 'short' });
 
   // Cell background: flag tint (12%) > holiday > weekend > plain white
-  let bg     = '#fff';
-  let border = '1px solid #E2E8F0';
+  let bg     = 'var(--surface-1)';
+  let border = '1px solid var(--border-2)';
   if (flag) {
     bg     = flag.color + '1F'; // 12% opacity
     border = `1px solid ${flag.color}55`;
   } else if (isHoliday) {
-    bg     = '#FFF5F5';
-    border = '1px solid #FCA5A5';
+    bg     = 'var(--danger-soft-3)';
+    border = '1px solid var(--danger-border)';
   } else if (weekend) {
-    bg = '#F8FAFC';
+    bg = 'var(--surface-2)';
   }
 
   const chipBase = { display: 'block', padding: '2px 6px', borderRadius: 4, fontSize: 11, lineHeight: '16px' };
@@ -148,13 +191,13 @@ const DayCell = memo(function DayCell({ dayData, onClick, canEdit }) {
     >
       {/* Date header row */}
       <div className="flex items-baseline gap-1 mb-1 flex-wrap">
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', lineHeight: 1 }}>{dayNum}</span>
-        <span style={{ fontSize: 10, color: '#94A3B8', lineHeight: 1 }}>{monthAbbr}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)', lineHeight: 1 }}>{dayNum}</span>
+        <span style={{ fontSize: 10, color: 'var(--ink-5)', lineHeight: 1 }}>{monthAbbr}</span>
         {flag && (
-          <span style={{ fontSize: 9, fontWeight: 600, color: flag.color, lineHeight: 1 }}>- {flag.label}</span>
+          <span style={{ fontSize: 9, fontWeight: 600, color: flagInk(flag.color), lineHeight: 1 }}>- {flag.label}</span>
         )}
         {isHoliday && !flag && (
-          <span style={{ fontSize: 9, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', lineHeight: 1, marginLeft: 'auto' }}>{holidayName || 'Holiday'}</span>
+          <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase', lineHeight: 1, marginLeft: 'auto' }}>{holidayName || 'Holiday'}</span>
         )}
       </div>
 
@@ -163,34 +206,34 @@ const DayCell = memo(function DayCell({ dayData, onClick, canEdit }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {nonCallAtts.map((a, i) => {
             const text = a.activityLabel ? `${a.attendingName} - ${a.activityLabel}` : a.attendingName;
-            return <span key={i} style={{ ...chipBase, background: '#F1F5F9', color: '#334155' }}>{text}</span>;
+            return <span key={i} style={{ ...chipBase, background: 'var(--surface-3)', color: 'var(--ink-2)' }}>{text}</span>;
           })}
         </div>
       )}
 
       {/* Divider — only when both sections have content */}
       {showDivider && (
-        <div style={{ borderTop: '1px solid #E2E8F0', margin: '4px 0' }} />
+        <div style={{ borderTop: '1px solid var(--border-2)', margin: '4px 0' }} />
       )}
 
       {/* BOTTOM SECTION — call-day attendings (red chip) + resident chips */}
       {hasBottomSection && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {callAtts.map((a, i) => (
-            <span key={`c${i}`} style={{ ...chipBase, background: '#FEF2F2', color: '#991B1B' }}>{a.attendingName}</span>
+            <span key={`c${i}`} style={{ ...chipBase, background: 'var(--danger-soft)', color: 'var(--danger-ink-strong)' }}>{a.attendingName}</span>
           ))}
           {assignment?.senior && (
-            <span style={{ ...chipBase, background: '#F0FDF4', color: '#166534' }}>S: {assignment.senior}</span>
+            <span style={{ ...chipBase, background: 'var(--success-soft)', color: 'var(--success-ink-strong)' }}>S: {assignment.senior}</span>
           )}
           {assignment?.junior && (
-            <span style={{ ...chipBase, background: '#FFFBEB', color: '#92400E' }}>J: {assignment.junior}</span>
+            <span style={{ ...chipBase, background: 'var(--warn-soft)', color: 'var(--warn-ink-strong)' }}>J: {assignment.junior}</span>
           )}
         </div>
       )}
 
       {/* Unassigned placeholder */}
       {!hasTopSection && !hasBottomSection && (
-        <span style={{ fontSize: 10, color: '#CBD5E1', fontStyle: 'italic' }}>Unassigned</span>
+        <span style={{ fontSize: 10, color: 'var(--ink-5)', fontStyle: 'italic' }}>Unassigned</span>
       )}
     </button>
   );
@@ -211,45 +254,45 @@ function DayRow({ dayData, onClick, canEdit }) {
 
   const rowBg = flag
     ? flag.color + '1A'
-    : isHoliday ? '#FFF5F5' : weekend ? '#FAFBFC' : '#fff';
+    : isHoliday ? 'var(--danger-soft-3)' : weekend ? 'var(--surface-2)' : 'var(--surface-1)';
   const accentColor = flag
     ? flag.color
-    : isHoliday ? '#FCA5A5' : weekend ? '#E2E8F0' : 'transparent';
+    : isHoliday ? 'var(--danger-border)' : weekend ? 'var(--border-2)' : 'transparent';
 
   return (
     <button aria-label={`${canEdit ? 'Edit' : 'View'} ${fmtFull(day)}`} onClick={() => { if (canEdit) onClick(dayData); }} className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors duration-100"
-      style={{ background: rowBg, borderLeft: `3px solid ${accentColor}`, borderBottom: '1px solid #F1F5F9', cursor: canEdit ? 'pointer' : 'default' }}
-      onMouseEnter={e => { if (canEdit) e.currentTarget.style.background = '#F0F5FF'; }}
+      style={{ background: rowBg, borderLeft: `3px solid ${accentColor}`, borderBottom: '1px solid var(--border-subtle)', cursor: canEdit ? 'pointer' : 'default' }}
+      onMouseEnter={e => { if (canEdit) e.currentTarget.style.background = 'var(--accent-soft-2)'; }}
       onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}
     >
       <div className="shrink-0 w-12">
-        <p style={{ fontSize: 18, fontWeight: 700, color: isHoliday ? '#DC2626' : '#1A3A5C', lineHeight: 1, margin: 0 }}>
+        <p style={{ fontSize: 18, fontWeight: 700, color: isHoliday ? 'var(--danger)' : 'var(--ink-1)', lineHeight: 1, margin: 0 }}>
           {String(day.getDate()).padStart(2, '0')}
         </p>
-        <p style={{ fontSize: 11, color: weekend ? '#D97706' : '#94A3B8', fontWeight: weekend ? 600 : 400 }}>
+        <p style={{ fontSize: 11, color: weekend ? 'var(--warn)' : 'var(--ink-5)', fontWeight: weekend ? 600 : 400 }}>
           {fmtDay(day)}
         </p>
         {flag && (
-          <p style={{ fontSize: 9, fontWeight: 600, color: flag.color, marginTop: 2 }}>{flag.label}</p>
+          <p style={{ fontSize: 9, fontWeight: 600, color: flagInk(flag.color), marginTop: 2 }}>{flag.label}</p>
         )}
       </div>
       <div className="flex flex-col gap-0.5 flex-1 pt-0.5">
-        {isHoliday && <span style={{ fontSize: 11, fontWeight: 600, color: '#DC2626' }}>{holidayName || 'Holiday'}</span>}
+        {isHoliday && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--danger)' }}>{holidayName || 'Holiday'}</span>}
         {/* Non-call attendings — plain text */}
         {nonCallAtts.map((a, i) => {
           const text = [a.attendingName, a.activityLabel].filter(Boolean).join(' - ');
-          return text ? <span key={i} style={{ fontSize: 11, color: '#475569' }}>{text}</span> : null;
+          return text ? <span key={i} style={{ fontSize: 11, color: 'var(--ink-3)' }}>{text}</span> : null;
         })}
         {/* Call attendings — navy bold */}
         {callAtts.map((a, i) => (
-          <span key={`c${i}`} style={{ fontSize: 11, fontWeight: 600, color: '#1A3A5C' }}>{a.attendingName}</span>
+          <span key={`c${i}`} style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-1)' }}>{a.attendingName}</span>
         ))}
         {/* Resident chips */}
         <div className="flex flex-wrap gap-1 mt-0.5">
-          {assignment?.senior && <Chip label={`S: ${assignment.senior}`} color="#15803D" bg="#F0FDF4" />}
-          {assignment?.junior && <Chip label={`J: ${assignment.junior}`} color="#B45309" bg="#FFFBEB" />}
+          {assignment?.senior && <Chip label={`S: ${assignment.senior}`} color="var(--success-ink)" bg="var(--success-soft)" />}
+          {assignment?.junior && <Chip label={`J: ${assignment.junior}`} color="var(--warn-ink)" bg="var(--warn-soft)" />}
         </div>
-        {!hasContent && <span style={{ fontSize: 11, color: '#CBD5E1', fontStyle: 'italic' }}>Unassigned</span>}
+        {!hasContent && <span style={{ fontSize: 11, color: 'var(--ink-5)', fontStyle: 'italic' }}>Unassigned</span>}
       </div>
     </button>
   );
@@ -261,11 +304,11 @@ const BLANK_FORM = { attendingName: '', activityLabel: '', isCallDay: false };
 
 const miniInput = {
   width: '100%', padding: '6px 10px', borderRadius: 7,
-  border: '1px solid #E2E8F0', fontSize: 12, color: '#1A3A5C',
-  background: '#fff', outline: 'none', boxSizing: 'border-box',
+  border: '1px solid var(--border-strong)', fontSize: 12, color: 'var(--ink-1)',
+  background: 'var(--surface-1)', outline: 'none', boxSizing: 'border-box',
 };
 
-const modalSelectClass = 'w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500';
+const modalSelectClass = 'w-full px-3 py-2 rounded-lg border border-hairline-strong bg-surface-1 text-sm text-ink-1 focus:outline-none focus:ring-2 focus:ring-accent';
 
 function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
   const [entries, setEntries] = useState(initialEntries ?? []);
@@ -321,43 +364,43 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
   }
 
   return (
-    <div style={{ borderBottom: '1px solid #E8EFF6', padding: '14px 20px 14px' }}>
+    <div style={{ borderBottom: '1px solid var(--border-1)', padding: '14px 20px 14px' }}>
       <div className="flex items-center justify-between mb-2">
-        <p style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-5)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
           Attending
         </p>
         {!showForm && (
-          <button onClick={openAdd} style={{ fontSize: 11, fontWeight: 600, color: '#2C5F8A', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+          <button onClick={openAdd} style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             + Add
           </button>
         )}
       </div>
 
       {entries.length === 0 && !showForm && (
-        <p style={{ fontSize: 12, color: '#CBD5E1', fontStyle: 'italic' }}>No attending assigned</p>
+        <p style={{ fontSize: 12, color: 'var(--ink-5)', fontStyle: 'italic' }}>No attending assigned</p>
       )}
       <div className="space-y-1">
         {entries.map(e => (
-          <div key={e.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: '#F8FAFC', border: '1px solid #E8EFF6' }}>
+          <div key={e.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-1)' }}>
             <div className="flex flex-wrap gap-1 flex-1">
-              {e.attendingName && <Chip label={e.attendingName} color="#1D4ED8" bg="#EFF6FF" />}
-              {e.activityLabel && <Chip label={e.activityLabel} color="#6D28D9" bg="#F3F0FF" />}
-              {e.isCallDay && <Chip label="Call" color="#1A3A5C" bg="#EEF4FF" />}
+              {e.attendingName && <Chip label={e.attendingName} color="var(--info-strong)" bg="var(--info-soft)" />}
+              {e.activityLabel && <Chip label={e.activityLabel} color="var(--violet-ink)" bg="var(--violet-soft)" />}
+              {e.isCallDay && <Chip label="Call" color="var(--ink-1)" bg="var(--accent-soft)" />}
             </div>
             <button onClick={() => openEdit(e)} title="Edit"
-              style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: '2px 4px', borderRadius: 4, lineHeight: 1 }}
-              onMouseEnter={e => e.currentTarget.style.background = '#F0F5FF'}
+              style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', padding: '2px 4px', borderRadius: 4, lineHeight: 1 }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-soft-2)'}
               onMouseLeave={e => e.currentTarget.style.background = 'none'}>Edit</button>
             <button onClick={() => handleDelete(e.id)} title="Delete"
-              style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626', padding: '2px 4px', borderRadius: 4, lineHeight: 1 }}
-              onMouseEnter={ev => ev.currentTarget.style.background = '#FEF2F2'}
+              style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '2px 4px', borderRadius: 4, lineHeight: 1 }}
+              onMouseEnter={ev => ev.currentTarget.style.background = 'var(--danger-soft)'}
               onMouseLeave={ev => ev.currentTarget.style.background = 'none'}>Delete</button>
           </div>
         ))}
       </div>
 
       {showForm && (
-        <div className="mt-2 space-y-2 p-3 rounded-lg" style={{ background: '#F0F5FF', border: '1px solid #D6E4F7' }}>
+        <div className="mt-2 space-y-2 p-3 rounded-lg" style={{ background: 'var(--accent-soft-2)', border: '1px solid var(--accent-border)' }}>
           {roster.length > 0 ? (
             <select
               className={modalSelectClass}
@@ -395,17 +438,17 @@ function AttendingSection({ day, blockId, roster, initialEntries, onChange }) {
                 aria-label="Activity label" placeholder="Activity label (e.g. General Medicine)" style={miniInput} />
             );
           })()}
-          <label className="flex items-center gap-2" style={{ fontSize: 12, color: '#374151', cursor: 'pointer' }}>
+          <label className="flex items-center gap-2" style={{ fontSize: 12, color: 'var(--ink-2)', cursor: 'pointer' }}>
             <input type="checkbox" checked={form.isCallDay} onChange={e => setForm(p => ({ ...p, isCallDay: e.target.checked }))} />
             Mark as call day
           </label>
           <div className="flex gap-2">
             <button onClick={cancelForm}
-              style={{ flex: 1, padding: '6px', borderRadius: 6, border: '1px solid #E8EFF6', background: '#fff', color: '#64748B', fontSize: 12, cursor: 'pointer' }}>
+              style={{ flex: 1, padding: '6px', borderRadius: 6, border: '1px solid var(--border-1)', background: 'var(--surface-1)', color: 'var(--ink-4)', fontSize: 12, cursor: 'pointer' }}>
               Cancel
             </button>
             <button onClick={handleSave} disabled={saving}
-              style={{ flex: 1, padding: '6px', borderRadius: 6, border: 'none', background: '#1A3A5C', color: '#fff', fontSize: 12, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>
+              style={{ flex: 1, padding: '6px', borderRadius: 6, border: 'none', background: 'var(--brand)', color: 'var(--ink-inverse)', fontSize: 12, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>
               {saving ? '...' : editId ? 'Update' : 'Add'}
             </button>
           </div>
@@ -465,8 +508,8 @@ function FlagSection({ day, blockId, flag, onFlagChange }) {
   };
 
   return (
-    <div style={{ borderTop: '1px solid #E8EFF6', padding: '14px 20px' }}>
-      <p style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+    <div style={{ borderTop: '1px solid var(--border-1)', padding: '14px 20px' }}>
+      <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-5)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
         Flag this day
       </p>
       <input
@@ -503,7 +546,7 @@ function FlagSection({ day, blockId, flag, onFlagChange }) {
           <button
             onClick={handleRemoveFlag}
             disabled={saving}
-            style={{ flex: 1, padding: '6px', borderRadius: 6, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#DC2626', fontSize: 12, cursor: saving ? 'not-allowed' : 'pointer' }}
+            style={{ flex: 1, padding: '6px', borderRadius: 6, border: '1px solid var(--danger-border)', background: 'var(--danger-soft)', color: 'var(--danger)', fontSize: 12, cursor: saving ? 'not-allowed' : 'pointer' }}
           >
             Remove
           </button>
@@ -511,7 +554,7 @@ function FlagSection({ day, blockId, flag, onFlagChange }) {
         <button
           onClick={handleSaveFlag}
           disabled={saving || !label.trim()}
-          style={{ flex: 1, padding: '6px', borderRadius: 6, border: 'none', background: color, color: '#fff', fontSize: 12, fontWeight: 600, cursor: (saving || !label.trim()) ? 'not-allowed' : 'pointer', opacity: (saving || !label.trim()) ? 0.5 : 1 }}
+          style={{ flex: 1, padding: '6px', borderRadius: 6, border: 'none', background: color, color: onFlagColor(color), fontSize: 12, fontWeight: 600, cursor: (saving || !label.trim()) ? 'not-allowed' : 'pointer', opacity: (saving || !label.trim()) ? 0.5 : 1 }}
         >
           {saving ? '...' : 'Save flag'}
         </button>
@@ -550,7 +593,7 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
 
   if (!day) {
     return (
-      <div className={`modal-backdrop${visible ? ' open' : ''}`} style={{ background: 'rgba(15,23,42,0.34)', backdropFilter: 'none', transition: 'opacity 120ms ease' }} onClick={onClose}>
+      <div className={`modal-backdrop${visible ? ' open' : ''}`} style={{ background: 'var(--overlay)', backdropFilter: 'none', transition: 'opacity 120ms ease' }} onClick={onClose}>
         <div className={`w-full max-w-sm rounded-t-2xl md:rounded-2xl overflow-hidden modal-panel${visible ? ' open' : ''}`} />
       </div>
     );
@@ -576,7 +619,7 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
   return (
     <div
       className={`modal-backdrop${visible ? ' open' : ''}`}
-      style={{ background: 'rgba(15,23,42,0.34)', backdropFilter: 'none', transition: 'opacity 120ms ease' }}
+      style={{ background: 'var(--overlay)', backdropFilter: 'none', transition: 'opacity 120ms ease' }}
       onClick={onClose}
     >
       <div
@@ -587,16 +630,16 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
         tabIndex={-1}
         onKeyDown={handleKeyDown}
         className={`w-full max-w-sm rounded-t-2xl md:rounded-2xl overflow-hidden modal-panel outline-none${visible ? ' open' : ''}`}
-        style={{ background: '#fff', boxShadow: '0 14px 36px rgba(26,58,92,0.16)', border: '1px solid #E8EFF6', transition: 'opacity 120ms ease, transform 120ms ease' }}
+        style={{ background: 'var(--surface-raised)', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border-1)', transition: 'opacity 120ms ease, transform 120ms ease' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-1)' }}>
           <div>
-            <h2 id={headingId} style={{ fontSize: 14, fontWeight: 600, color: '#1A3A5C' }}>{fmtFull(day)}</h2>
+            <h2 id={headingId} style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-1)' }}>{fmtFull(day)}</h2>
           </div>
           <button onClick={onClose} aria-label="Close day editor" className="rounded-lg"
-            style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 36, minHeight: 36 }}
-            onMouseEnter={e => e.currentTarget.style.background = '#F0F5FF'}
+            style={{ color: 'var(--ink-5)', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 36, minHeight: 36 }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-soft-2)'}
             onMouseLeave={e => e.currentTarget.style.background = ''}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -614,7 +657,7 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
 
         <div className="px-5 py-4 space-y-4">
           <div>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#64748B', marginBottom: 4 }}>Senior resident</label>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--ink-4)', marginBottom: 4 }}>Senior resident</label>
             <select key={`senior-${dayKey}`} name="seniorId" className={modalSelectClass} value={seniorId} onChange={event => setSeniorId(event.target.value)}>
               <option value="">Unassigned</option>
               {assignedSeniorMissing && (
@@ -624,7 +667,7 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
             </select>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#64748B', marginBottom: 4 }}>Junior resident</label>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--ink-4)', marginBottom: 4 }}>Junior resident</label>
             <select key={`junior-${dayKey}`} name="juniorId" className={modalSelectClass} value={juniorId} onChange={event => setJuniorId(event.target.value)}>
               <option value="">Unassigned</option>
               {assignedJuniorMissing && (
@@ -634,8 +677,8 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
             </select>
           </div>
           {warning && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#FEF2F2', border: '1px solid #FCA5A5' }}>
-              <span style={{ fontSize: 12, color: '#DC2626' }}>Warning: {warning}</span>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger-border)' }}>
+              <span style={{ fontSize: 12, color: 'var(--danger)' }}>Warning: {warning}</span>
             </div>
           )}
         </div>
@@ -649,16 +692,16 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
 
         <div className="flex gap-2 px-5 pb-5">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-sm font-medium"
-            style={{ border: '1px solid #E8EFF6', color: '#64748B', background: '#F8FAFC', cursor: 'pointer' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#F0F5FF'}
-            onMouseLeave={e => e.currentTarget.style.background = '#F8FAFC'}>Cancel</button>
+            style={{ border: '1px solid var(--border-1)', color: 'var(--ink-4)', background: 'var(--surface-2)', cursor: 'pointer' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-soft-2)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--surface-2)'}>Cancel</button>
           <button
             onClick={handleSave}
             disabled={Boolean(warning) || saving}
-            className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white"
-            style={{ background: '#1A3A5C', cursor: warning || saving ? 'not-allowed' : 'pointer', opacity: warning || saving ? 0.6 : 1, border: 'none' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#2C5F8A'}
-            onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}>{saving ? 'Saving...' : 'Save'}</button>
+            className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-on-solid"
+            style={{ background: 'var(--brand)', cursor: warning || saving ? 'not-allowed' : 'pointer', opacity: warning || saving ? 0.6 : 1, border: 'none' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--brand)'}>{saving ? 'Saving...' : 'Save'}</button>
         </div>
       </div>
     </div>
@@ -677,35 +720,35 @@ function GenSummaryModal({ summary, onClose }) {
       closeLabel="Close generation summary"
       footer={(
         <button type="button" onClick={onClose}
-          style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: '#1A3A5C', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+          style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: 'var(--brand)', color: 'var(--ink-inverse)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
           View Schedule
         </button>
       )}
     >
           <div className="grid grid-cols-3 gap-3 mb-5">
             {[
-              { label: 'Work Days',  value: summary.workDays,   color: '#1A3A5C' },
-              { label: 'Assigned',   value: summary.assigned,   color: '#16A34A' },
-              { label: 'Unassigned', value: summary.unassigned, color: summary.unassigned > 0 ? '#D97706' : '#94A3B8' },
+              { label: 'Work Days',  value: summary.workDays,   color: 'var(--ink-1)' },
+              { label: 'Assigned',   value: summary.assigned,   color: 'var(--success)' },
+              { label: 'Unassigned', value: summary.unassigned, color: summary.unassigned > 0 ? 'var(--warn)' : 'var(--ink-5)' },
             ].map(s => (
-              <div key={s.label} className="text-center p-3 rounded-xl" style={{ background: '#F8FAFC' }}>
+              <div key={s.label} className="text-center p-3 rounded-xl" style={{ background: 'var(--surface-2)' }}>
                 <p style={{ fontSize: 24, fontWeight: 700, color: s.color, margin: 0 }}>{s.value}</p>
-                <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>{s.label}</p>
+                <p style={{ fontSize: 11, color: 'var(--ink-5)', marginTop: 2 }}>{s.label}</p>
               </div>
             ))}
           </div>
 
           {summary.callSummary?.length > 0 && (
             <div className="mb-4">
-              <p style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-5)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
                 Call Distribution
               </p>
               <div className="space-y-1 max-h-28 overflow-y-auto">
                 {summary.callSummary.map((r, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <span style={{ fontSize: 12, color: '#1A3A5C', flex: 1 }}>{r.name}</span>
-                    <span style={{ fontSize: 11, color: '#94A3B8', textTransform: 'capitalize' }}>{r.role}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: r.calls >= 9 ? '#DC2626' : r.calls >= 7 ? '#D97706' : '#16A34A', minWidth: 20, textAlign: 'right' }}>
+                    <span style={{ fontSize: 12, color: 'var(--ink-1)', flex: 1 }}>{r.name}</span>
+                    <span style={{ fontSize: 11, color: 'var(--ink-5)', textTransform: 'capitalize' }}>{r.role}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: r.calls >= 9 ? 'var(--danger)' : r.calls >= 7 ? 'var(--warn)' : 'var(--success)', minWidth: 20, textAlign: 'right' }}>
                       {r.calls}
                     </span>
                   </div>
@@ -715,11 +758,11 @@ function GenSummaryModal({ summary, onClose }) {
           )}
 
           {summary.unassignedDates?.length > 0 && (
-            <div className="mb-4 px-3 py-2 rounded-lg" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>
+            <div className="mb-4 px-3 py-2 rounded-lg" style={{ background: 'var(--warn-soft)', border: '1px solid var(--warn-border)' }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--warn)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>
                 Unassigned Dates ({summary.unassignedDates.length})
               </p>
-              <p style={{ fontSize: 11, color: '#92400E', lineHeight: 1.5 }}>
+              <p style={{ fontSize: 11, color: 'var(--warn-ink-strong)', lineHeight: 1.5 }}>
                 {summary.unassignedDates.slice(0, 12).join(', ')}
                 {summary.unassignedDates.length > 12 ? `, +${summary.unassignedDates.length - 12} more` : ''}
               </p>
@@ -728,11 +771,11 @@ function GenSummaryModal({ summary, onClose }) {
 
           {summary.warnings?.length > 0 && (
             <div className="mb-4 max-h-32 overflow-y-auto">
-              <p style={{ fontSize: 10, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--warn)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
                 Warnings ({summary.warnings.length})
               </p>
               {summary.warnings.map((w, i) => (
-                <p key={i} style={{ fontSize: 11, color: '#64748B', marginBottom: 3 }}>
+                <p key={i} style={{ fontSize: 11, color: 'var(--ink-4)', marginBottom: 3 }}>
                   Warning: {w.date ? `${w.date}: ` : ''}{w.message}
                 </p>
               ))}
@@ -768,14 +811,14 @@ function ValidationModal({ result, onClose, onEditDate }) {
     >
       {violations.length === 0 && (
         <div className="rounded-xl px-4 py-3 mb-4" data-testid="validation-clean"
-          style={{ background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', fontSize: 13 }}>
+          style={{ background: 'var(--success-soft)', color: 'var(--success-ink)', border: '1px solid var(--success-border)', fontSize: 13 }}>
           No scheduling-rule violations were found in the stored draft.
         </div>
       )}
 
       {outstanding.length > 0 && (
         <section className="mb-4">
-          <h4 style={{ fontSize: 11, fontWeight: 700, color: '#991B1B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+          <h4 style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger-ink-strong)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
             Needs a decision ({outstanding.length})
           </h4>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -788,7 +831,7 @@ function ValidationModal({ result, onClose, onEditDate }) {
 
       {documented.length > 0 && (
         <section className="mb-4">
-          <h4 style={{ fontSize: 11, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+          <h4 style={{ fontSize: 11, fontWeight: 700, color: 'var(--warn-ink)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
             Accepted exceptions ({documented.length})
           </h4>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -801,7 +844,7 @@ function ValidationModal({ result, onClose, onEditDate }) {
 
       {warnings.length > 0 && (
         <section className="mb-4">
-          <h4 style={{ fontSize: 11, fontWeight: 700, color: '#92400E', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+          <h4 style={{ fontSize: 11, fontWeight: 700, color: 'var(--warn-ink-strong)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
             Warnings ({warnings.length})
           </h4>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -814,7 +857,7 @@ function ValidationModal({ result, onClose, onEditDate }) {
 
       {unfilled.length > 0 && (
         <details data-testid="unfilled-slots" open={unfilled.length <= 3}>
-          <summary style={{ fontSize: 11, fontWeight: 700, color: '#1A3A5C', textTransform: 'uppercase', letterSpacing: '0.06em', cursor: 'pointer', marginBottom: 8 }}>
+          <summary style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-1)', textTransform: 'uppercase', letterSpacing: '0.06em', cursor: 'pointer', marginBottom: 8 }}>
             Unfilled slots ({unfilled.length})
           </summary>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -840,11 +883,11 @@ function OverrideConfirmModal({ violations, onConfirm, onClose, saving }) {
       footer={(
         <div style={{ display: 'flex', gap: 8 }}>
           <button type="button" onClick={onClose} disabled={saving} className="flex-1 py-2.5 rounded-lg"
-            style={{ border: '1px solid #CBD5E1', background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: 700 }}>
+            style={{ border: '1px solid var(--border-strong)', background: 'var(--surface-1)', color: 'var(--ink-3)', cursor: 'pointer', fontWeight: 700 }}>
             Cancel
           </button>
           <button type="button" onClick={() => onConfirm(reason)} disabled={saving || !reason.trim()} className="flex-1 py-2.5 rounded-lg"
-            style={{ border: 0, background: '#B91C1C', color: '#fff', cursor: saving || !reason.trim() ? 'not-allowed' : 'pointer', opacity: saving || !reason.trim() ? 0.6 : 1, fontWeight: 750 }}>
+            style={{ border: 0, background: 'var(--danger-hover)', color: 'var(--ink-inverse)', cursor: saving || !reason.trim() ? 'not-allowed' : 'pointer', opacity: saving || !reason.trim() ? 0.6 : 1, fontWeight: 750 }}>
             {saving ? 'Saving override...' : 'Confirm override'}
           </button>
         </div>
@@ -855,13 +898,13 @@ function OverrideConfirmModal({ violations, onConfirm, onClose, saving }) {
           <ViolationCard key={`${item.code}-${index}`} item={item} />
         ))}
       </ul>
-      <label htmlFor="override-reason" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#1A3A5C', marginTop: 14 }}>
+      <label htmlFor="override-reason" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--ink-1)', marginTop: 14 }}>
         Override reason
       </label>
       <textarea
         id="override-reason" value={reason} onChange={event => setReason(event.target.value)} rows={3}
         placeholder="Explain the clinical or operational reason for this exception"
-        style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: 10, padding: '10px 12px', fontSize: 13, resize: 'vertical', marginTop: 6 }}
+        style={{ width: '100%', border: '1px solid var(--border-strong)', borderRadius: 10, padding: '10px 12px', fontSize: 13, resize: 'vertical', marginTop: 6 }}
       />
     </Modal>
   );
@@ -878,25 +921,25 @@ function LinkControlModal({ mode, onConfirm, onClose, busy }) {
         <div style={{ display: 'flex', gap: 10 }}>
           <button type="button" onClick={onClose} disabled={busy}
             className="flex-1 py-2.5 rounded-lg text-sm font-medium"
-            style={{ background: '#fff', color: '#64748B', border: '1px solid #E2E8F0', cursor: busy ? 'not-allowed' : 'pointer' }}>
+            style={{ background: 'var(--surface-1)', color: 'var(--ink-4)', border: '1px solid var(--border-2)', cursor: busy ? 'not-allowed' : 'pointer' }}>
             Cancel
           </button>
           <button type="button" onClick={onConfirm} disabled={busy}
             data-testid={isUnpublish ? 'confirm-unpublish' : 'confirm-rotate'}
-            className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white"
-            style={{ background: '#B91C1C', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+            className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-on-solid"
+            style={{ background: 'var(--danger-hover)', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
             {busy ? 'Working...' : (isUnpublish ? 'Unpublish' : 'Generate new link')}
           </button>
         </div>
       )}
     >
       {isUnpublish ? (
-        <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
+        <div style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.6 }}>
           <p>The public link will stop working immediately, and anyone holding it will see an unavailable page.</p>
           <p style={{ marginTop: 8 }}>Your draft schedule is not changed, and the published version history is kept. You can publish again at any time.</p>
         </div>
       ) : (
-        <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
+        <div style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.6 }}>
           <p>A new link is created and the current one stops working immediately. Anyone who already has the old link will lose access.</p>
           <p style={{ marginTop: 8 }}>The published schedule itself does not change. You will need to share the new link with everyone who needs it.</p>
         </div>
@@ -915,17 +958,17 @@ function PublishConfirmModal({ onConfirm, onClose, publishing }) {
       footer={(
         <div className="flex gap-3">
           <button type="button" onClick={onClose} disabled={publishing}
-            style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#fff', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: publishing ? 'not-allowed' : 'pointer' }}>
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid var(--border-1)', background: 'var(--surface-1)', color: 'var(--ink-4)', fontSize: 13, fontWeight: 500, cursor: publishing ? 'not-allowed' : 'pointer' }}>
             Cancel
           </button>
           <button type="button" onClick={onConfirm} disabled={publishing}
-            style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#16A34A', color: '#fff', fontSize: 13, fontWeight: 600, cursor: publishing ? 'not-allowed' : 'pointer', opacity: publishing ? 0.7 : 1 }}>
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'var(--success)', color: 'var(--ink-inverse)', fontSize: 13, fontWeight: 600, cursor: publishing ? 'not-allowed' : 'pointer', opacity: publishing ? 0.7 : 1 }}>
             {publishing ? 'Publishing...' : 'Publish'}
           </button>
         </div>
       )}
     >
-      <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
+      <p style={{ fontSize: 13, color: 'var(--ink-4)', lineHeight: 1.5 }}>
         This will make the schedule publicly viewable via a shareable link. Residents will be able to see their
         assignments without logging in.
       </p>
@@ -945,17 +988,17 @@ function ClearConfirmModal({ blockNum, onConfirm, onClose, clearing }) {
       footer={(
         <div className="flex gap-3">
           <button type="button" onClick={onClose} disabled={clearing}
-            style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#fff', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: clearing ? 'not-allowed' : 'pointer' }}>
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid var(--border-1)', background: 'var(--surface-1)', color: 'var(--ink-4)', fontSize: 13, fontWeight: 500, cursor: clearing ? 'not-allowed' : 'pointer' }}>
             Cancel
           </button>
           <button type="button" onClick={onConfirm} disabled={clearing}
-            style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#DC2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: clearing ? 'not-allowed' : 'pointer', opacity: clearing ? 0.7 : 1 }}>
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'var(--danger)', color: 'var(--ink-inverse)', fontSize: 13, fontWeight: 600, cursor: clearing ? 'not-allowed' : 'pointer', opacity: clearing ? 0.7 : 1 }}>
             {clearing ? 'Clearing...' : 'Clear all assignments'}
           </button>
         </div>
       )}
     >
-      <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
+      <p style={{ fontSize: 13, color: 'var(--ink-4)', lineHeight: 1.5 }}>
         This will remove all resident call assignments for Block {blockNum}. Attending entries will not be
         affected. This cannot be undone.
       </p>
@@ -988,11 +1031,11 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
       footer={(
         <div className="flex gap-3">
           <button type="button" onClick={() => window.open(publicUrl, '_blank')}
-            style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #C7D9EC', background: '#EEF4FF', color: '#2C5F8A', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid var(--accent-border-2)', background: 'var(--accent-soft)', color: 'var(--accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             View published version
           </button>
           <button type="button" onClick={onClose}
-            style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#1A3A5C', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'var(--brand)', color: 'var(--ink-inverse)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             Done
           </button>
         </div>
@@ -1000,13 +1043,13 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
     >
 
           {(publishedLabel || versionId) && (
-            <div className="rounded-lg px-3 py-2 mb-4" style={{ background: '#F8FAFC', border: '1px solid #E8EFF6' }}>
-              {publishedLabel && <p style={{ fontSize: 12, color: '#1A3A5C', margin: 0 }}>Published {publishedLabel}</p>}
-              {versionId && <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>Version {versionId.slice(0, 8)}</p>}
+            <div className="rounded-lg px-3 py-2 mb-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-1)' }}>
+              {publishedLabel && <p style={{ fontSize: 12, color: 'var(--ink-1)', margin: 0 }}>Published {publishedLabel}</p>}
+              {versionId && <p style={{ fontSize: 11, color: 'var(--ink-5)', marginTop: 2 }}>Version {versionId.slice(0, 8)}</p>}
             </div>
           )}
 
-          <label htmlFor="published-public-link" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1A3A5C', marginBottom: 6 }}>
+          <label htmlFor="published-public-link" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-1)', marginBottom: 6 }}>
             Public link
           </label>
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -1016,8 +1059,8 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
               value={publicUrl}
               style={{
                 flex: 1, padding: '9px 12px', borderRadius: 8,
-                border: '1px solid #E2E8F0', fontSize: 12, color: '#2C5F8A',
-                background: '#F0F5FF', fontFamily: 'monospace', outline: 'none',
+                border: '1px solid var(--border-strong)', fontSize: 12, color: 'var(--accent)',
+                background: 'var(--accent-soft-2)', fontFamily: 'monospace', outline: 'none',
               }}
             />
             <button
@@ -1025,8 +1068,8 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
               onClick={handleCopy}
               style={{
                 padding: '9px 16px', borderRadius: 8,
-                border: '1px solid #C7D9EC', background: copied ? '#DCFCE7' : '#EEF4FF',
-                color: copied ? '#15803D' : '#2C5F8A', fontSize: 13, fontWeight: 600,
+                border: '1px solid var(--accent-border-2)', background: copied ? 'var(--success-soft-2)' : 'var(--accent-soft)',
+                color: copied ? 'var(--success-ink)' : 'var(--accent)', fontSize: 13, fontWeight: 600,
                 cursor: 'pointer', whiteSpace: 'nowrap',
               }}
             >
@@ -1041,7 +1084,7 @@ function PublishSuccessModal({ publicUrl, publishedAt, versionId, onClose }) {
 
 function Spinner() {
   return <div className="w-3.5 h-3.5 rounded-full border-2 animate-spin inline-block"
-    style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />;
+    style={{ borderColor: 'var(--on-brand-track)', borderTopColor: 'var(--on-brand)' }} />;
 }
 
 function BlockSettingsSummary({ settings, blockNum, loading }) {
@@ -1049,14 +1092,14 @@ function BlockSettingsSummary({ settings, blockNum, loading }) {
     <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
         <div>
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#1A3A5C' }}>Block rules</p>
-          <p style={{ fontSize: 11, color: '#94A3B8' }}>{loading ? 'Loading...' : 'PARO rules plus local settings'}</p>
+          <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-1)' }}>Block rules</p>
+          <p style={{ fontSize: 11, color: 'var(--ink-5)' }}>{loading ? 'Loading...' : 'PARO rules plus local settings'}</p>
         </div>
-        {!loading && <span style={{ fontSize: 12, color: '#475569' }}>Resident cap: {settings.maxCallsPerResident > 0 ? settings.maxCallsPerResident : 'PARO only'}</span>}
-        {!loading && <span style={{ fontSize: 12, color: '#475569' }}>Med-student cap: {settings.maxCallsMedStudent}</span>}
-        {!loading && <span style={{ fontSize: 12, color: '#475569' }}>{settings.avoidAcademicDays ? 'Avoid academic days' : 'Academic days allowed'}</span>}
+        {!loading && <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>Resident cap: {settings.maxCallsPerResident > 0 ? settings.maxCallsPerResident : 'PARO only'}</span>}
+        {!loading && <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>Med-student cap: {settings.maxCallsMedStudent}</span>}
+        {!loading && <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{settings.avoidAcademicDays ? 'Avoid academic days' : 'Academic days allowed'}</span>}
       </div>
-      <Link to={`/blocks/${blockNum}/settings`} style={{ fontSize: 12, fontWeight: 700, color: '#2C5F8A' }}>Edit settings</Link>
+      <Link to={`/blocks/${blockNum}/settings`} style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}>Edit settings</Link>
     </div>
   );
 }
@@ -1092,20 +1135,20 @@ const CalendarTopBar = memo(function CalendarTopBar({
     <div className="flex flex-col items-center">
       <motion.span key={value} initial={{ scale: 1.2, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         style={{ fontSize: 20, fontWeight: 700, color, lineHeight: 1 }}>{value}</motion.span>
-      <span style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>{label}</span>
+      <span style={{ fontSize: 11, color: 'var(--ink-5)', marginTop: 2 }}>{label}</span>
     </div>
   );
 
   return (
     <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
       className="rounded-xl mb-4 overflow-hidden"
-      style={{ border: '1px solid #E8EFF6', background: '#fff', boxShadow: '0 1px 3px rgba(26,58,92,0.05)' }}>
-      <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
+      style={{ border: '1px solid var(--border-1)', background: 'var(--surface-1)', boxShadow: 'var(--shadow-xs)' }}>
+      <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4" style={{ borderBottom: '1px solid var(--border-1)' }}>
         <div className="flex items-center gap-3">
           <div>
-            <h1 style={{ fontSize: 18, fontWeight: 700, color: '#1A3A5C' }}>Block {blockNum} Calendar</h1>
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-1)' }}>Block {blockNum} Calendar</h1>
             {blockStart && blockEnd && (
-              <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>
+              <p style={{ fontSize: 12, color: 'var(--ink-5)', marginTop: 2 }}>
                 {fmtRange(blockStart)} - {fmtRange(blockEnd)}
               </p>
             )}
@@ -1114,10 +1157,10 @@ const CalendarTopBar = memo(function CalendarTopBar({
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 4,
             padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700,
-            background: isPublished ? '#DCFCE7' : '#F1F5F9',
-            color: isPublished ? '#15803D' : '#94A3B8',
+            background: isPublished ? 'var(--success-soft-2)' : 'var(--surface-3)',
+            color: isPublished ? 'var(--success-ink)' : 'var(--ink-5)',
           }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: isPublished ? '#16A34A' : '#CBD5E1', display: 'inline-block' }} />
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: isPublished ? 'var(--success)' : 'var(--border-strong)', display: 'inline-block' }} />
             {isPublished ? 'Published' : 'Draft'}
           </span>
         </div>
@@ -1127,7 +1170,7 @@ const CalendarTopBar = memo(function CalendarTopBar({
             onClick={onValidate}
             disabled={validating || !canValidateSchedule}
             className="px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5"
-            style={{ background: '#FFF7ED', color: '#9A3412', border: '1px solid #FED7AA', cursor: validating ? 'not-allowed' : 'pointer' }}>
+            style={{ background: 'var(--orange-soft)', color: 'var(--orange-ink)', border: '1px solid var(--orange-border)', cursor: validating ? 'not-allowed' : 'pointer' }}>
             {validating ? 'Validating...' : 'Validate schedule'}
           </motion.button>
           {/* Export Excel */}
@@ -1136,9 +1179,9 @@ const CalendarTopBar = memo(function CalendarTopBar({
             onClick={onExportExcel}
             disabled={exportingExcel || !blockId || !canExportDraft}
             className="px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5"
-            style={{ background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', cursor: exportingExcel ? 'not-allowed' : 'pointer' }}
-            onMouseEnter={e => { if (!exportingExcel) e.currentTarget.style.background = '#DCFCE7'; }}
-            onMouseLeave={e => e.currentTarget.style.background = '#F0FDF4'}>
+            style={{ background: 'var(--success-soft)', color: 'var(--success-ink)', border: '1px solid var(--success-border)', cursor: exportingExcel ? 'not-allowed' : 'pointer' }}
+            onMouseEnter={e => { if (!exportingExcel) e.currentTarget.style.background = 'var(--success-soft-2)'; }}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--success-soft)'}>
             {exportingExcel ? <Spinner /> : (
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
@@ -1153,9 +1196,9 @@ const CalendarTopBar = memo(function CalendarTopBar({
             onClick={onPrintPdf}
             disabled={printingPdf || !blockId || !canExportDraft}
             className="px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5"
-            style={{ background: '#EEF4FF', color: '#2C5F8A', border: '1px solid #C7D9EC', cursor: printingPdf ? 'not-allowed' : 'pointer' }}
-            onMouseEnter={e => { if (!printingPdf) e.currentTarget.style.background = '#DCE9F5'; }}
-            onMouseLeave={e => e.currentTarget.style.background = '#EEF4FF'}>
+            style={{ background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid var(--accent-border-2)', cursor: printingPdf ? 'not-allowed' : 'pointer' }}
+            onMouseEnter={e => { if (!printingPdf) e.currentTarget.style.background = 'var(--border-3)'; }}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-soft)'}>
             {printingPdf ? <Spinner /> : (
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
@@ -1171,9 +1214,9 @@ const CalendarTopBar = memo(function CalendarTopBar({
               whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
               onClick={onViewPublished}
               className="px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5"
-              style={{ background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', cursor: 'pointer' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#DCFCE7'}
-              onMouseLeave={e => e.currentTarget.style.background = '#F0FDF4'}>
+              style={{ background: 'var(--success-soft)', color: 'var(--success-ink)', border: '1px solid var(--success-border)', cursor: 'pointer' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--success-soft-2)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'var(--success-soft)'}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
               </svg>
@@ -1188,9 +1231,9 @@ const CalendarTopBar = memo(function CalendarTopBar({
               whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
               onClick={onCopyLink}
               className="px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5"
-              style={{ background: '#EEF4FF', color: '#2C5F8A', border: '1px solid #C7D9EC', cursor: 'pointer' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#DCE9F5'}
-              onMouseLeave={e => e.currentTarget.style.background = '#EEF4FF'}>
+              style={{ background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid var(--accent-border-2)', cursor: 'pointer' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--border-3)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-soft)'}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
@@ -1205,10 +1248,10 @@ const CalendarTopBar = memo(function CalendarTopBar({
             onClick={onClearSchedule}
             disabled={clearingSchedule || !canClearSchedule}
             className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2"
-            style={{ background: '#fff', color: '#DC2626', border: '1px solid #FCA5A5', cursor: clearingSchedule ? 'not-allowed' : 'pointer' }}
-            onMouseEnter={e => { if (!clearingSchedule) { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.borderColor = '#EF4444'; } }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#FCA5A5'; }}>
-            {clearingSchedule ? <><Spinner /><span style={{ color: '#DC2626' }}>Clearing...</span></> : 'Clear schedule'}
+            style={{ background: 'var(--surface-1)', color: 'var(--danger)', border: '1px solid var(--danger-border)', cursor: clearingSchedule ? 'not-allowed' : 'pointer' }}
+            onMouseEnter={e => { if (!clearingSchedule) { e.currentTarget.style.background = 'var(--danger-soft)'; e.currentTarget.style.borderColor = 'var(--danger)'; } }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-1)'; e.currentTarget.style.borderColor = 'var(--danger-border)'; }}>
+            {clearingSchedule ? <><Spinner /><span style={{ color: 'var(--danger)' }}>Clearing...</span></> : 'Clear schedule'}
           </motion.button>
 
           {/* Auto-generate */}
@@ -1217,30 +1260,30 @@ const CalendarTopBar = memo(function CalendarTopBar({
             onClick={onAutoGenerate}
             disabled={generating || !canGenerateSchedule}
             className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2"
-            style={{ background: '#EEF4FF', color: '#2C5F8A', border: '1px solid #C7D9EC', cursor: generating ? 'not-allowed' : 'pointer' }}
-            onMouseEnter={e => { if (!generating) e.currentTarget.style.background = '#DCE9F5'; }}
-            onMouseLeave={e => e.currentTarget.style.background = '#EEF4FF'}>
-            {generating ? <><Spinner /><span style={{ color: '#2C5F8A' }}>Generating...</span></> : 'Auto-generate'}
+            style={{ background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid var(--accent-border-2)', cursor: generating ? 'not-allowed' : 'pointer' }}
+            onMouseEnter={e => { if (!generating) e.currentTarget.style.background = 'var(--border-3)'; }}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-soft)'}>
+            {generating ? <><Spinner /><span style={{ color: 'var(--accent)' }}>Generating...</span></> : 'Auto-generate'}
           </motion.button>
 
           {/* Publish */}
           <motion.button
             whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}
-            animate={publishPulsing ? { boxShadow: ['0 0 0 0 rgba(22,163,74,0)', '0 0 0 8px rgba(22,163,74,0.25)', '0 0 0 0 rgba(22,163,74,0)'] } : {}}
+            animate={publishPulsing ? { boxShadow: ['0 0 0 0 var(--success-glow-0)', '0 0 0 8px var(--success-glow-1)', '0 0 0 0 var(--success-glow-0)'] } : {}}
             transition={publishPulsing ? { duration: 0.6, repeat: 2 } : {}}
             onClick={onPublish}
             disabled={!canPublishSchedule}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
-            style={{ background: isPublished ? '#16A34A' : '#1A3A5C', cursor: 'pointer', border: 'none' }}
-            onMouseEnter={e => e.currentTarget.style.background = isPublished ? '#15803D' : '#2C5F8A'}
-            onMouseLeave={e => e.currentTarget.style.background = isPublished ? '#16A34A' : '#1A3A5C'}>
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-on-solid"
+            style={{ background: isPublished ? 'var(--success)' : 'var(--brand)', cursor: 'pointer', border: 'none' }}
+            onMouseEnter={e => e.currentTarget.style.background = isPublished ? 'var(--success-hover)' : 'var(--accent)'}
+            onMouseLeave={e => e.currentTarget.style.background = isPublished ? 'var(--success)' : 'var(--brand)'}>
             {isPublished ? 'Re-publish' : 'Publish'}
           </motion.button>
         </div>
       </div>
       {isPublished && publicToken && (
-        <div className="flex flex-wrap items-center gap-3 px-5 py-3" style={{ background: '#F8FAFC', borderBottom: '1px solid #E8EFF6' }}>
-          <label htmlFor="calendar-public-link" style={{ fontSize: 12, fontWeight: 700, color: '#2C5F8A', whiteSpace: 'nowrap' }}>Public link</label>
+        <div className="flex flex-wrap items-center gap-3 px-5 py-3" style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border-1)' }}>
+          <label htmlFor="calendar-public-link" style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap' }}>Public link</label>
           <input
             id="calendar-public-link"
             readOnly
@@ -1249,9 +1292,9 @@ const CalendarTopBar = memo(function CalendarTopBar({
             style={{
               padding: '8px 10px',
               borderRadius: 8,
-              border: '1px solid #D6E4F7',
-              background: '#fff',
-              color: '#1A3A5C',
+              border: '1px solid var(--border-strong)',
+              background: 'var(--surface-1)',
+              color: 'var(--ink-1)',
               fontSize: 12,
               fontFamily: 'monospace',
               outline: 'none',
@@ -1261,9 +1304,9 @@ const CalendarTopBar = memo(function CalendarTopBar({
           <button
             onClick={onCopyLink}
             className="px-3 py-2 rounded-lg text-sm font-semibold"
-            style={{ background: '#EEF4FF', color: '#2C5F8A', border: '1px solid #C7D9EC', cursor: 'pointer' }}
-            onMouseEnter={event => { event.currentTarget.style.background = '#DCE9F5'; }}
-            onMouseLeave={event => { event.currentTarget.style.background = '#EEF4FF'; }}
+            style={{ background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid var(--accent-border-2)', cursor: 'pointer' }}
+            onMouseEnter={event => { event.currentTarget.style.background = 'var(--border-3)'; }}
+            onMouseLeave={event => { event.currentTarget.style.background = 'var(--accent-soft)'; }}
           >
             Copy public link
           </button>
@@ -1273,9 +1316,9 @@ const CalendarTopBar = memo(function CalendarTopBar({
                 onClick={onRotateLink}
                 data-testid="rotate-public-link"
                 className="px-3 py-2 rounded-lg text-sm font-semibold"
-                style={{ background: '#fff', color: '#B45309', border: '1px solid #FDE68A', cursor: 'pointer' }}
-                onMouseEnter={event => { event.currentTarget.style.background = '#FFFBEB'; }}
-                onMouseLeave={event => { event.currentTarget.style.background = '#fff'; }}
+                style={{ background: 'var(--surface-1)', color: 'var(--warn-ink)', border: '1px solid var(--warn-border)', cursor: 'pointer' }}
+                onMouseEnter={event => { event.currentTarget.style.background = 'var(--warn-soft)'; }}
+                onMouseLeave={event => { event.currentTarget.style.background = 'var(--surface-1)'; }}
               >
                 New link
               </button>
@@ -1283,9 +1326,9 @@ const CalendarTopBar = memo(function CalendarTopBar({
                 onClick={onUnpublish}
                 data-testid="unpublish-schedule"
                 className="px-3 py-2 rounded-lg text-sm font-semibold"
-                style={{ background: '#fff', color: '#DC2626', border: '1px solid #FCA5A5', cursor: 'pointer' }}
-                onMouseEnter={event => { event.currentTarget.style.background = '#FEF2F2'; }}
-                onMouseLeave={event => { event.currentTarget.style.background = '#fff'; }}
+                style={{ background: 'var(--surface-1)', color: 'var(--danger)', border: '1px solid var(--danger-border)', cursor: 'pointer' }}
+                onMouseEnter={event => { event.currentTarget.style.background = 'var(--danger-soft)'; }}
+                onMouseLeave={event => { event.currentTarget.style.background = 'var(--surface-1)'; }}
               >
                 Unpublish
               </button>
@@ -1294,10 +1337,10 @@ const CalendarTopBar = memo(function CalendarTopBar({
         </div>
       )}
       <div className="flex flex-wrap gap-6 px-6 py-3">
-        {stat('Total days', days.length, '#1A3A5C')}
-        {stat('Assigned', assigned, '#16A34A')}
-        {stat('Unassigned', unassigned, '#D97706')}
-        {stat('Warnings', warnings, '#DC2626')}
+        {stat('Total days', days.length, 'var(--ink-1)')}
+        {stat('Assigned', assigned, 'var(--success)')}
+        {stat('Unassigned', unassigned, 'var(--warn)')}
+        {stat('Warnings', warnings, 'var(--danger)')}
       </div>
     </motion.div>
   );
@@ -1760,7 +1803,7 @@ export default function Calendar() {
       toast.error('Popup blocked. Please allow popups for printable export.');
       return;
     }
-    printWindow.document.write('<!doctype html><title>Loading printable schedule...</title><p style="font-family: sans-serif; color: #1A3A5C;">Loading printable schedule...</p>');
+    printWindow.document.write('<!doctype html><title>Loading printable schedule...</title><p style="font-family: sans-serif; color: var(--ink-1);">Loading printable schedule...</p>');
     printWindow.document.close();
     setPrintingPdf(true);
     try {
@@ -1847,8 +1890,8 @@ export default function Calendar() {
         )}
 
         {can('edit_block_settings') && (
-          <details className="mb-4 rounded-xl" style={{ border: '1px solid #E8EFF6', background: '#fff' }}>
-            <summary style={{ padding: '12px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#1A3A5C' }}>
+          <details className="mb-4 rounded-xl" style={{ border: '1px solid var(--border-1)', background: 'var(--surface-1)' }}>
+            <summary style={{ padding: '12px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: 'var(--ink-1)' }}>
               Block rules
             </summary>
             <BlockSettingsSummary
@@ -1861,8 +1904,8 @@ export default function Calendar() {
 
         {can('view_draft_schedule') && blockId && programId && (
           <details className="mb-4 rounded-xl" data-testid="block-history"
-            style={{ border: '1px solid #E8EFF6', background: '#fff' }}>
-            <summary style={{ padding: '12px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#1A3A5C' }}>
+            style={{ border: '1px solid var(--border-1)', background: 'var(--surface-1)' }}>
+            <summary style={{ padding: '12px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: 'var(--ink-1)' }}>
               Block history
             </summary>
             <div style={{ padding: '0 16px 16px' }}>
@@ -1882,7 +1925,7 @@ export default function Calendar() {
               <div className="grid grid-cols-7 gap-1 mb-1">
                 {DAYS_OF_WEEK.map(d => (
                   <div key={d} className="text-center py-2"
-                    style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-5)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     {d}
                   </div>
                 ))}
@@ -1899,7 +1942,7 @@ export default function Calendar() {
                             canEdit={canEditSchedule}
                           />
                         ) : (
-                          <div className="h-full rounded-xl" style={{ background: '#F8FAFC', border: '1px solid #F1F5F9', minHeight: 100 }} />
+                          <div className="h-full rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', minHeight: 100 }} />
                         )}
                       </div>
                     ))}
@@ -1909,9 +1952,9 @@ export default function Calendar() {
             </div>
 
             {/* Mobile list */}
-            <div className="md:hidden rounded-xl overflow-hidden" style={{ border: '1px solid #E8EFF6', boxShadow: '0 1px 3px rgba(26,58,92,0.05)' }}>
-              <div className="px-4 py-3" style={{ background: '#F8FAFC', borderBottom: '1px solid #E8EFF6' }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#94A3B8' }}>
+            <div className="md:hidden rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-1)', boxShadow: 'var(--shadow-xs)' }}>
+              <div className="px-4 py-3" style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border-1)' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-5)' }}>
                   {days.length} days - {canEditSchedule ? 'Tap a day to assign residents' : 'Read-only schedule'}
                 </span>
               </div>

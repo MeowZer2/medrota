@@ -36,10 +36,23 @@ function blockProgress(startIso, endIso) {
   return Math.round((elapsed / total) * 100);
 }
 
+/*
+ * A pastel fill alone sits at about 1.3:1 against the card, which is below the
+ * 3:1 WCAG 1.4.11 asks of a graphical object. Darkening the fills to 3:1 would
+ * have replaced the chart's palette outright, so each band instead carries a
+ * 3:1 edge: the bar stays the colour it was and the mark is still clearly
+ * bounded. The same pair is used for the legend swatch.
+ */
+const CHART_BANDS = {
+  'var(--danger)': { fill: 'var(--chart-over)', edge: 'var(--chart-over-edge)' },
+  'var(--warn)': { fill: 'var(--chart-high)', edge: 'var(--chart-high-edge)' },
+  'var(--accent)': { fill: 'var(--chart-normal)', edge: 'var(--chart-normal-edge)' },
+};
+
 function callColor(n) {
-  if (n >= 9) return { bar: '#DC2626', bg: '#FEF2F2' };
-  if (n >= 7) return { bar: '#D97706', bg: '#FFFBEB' };
-  return { bar: '#2C5F8A', bg: '#EEF4FF' };
+  if (n >= 9) return { bar: 'var(--danger)', bg: 'var(--danger-soft)' };
+  if (n >= 7) return { bar: 'var(--warn)', bg: 'var(--warn-soft)' };
+  return { bar: 'var(--accent)', bg: 'var(--accent-soft)' };
 }
 
 // ── skeleton ──────────────────────────────────────────────────────────────────
@@ -48,7 +61,7 @@ function StatsSkeleton() {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 min-w-0">
       {[...Array(4)].map((_, i) => (
-        <div key={i} className="bg-white rounded-xl p-5 min-w-0" style={{ border: '1px solid #E8EFF6', borderLeft: '4px solid #E8EFF6' }}>
+        <div key={i} className="bg-surface-1 rounded-xl p-5 min-w-0" style={{ border: '1px solid var(--border-1)', borderLeft: '4px solid var(--border-1)' }}>
           <div className="skeleton-shimmer h-8 w-8 rounded-lg mb-3" />
           <div className="skeleton-shimmer h-3 w-20 rounded mb-2" />
           <div className="skeleton-shimmer h-9 w-12 rounded" />
@@ -74,18 +87,18 @@ const fadeSlideUp = {
 const STAT_META = [
   {
     key: 'daysInBlock', label: 'Days in block',
-    accent: '#2C5F8A', iconBg: '#EEF4FF',
+    accent: 'var(--accent)', iconBg: 'var(--accent-soft)',
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2C5F8A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
       </svg>
     ),
   },
   {
     key: 'residents', label: 'Residents',
-    accent: '#16A34A', iconBg: '#F0FDF4',
+    accent: 'var(--success)', iconBg: 'var(--success-soft)',
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
         <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
       </svg>
@@ -93,18 +106,18 @@ const STAT_META = [
   },
   {
     key: 'avgCalls', label: 'Avg calls',
-    accent: '#D97706', iconBg: '#FFFBEB',
+    accent: 'var(--warn)', iconBg: 'var(--warn-soft)',
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
       </svg>
     ),
   },
   {
     key: 'warnings', label: 'Warnings',
-    accent: '#DC2626', iconBg: '#FEF2F2',
+    accent: 'var(--danger)', iconBg: 'var(--danger-soft)',
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
         <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
       </svg>
@@ -199,16 +212,16 @@ export default function Dashboard() {
       <Layout>
         {/* Hero greeting */}
         <motion.div className="mb-6" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.14, ease: 'easeOut' }}>
-          <h1 className="md:text-[28px] text-[22px] font-semibold leading-tight" style={{ color: '#1A3A5C' }}>
+          <h1 className="md:text-[28px] text-[22px] font-semibold leading-tight" style={{ color: 'var(--ink-1)' }}>
             {getGreeting()}{userName ? `, ${userName}` : ''}
           </h1>
-          <p className="mt-1 text-sm" style={{ color: '#94A3B8' }}>{todayLabel()}</p>
+          <p className="mt-1 text-sm" style={{ color: 'var(--ink-5)' }}>{todayLabel()}</p>
           <motion.div
             className="mt-4 h-px"
             initial={{ width: 0 }}
             animate={{ width: 192 }}
             transition={{ duration: 0.16, delay: 0.04, ease: 'easeOut' }}
-            style={{ background: 'linear-gradient(90deg, #2C5F8A 0%, transparent 100%)' }}
+            style={{ background: 'linear-gradient(90deg, var(--accent) 0%, transparent 100%)' }}
           />
         </motion.div>
 
@@ -221,7 +234,7 @@ export default function Dashboard() {
               onSelect={setCurrentBlock}
             />
             {stats && (
-              <p className="mt-2 text-xs font-medium" style={{ color: '#94A3B8' }}>
+              <p className="mt-2 text-xs font-medium" style={{ color: 'var(--ink-5)' }}>
                 Showing stats for Block {blockNum} — {formatDate(stats.block.startDate)} to {formatDate(stats.block.endDate)}
               </p>
             )}
@@ -243,11 +256,11 @@ export default function Dashboard() {
                   key={s.key}
                   variants={fadeSlideUp}
                   whileHover={{ y: -1 }}
-                  className="bg-white rounded-xl p-5 flex flex-col min-w-0"
+                  className="bg-surface-1 rounded-xl p-5 flex flex-col min-w-0"
                   style={{
-                    border: '1px solid #E8EFF6',
+                    border: '1px solid var(--border-1)',
                     borderLeft: `4px solid ${s.accent}`,
-                    boxShadow: '0 1px 3px rgba(26,58,92,0.05)',
+                    boxShadow: 'var(--shadow-xs)',
                     cursor: 'default',
                   }}
                 >
@@ -256,8 +269,8 @@ export default function Dashboard() {
                       {s.icon}
                     </div>
                   </div>
-                  <p className="text-[13px] font-medium" style={{ color: '#94A3B8' }}>{s.label}</p>
-                  <p style={{ fontSize: 36, fontWeight: 700, color: '#1A3A5C', lineHeight: 1.1, marginTop: 4 }}>
+                  <p className="text-[13px] font-medium" style={{ color: 'var(--ink-5)' }}>{s.label}</p>
+                  <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--ink-1)', lineHeight: 1.1, marginTop: 4 }}>
                     {value}
                   </p>
                 </motion.div>
@@ -278,37 +291,37 @@ export default function Dashboard() {
             variants={fadeSlideUp}
             className="md:col-span-2 rounded-xl p-6 flex flex-col min-w-0"
             style={{
-              background: 'linear-gradient(135deg, #EEF4FF 0%, #ffffff 60%)',
-              border: '1px solid #D6E4F7',
-              boxShadow: '0 1px 3px rgba(26,58,92,0.06)',
+              background: 'linear-gradient(135deg, var(--accent-soft) 0%, var(--surface-1) 60%)',
+              border: '1px solid var(--accent-border)',
+              boxShadow: 'var(--shadow-sm)',
             }}
           >
             <div className="flex flex-wrap items-start justify-between gap-2 mb-5 min-w-0">
               <div className="min-w-0">
-                <h2 style={{ fontSize: 15, fontWeight: 600, color: '#1A3A5C' }}>Current Block</h2>
-                <p className="mt-0.5 text-sm" style={{ color: '#5A7A9A' }}>
+                <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-1)' }}>Current Block</h2>
+                <p className="mt-0.5 text-sm" style={{ color: 'var(--accent-muted-2)' }}>
                   {stats
                     ? `Block ${blockNum} — ${formatDate(stats.block.startDate)} → ${formatDate(stats.block.endDate)}`
                     : `Block ${blockNum}`}
                 </p>
               </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: '#DCFCE7', color: '#15803D' }}>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: 'var(--success-soft-2)', color: 'var(--success-ink)' }}>
                 Active
               </span>
             </div>
 
             <div className="mb-6">
-              <div className="flex justify-between text-xs mb-2" style={{ color: '#94A3B8' }}>
+              <div className="flex justify-between text-xs mb-2" style={{ color: 'var(--ink-5)' }}>
                 <span>{progressPct}% complete</span>
                 <span>{daysRemaining} days remaining</span>
               </div>
-              <div className="h-2 rounded-full overflow-hidden" style={{ background: '#D6E4F7' }}>
+              <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--accent-border)' }}>
                 <motion.div
                   className="h-full rounded-full"
                   initial={{ width: '0%' }}
                   animate={{ width: `${barProgress}%` }}
                   transition={{ duration: 0.18, delay: 0.04, ease: 'easeOut' }}
-                  style={{ background: 'linear-gradient(90deg, #1A3A5C 0%, #2C5F8A 100%)' }}
+                  style={{ background: 'linear-gradient(90deg, var(--brand) 0%, var(--accent) 100%)' }}
                 />
               </div>
             </div>
@@ -316,10 +329,10 @@ export default function Dashboard() {
             <div className="flex flex-wrap gap-3 mt-auto">
               <motion.button
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white"
-                style={{ background: '#1A3A5C' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#2C5F8A'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#1A3A5C'; }}
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold text-on-solid"
+                style={{ background: 'var(--brand)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--brand)'; }}
               >
                 Auto-generate
               </motion.button>
@@ -327,9 +340,9 @@ export default function Dashboard() {
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                 onClick={() => currentBlock && navigate(`/blocks/${blockNum}/calendar`)}
                 className="px-5 py-2.5 rounded-lg text-sm font-semibold"
-                style={{ background: 'white', color: '#2C5F8A', border: '1px solid #C0D5EB' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#EEF4FF'; e.currentTarget.style.borderColor = '#2C5F8A'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#C0D5EB'; }}
+                style={{ background: 'var(--surface-1)', color: 'var(--accent)', border: '1px solid var(--accent-border-3)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft)'; e.currentTarget.style.borderColor = 'var(--accent)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-1)'; e.currentTarget.style.borderColor = 'var(--accent-border-3)'; }}
               >
                 View calendar
               </motion.button>
@@ -340,9 +353,9 @@ export default function Dashboard() {
           <motion.div
             variants={fadeSlideUp}
             className="rounded-xl p-5 min-w-0"
-            style={{ background: '#ffffff', border: '1px solid #E8EFF6', boxShadow: '0 1px 3px rgba(26,58,92,0.05)' }}
+            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-1)', boxShadow: 'var(--shadow-xs)' }}
           >
-            <h2 className="mb-4" style={{ fontSize: 15, fontWeight: 600, color: '#1A3A5C' }}>Recent activity</h2>
+            <h2 className="mb-4" style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-1)' }}>Recent activity</h2>
             {loadingStats ? (
               <div className="space-y-3">
                 {[...Array(3)].map((_, i) => (
@@ -360,24 +373,24 @@ export default function Dashboard() {
                 {stats.recentActivity.map((a, i) => (
                   <li key={i} className="flex gap-3 relative" style={{ paddingBottom: i < stats.recentActivity.length - 1 ? 16 : 0 }}>
                     {i < stats.recentActivity.length - 1 && (
-                      <div style={{ position: 'absolute', left: 11, top: 26, bottom: 0, width: 1, background: '#E8EFF6' }} />
+                      <div style={{ position: 'absolute', left: 11, top: 26, bottom: 0, width: 1, background: 'var(--surface-2)' }} />
                     )}
                     <div className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5 z-10"
-                      style={{ background: (a.color ?? '#2C5F8A') + '18', border: `1.5px solid ${(a.color ?? '#2C5F8A')}30`, fontSize: 11 }}>
+                      style={{ background: (a.color ?? 'var(--accent)') + '18', border: `1.5px solid ${(a.color ?? 'var(--accent)')}30`, fontSize: 11 }}>
                       <span>{a.icon ?? '📋'}</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: '#1A3A5C' }}>{a.description}</p>
-                      <p className="text-xs truncate" style={{ color: '#94A3B8' }}>{a.type?.replace('_', ' ')}</p>
+                      <p className="text-sm font-medium truncate" style={{ color: 'var(--ink-1)' }}>{a.description}</p>
+                      <p className="text-xs truncate" style={{ color: 'var(--ink-5)' }}>{a.type?.replace('_', ' ')}</p>
                     </div>
-                    <span className="text-xs shrink-0 mt-0.5" style={{ color: '#CBD5E1' }}>
+                    <span className="text-xs shrink-0 mt-0.5" style={{ color: 'var(--ink-5)' }}>
                       {fmtActivityTime(a.timestamp)}
                     </span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p style={{ fontSize: 13, color: '#94A3B8', paddingTop: 8 }}>No recent activity yet.</p>
+              <p style={{ fontSize: 13, color: 'var(--ink-5)', paddingTop: 8 }}>No recent activity yet.</p>
             )}
           </motion.div>
 
@@ -385,9 +398,9 @@ export default function Dashboard() {
           <motion.div
             variants={fadeSlideUp}
             className="md:col-span-3 rounded-xl p-6 min-w-0"
-            style={{ background: '#ffffff', border: '1px solid #E8EFF6', boxShadow: '0 1px 3px rgba(26,58,92,0.05)' }}
+            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-1)', boxShadow: 'var(--shadow-xs)' }}
           >
-            <h2 className="mb-5" style={{ fontSize: 15, fontWeight: 600, color: '#1A3A5C' }}>
+            <h2 className="mb-5" style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-1)' }}>
               Call distribution — Block {blockNum}
             </h2>
 
@@ -408,7 +421,7 @@ export default function Dashboard() {
                     const { bar } = callColor(r.callCount);
                     return (
                       <div key={r.residentName} className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
-                        <span className="text-xs font-semibold" style={{ color: '#1A3A5C' }}>{r.callCount}</span>
+                        <span className="text-xs font-semibold" style={{ color: 'var(--ink-1)' }}>{r.callCount}</span>
                         <motion.div
                           className="w-full rounded-t-md"
                           initial={{ height: 0 }}
@@ -416,11 +429,12 @@ export default function Dashboard() {
                           transition={{ duration: 0.16, delay: i * 0.015, ease: 'easeOut' }}
                           style={{
                             background: r.callCount === maxCalls
-                              ? 'linear-gradient(180deg, #2C5F8A 0%, #1A3A5C 100%)'
-                              : bar === '#DC2626' ? '#FECACA' : bar === '#D97706' ? '#FDE68A' : '#D6E4F7',
+                              ? 'linear-gradient(180deg, var(--accent) 0%, var(--brand) 100%)'
+                              : CHART_BANDS[bar].fill,
+                            border: r.callCount === maxCalls ? 'none' : `1px solid ${CHART_BANDS[bar].edge}`,
                           }}
                         />
-                        <span className="text-xs truncate w-full text-center" style={{ color: '#94A3B8', fontSize: 11 }}>
+                        <span className="text-xs truncate w-full text-center" style={{ color: 'var(--ink-5)', fontSize: 11 }}>
                           {r.residentName.split(' ').pop()}
                         </span>
                       </div>
@@ -429,19 +443,23 @@ export default function Dashboard() {
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4">
                   {[
-                    { color: '#D6E4F7', label: '0–6 calls (normal)' },
-                    { color: '#FDE68A', label: '7–8 calls (high)' },
-                    { color: '#FECACA', label: '9+ calls (over)' },
+                    { band: 'var(--accent)', label: '0–6 calls (normal)' },
+                    { band: 'var(--warn)', label: '7–8 calls (high)' },
+                    { band: 'var(--danger)', label: '9+ calls (over)' },
                   ].map(l => (
                     <div key={l.label} className="flex items-center gap-1.5">
-                      <div style={{ width: 10, height: 10, borderRadius: 3, background: l.color }} />
-                      <span style={{ fontSize: 11, color: '#94A3B8' }}>{l.label}</span>
+                      <div style={{
+                        width: 10, height: 10, borderRadius: 3,
+                        background: CHART_BANDS[l.band].fill,
+                        border: `1px solid ${CHART_BANDS[l.band].edge}`,
+                      }} />
+                      <span style={{ fontSize: 11, color: 'var(--ink-5)' }}>{l.label}</span>
                     </div>
                   ))}
                 </div>
               </>
             ) : (
-              <p style={{ fontSize: 13, color: '#94A3B8' }}>
+              <p style={{ fontSize: 13, color: 'var(--ink-5)' }}>
                 No residents enrolled in this block yet.
               </p>
             )}

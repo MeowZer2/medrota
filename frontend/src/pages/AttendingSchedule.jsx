@@ -19,15 +19,15 @@ function apiDateKey(value) { return String(value).slice(0, 10); }
 
 // ── shared styles ─────────────────────────────────────────────────────────────
 
-const card    = { background: '#fff', border: '1px solid #E8EFF6', borderRadius: 16, boxShadow: '0 1px 3px rgba(26,58,92,0.05)' };
-const inputSt = { padding: '6px 10px', borderRadius: 7, border: '1px solid #E2E8F0', fontSize: 12, color: '#1A3A5C', background: '#F8FAFC', outline: 'none', width: '100%', boxSizing: 'border-box' };
-const label10 = { display: 'block', fontSize: 10, fontWeight: 500, color: '#64748B', marginBottom: 3 };
+const card    = { background: 'var(--surface-1)', border: '1px solid var(--border-1)', borderRadius: 16, boxShadow: 'var(--shadow-xs)' };
+const inputSt = { padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border-strong)', fontSize: 12, color: 'var(--ink-1)', background: 'var(--surface-2)', outline: 'none', width: '100%', boxSizing: 'border-box' };
+const label10 = { display: 'block', fontSize: 10, fontWeight: 500, color: 'var(--ink-4)', marginBottom: 3 };
 
 // ── SaveDot ───────────────────────────────────────────────────────────────────
 
 function SaveDot({ status }) {
   if (!status) return null;
-  const colors = { saving: '#D97706', saved: '#16A34A', error: '#DC2626' };
+  const colors = { saving: 'var(--warn)', saved: 'var(--success)', error: 'var(--danger)' };
   return <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors[status], display: 'inline-block', flexShrink: 0 }} />;
 }
 
@@ -81,19 +81,19 @@ function AttendingTemplateRow({ attending, activities, template, onUpdateTemplat
   };
 
   return (
-    <tr style={{ borderTop: '1px solid #F1F5F9' }}>
+    <tr style={{ borderTop: '1px solid var(--border-subtle)' }}>
       {/* Name */}
       <td style={{ padding: '7px 12px 7px 0', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{
             width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-            background: 'linear-gradient(135deg, #1A3A5C, #2C5F8A)',
-            color: '#fff', fontSize: 9, fontWeight: 700,
+            background: 'linear-gradient(135deg, var(--brand), var(--accent))',
+            color: 'var(--ink-inverse)', fontSize: 9, fontWeight: 700,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             {attending.name.split(' ').filter(Boolean).map(p => p[0]).join('').slice(0, 2).toUpperCase()}
           </div>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#1A3A5C' }}>{attending.name}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-1)' }}>{attending.name}</span>
         </div>
       </td>
 
@@ -118,9 +118,9 @@ function AttendingTemplateRow({ attending, activities, template, onUpdateTemplat
       {/* Remove button */}
       <td style={{ padding: '6px 0 6px 6px', verticalAlign: 'middle', textAlign: 'center' }}>
         <button onClick={onRemove} title="Remove attending"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CBD5E1', padding: 4, borderRadius: 6, lineHeight: 1 }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.background = '#FEF2F2'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = '#CBD5E1'; e.currentTarget.style.background = 'none'; }}>
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-5)', padding: 4, borderRadius: 6, lineHeight: 1 }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'var(--danger)'; e.currentTarget.style.background = 'var(--danger-soft)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-5)'; e.currentTarget.style.background = 'none'; }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" />
           </svg>
@@ -158,23 +158,23 @@ function RosterTemplatePanel({
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           width: '100%', padding: '14px 20px', background: 'none', border: 'none',
-          borderBottom: open ? '1px solid #E8EFF6' : 'none',
+          borderBottom: open ? '1px solid var(--border-1)' : 'none',
           borderRadius: open ? '16px 16px 0 0' : 16,
           cursor: 'pointer', textAlign: 'left',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 4, height: 20, borderRadius: 2, background: '#2C5F8A' }} />
-          <span style={{ fontSize: 14, fontWeight: 600, color: '#1A3A5C' }}>
+          <div style={{ width: 4, height: 20, borderRadius: 2, background: 'var(--accent)' }} />
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-1)' }}>
             Attending Roster &amp; Weekly Pattern
           </span>
-          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: '#F0F5FF', color: '#4A6FA5' }}>
+          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: 'var(--accent-soft-2)', color: 'var(--accent-muted)' }}>
             {roster.length}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 11, color: '#94A3B8' }}>Persists across all blocks</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          <span style={{ fontSize: 11, color: 'var(--ink-5)' }}>Persists across all blocks</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-5)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
             style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
             <polyline points="6 9 12 15 18 9" />
           </svg>
@@ -197,18 +197,18 @@ function RosterTemplatePanel({
               onClick={handleAdd} disabled={!newName.trim() || adding}
               style={{
                 padding: '7px 18px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                background: '#1A3A5C', color: '#fff', fontSize: 12, fontWeight: 600,
+                background: 'var(--brand)', color: 'var(--ink-inverse)', fontSize: 12, fontWeight: 600,
                 opacity: (!newName.trim() || adding) ? 0.5 : 1, whiteSpace: 'nowrap',
               }}
-              onMouseEnter={e => { if (newName.trim() && !adding) e.currentTarget.style.background = '#2C5F8A'; }}
-              onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}
+              onMouseEnter={e => { if (newName.trim() && !adding) e.currentTarget.style.background = 'var(--accent)'; }}
+              onMouseLeave={e => e.currentTarget.style.background = 'var(--brand)'}
             >
               {adding ? 'Adding…' : '+ Add attending'}
             </button>
           </div>
 
           {roster.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#CBD5E1', fontSize: 13, padding: '20px 0' }}>
+            <p style={{ textAlign: 'center', color: 'var(--ink-5)', fontSize: 13, padding: '20px 0' }}>
               No attendings yet — add one above
             </p>
           ) : (
@@ -216,11 +216,11 @@ function RosterTemplatePanel({
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', padding: '4px 12px 10px 0', fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
+                    <th style={{ textAlign: 'left', padding: '4px 12px 10px 0', fontSize: 10, fontWeight: 700, color: 'var(--ink-5)', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
                       Attending
                     </th>
                     {DAYS_OF_WEEK.map(d => (
-                      <th key={d} style={{ textAlign: 'center', padding: '4px 4px 10px', fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', minWidth: 90 }}>
+                      <th key={d} style={{ textAlign: 'center', padding: '4px 4px 10px', fontSize: 10, fontWeight: 700, color: 'var(--ink-5)', textTransform: 'uppercase', letterSpacing: '0.06em', minWidth: 90 }}>
                         {d}
                       </th>
                     ))}
@@ -292,10 +292,10 @@ function EntryRow({ entry, roster, activities, dow, template, onSave, onDelete }
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 6,
-      padding: '5px 0', borderBottom: '1px solid #F8FAFC',
+      padding: '5px 0', borderBottom: '1px solid var(--border-subtle)',
     }}>
       {/* Call stripe */}
-      <div style={{ width: 3, height: 26, borderRadius: 2, background: localCall ? '#DC2626' : '#E2E8F0', flexShrink: 0 }} />
+      <div style={{ width: 3, height: 26, borderRadius: 2, background: localCall ? 'var(--danger)' : 'var(--surface-3)', flexShrink: 0 }} />
 
       {/* Attending name dropdown */}
       <select
@@ -335,16 +335,16 @@ function EntryRow({ entry, roster, activities, dow, template, onSave, onDelete }
         title={localCall ? 'On call — click to remove' : 'Mark as on call'}
         style={{
           width: 32, height: 18, borderRadius: 9, border: 'none', cursor: 'pointer', flexShrink: 0,
-          background: localCall ? '#DC2626' : '#E2E8F0', position: 'relative', transition: 'background 0.15s',
+          background: localCall ? 'var(--danger)' : 'var(--surface-3)', position: 'relative', transition: 'background 0.15s',
         }}
       >
         <span style={{
           position: 'absolute', top: 2, left: localCall ? 15 : 2,
-          width: 14, height: 14, borderRadius: '50%', background: '#fff',
+          width: 14, height: 14, borderRadius: '50%', background: 'var(--surface-1)',
           transition: 'left 0.15s', display: 'block',
         }} />
       </button>
-      <span style={{ fontSize: 10, fontWeight: 600, color: localCall ? '#DC2626' : '#CBD5E1', minWidth: 40, whiteSpace: 'nowrap' }}>
+      <span style={{ fontSize: 10, fontWeight: 600, color: localCall ? 'var(--danger)' : 'var(--ink-5)', minWidth: 40, whiteSpace: 'nowrap' }}>
         {localCall ? 'On call' : 'Call'}
       </span>
 
@@ -353,9 +353,9 @@ function EntryRow({ entry, roster, activities, dow, template, onSave, onDelete }
       {/* Delete */}
       <button
         onClick={onDelete}
-        style={{ padding: '4px 5px', borderRadius: 6, border: 'none', background: 'none', cursor: 'pointer', color: '#CBD5E1', flexShrink: 0 }}
-        onMouseEnter={e => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.background = '#FEF2F2'; }}
-        onMouseLeave={e => { e.currentTarget.style.color = '#CBD5E1'; e.currentTarget.style.background = 'none'; }}
+        style={{ padding: '4px 5px', borderRadius: 6, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--ink-5)', flexShrink: 0 }}
+        onMouseEnter={e => { e.currentTarget.style.color = 'var(--danger)'; e.currentTarget.style.background = 'var(--danger-soft)'; }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-5)'; e.currentTarget.style.background = 'none'; }}
         title="Remove"
       >
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -375,9 +375,9 @@ function DayRow({ day, entries, roster, activities, template, isExpanded, isLast
 
   return (
     <div style={{
-      borderBottom: isLast ? 'none' : '1px solid #F1F5F9',
-      borderLeft: `3px solid ${isOnCall ? '#DC2626' : 'transparent'}`,
-      background: weekend ? '#FAFBFD' : '#fff',
+      borderBottom: isLast ? 'none' : '1px solid var(--border-subtle)',
+      borderLeft: `3px solid ${isOnCall ? 'var(--danger)' : 'transparent'}`,
+      background: weekend ? 'var(--surface-2)' : 'var(--surface-1)',
     }}>
       {/* Clickable header row */}
       <button
@@ -386,43 +386,43 @@ function DayRow({ day, entries, roster, activities, template, isExpanded, isLast
           width: '100%', display: 'flex', alignItems: 'center', gap: 12,
           padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
         }}
-        onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = '#F8FAFC'; }}
+        onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = 'var(--surface-2)'; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
       >
         {/* Date */}
         <div style={{ minWidth: 56, flexShrink: 0 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: '#1E293B' }}>{day.getDate()}</span>
-          <span style={{ fontSize: 11, color: '#94A3B8', marginLeft: 4 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-2)' }}>{day.getDate()}</span>
+          <span style={{ fontSize: 11, color: 'var(--ink-5)', marginLeft: 4 }}>
             {fmtShort(day).split(' ')[1]}
           </span>
         </div>
 
         {/* Day of week */}
-        <span style={{ fontSize: 12, fontWeight: weekend ? 700 : 500, color: weekend ? '#D97706' : '#64748B', minWidth: 32, flexShrink: 0 }}>
+        <span style={{ fontSize: 12, fontWeight: weekend ? 700 : 500, color: weekend ? 'var(--warn)' : 'var(--ink-4)', minWidth: 32, flexShrink: 0 }}>
           {fmtDay(day)}
         </span>
 
         {/* Entry chips (collapsed summary) */}
         <div style={{ flex: 1, display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center', overflow: 'hidden' }}>
           {entries.length === 0 ? (
-            <span style={{ fontSize: 11, color: '#CBD5E1', fontStyle: 'italic' }}>No entries — click to add</span>
+            <span style={{ fontSize: 11, color: 'var(--ink-5)', fontStyle: 'italic' }}>No entries — click to add</span>
           ) : entries.map((e, i) => (
             <span key={i} style={{
               fontSize: 11, padding: '2px 8px', borderRadius: 99, whiteSpace: 'nowrap',
-              background: e.isCallDay ? '#FEF2F2' : '#F1F5F9',
-              color: e.isCallDay ? '#991B1B' : '#334155',
+              background: e.isCallDay ? 'var(--danger-soft)' : 'var(--surface-3)',
+              color: e.isCallDay ? 'var(--danger-ink-strong)' : 'var(--ink-2)',
               fontWeight: e.isCallDay ? 600 : 400,
-              border: e.isCallDay ? '1px solid #FECACA' : '1px solid transparent',
+              border: e.isCallDay ? '1px solid var(--danger-border-2)' : '1px solid transparent',
             }}>
               {e.attendingName}
               {e.isCallDay && ' ●'}
-              {e.activityLabel && <span style={{ color: '#94A3B8', fontWeight: 400 }}> · {e.activityLabel}</span>}
+              {e.activityLabel && <span style={{ color: 'var(--ink-5)', fontWeight: 400 }}> · {e.activityLabel}</span>}
             </span>
           ))}
         </div>
 
         {/* Chevron */}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-5)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
           style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.18s', flexShrink: 0 }}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
@@ -430,9 +430,9 @@ function DayRow({ day, entries, roster, activities, template, isExpanded, isLast
 
       {/* Expanded content */}
       {isExpanded && (
-        <div style={{ padding: '2px 16px 14px', borderTop: '1px solid #F1F5F9' }}>
+        <div style={{ padding: '2px 16px 14px', borderTop: '1px solid var(--border-subtle)' }}>
           {entries.length === 0 && (
-            <p style={{ fontSize: 12, color: '#CBD5E1', fontStyle: 'italic', padding: '8px 0' }}>
+            <p style={{ fontSize: 12, color: 'var(--ink-5)', fontStyle: 'italic', padding: '8px 0' }}>
               No attending entries for this day yet.
             </p>
           )}
@@ -455,12 +455,12 @@ function DayRow({ day, entries, roster, activities, template, isExpanded, isLast
               onClick={onAddEntry}
               disabled={roster.length === 0}
               style={{
-                padding: '5px 14px', borderRadius: 7, border: '1px dashed #C0D5EB',
-                background: '#F8FAFC', color: '#2C5F8A', fontSize: 12, fontWeight: 600,
+                padding: '5px 14px', borderRadius: 7, border: '1px dashed var(--accent-border-3)',
+                background: 'var(--surface-2)', color: 'var(--accent)', fontSize: 12, fontWeight: 600,
                 cursor: roster.length === 0 ? 'default' : 'pointer', opacity: roster.length === 0 ? 0.4 : 1,
               }}
-              onMouseEnter={e => { if (roster.length > 0) { e.currentTarget.style.background = '#EEF4FF'; e.currentTarget.style.borderColor = '#2C5F8A'; } }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#C0D5EB'; }}
+              onMouseEnter={e => { if (roster.length > 0) { e.currentTarget.style.background = 'var(--accent-soft)'; e.currentTarget.style.borderColor = 'var(--accent)'; } }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.borderColor = 'var(--accent-border-3)'; }}
             >
               + Add attending
             </button>
@@ -468,11 +468,11 @@ function DayRow({ day, entries, roster, activities, template, isExpanded, isLast
               onClick={onResetRow}
               title="Reset to weekly template"
               style={{
-                padding: '5px 10px', borderRadius: 7, border: '1px solid #E2E8F0',
-                background: 'none', color: '#94A3B8', fontSize: 11, cursor: 'pointer',
+                padding: '5px 10px', borderRadius: 7, border: '1px solid var(--border-strong)',
+                background: 'none', color: 'var(--ink-5)', fontSize: 11, cursor: 'pointer',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#EEF4FF'; e.currentTarget.style.color = '#1A3A5C'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#94A3B8'; }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft)'; e.currentTarget.style.color = 'var(--ink-1)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--ink-5)'; }}
             >
               ↺ Reset to template
             </button>
@@ -530,15 +530,15 @@ function OnCallSummary({ days, schedule }) {
 
   return (
     <div style={card}>
-      <div style={{ padding: '14px 20px', borderBottom: '1px solid #E8EFF6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 4, height: 20, borderRadius: 2, background: '#DC2626' }} />
-          <span style={{ fontSize: 14, fontWeight: 600, color: '#1A3A5C' }}>On-call Summary</span>
-          <span style={{ fontSize: 11, color: '#94A3B8' }}>Read-only</span>
+          <div style={{ width: 4, height: 20, borderRadius: 2, background: 'var(--danger)' }} />
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-1)' }}>On-call Summary</span>
+          <span style={{ fontSize: 11, color: 'var(--ink-5)' }}>Read-only</span>
         </div>
         <div style={{ display: 'flex', gap: 16 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#16A34A' }}>{covered.length} covered</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: uncovered > 0 ? '#D97706' : '#94A3B8' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--success)' }}>{covered.length} covered</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: uncovered > 0 ? 'var(--warn)' : 'var(--ink-5)' }}>
             {uncovered} uncovered
           </span>
         </div>
@@ -555,19 +555,19 @@ function OnCallSummary({ days, schedule }) {
               <div key={iso} style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '5px 10px', borderRadius: 8,
-                background: callEntry ? '#FFF5F5' : '#FFFBEB',
-                border: `1px solid ${callEntry ? '#FECACA' : '#FDE68A'}`,
+                background: callEntry ? 'var(--danger-soft-3)' : 'var(--warn-soft)',
+                border: `1px solid ${callEntry ? 'var(--danger-border-2)' : 'var(--warn-border)'}`,
               }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: weekend ? '#D97706' : '#1E293B', minWidth: 52, whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: weekend ? 'var(--warn)' : 'var(--ink-2)', minWidth: 52, whiteSpace: 'nowrap' }}>
                   {fmtShort(d)}
                 </span>
-                <span style={{ fontSize: 10, color: '#94A3B8', minWidth: 26 }}>{fmtDay(d)}</span>
+                <span style={{ fontSize: 10, color: 'var(--ink-5)', minWidth: 26 }}>{fmtDay(d)}</span>
                 {callEntry ? (
-                  <span style={{ fontSize: 11, fontWeight: 600, color: '#991B1B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--danger-ink-strong)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {callEntry.attendingName}
                   </span>
                 ) : (
-                  <span style={{ fontSize: 11, color: '#92400E', fontStyle: 'italic' }}>No attending</span>
+                  <span style={{ fontSize: 11, color: 'var(--warn-ink-strong)', fontStyle: 'italic' }}>No attending</span>
                 )}
               </div>
             );
@@ -905,7 +905,7 @@ export default function AttendingSchedule() {
           {/* Page header */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1A3A5C', margin: '0 0 10px' }}>Attending Schedule</h1>
+              <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-1)', margin: '0 0 10px' }}>Attending Schedule</h1>
 
               {/* Block selector */}
               {allYearBlocks.length > 0 && (
@@ -927,11 +927,11 @@ export default function AttendingSchedule() {
                 disabled={copying || resetting || !blockId || !previousBlock}
                 style={{
                   padding: '9px 14px', borderRadius: 10, cursor: (copying || resetting || !blockId || !previousBlock) ? 'not-allowed' : 'pointer',
-                  background: '#EEF4FF', color: '#2C5F8A', border: '1.5px solid #D6E4F7',
+                  background: 'var(--accent-soft)', color: 'var(--accent)', border: '1.5px solid var(--accent-border)',
                   fontSize: 13, fontWeight: 600, opacity: (!blockId || !previousBlock) ? 0.5 : 1,
                 }}
-                onMouseEnter={e => { if (blockId && previousBlock && !copying && !resetting) e.currentTarget.style.background = '#DCE9F5'; }}
-                onMouseLeave={e => e.currentTarget.style.background = '#EEF4FF'}
+                onMouseEnter={e => { if (blockId && previousBlock && !copying && !resetting) e.currentTarget.style.background = 'var(--border-3)'; }}
+                onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-soft)'}
               >
                 {copying ? 'Copying...' : 'Copy previous block'}
               </motion.button>
@@ -943,11 +943,11 @@ export default function AttendingSchedule() {
                 disabled={resetting || !blockId}
                 style={{
                   padding: '9px 14px', borderRadius: 10, cursor: (resetting || !blockId) ? 'not-allowed' : 'pointer',
-                  background: '#fff', color: '#DC2626', border: '1.5px solid #FCA5A5',
+                  background: 'var(--surface-1)', color: 'var(--danger)', border: '1.5px solid var(--danger-border)',
                   fontSize: 13, fontWeight: 600, opacity: (!blockId) ? 0.5 : 1,
                 }}
-                onMouseEnter={e => { if (blockId && !resetting) { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.borderColor = '#EF4444'; } }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#FCA5A5'; }}
+                onMouseEnter={e => { if (blockId && !resetting) { e.currentTarget.style.background = 'var(--danger-soft)'; e.currentTarget.style.borderColor = 'var(--danger)'; } }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-1)'; e.currentTarget.style.borderColor = 'var(--danger-border)'; }}
               >
                 Clear block
               </motion.button>
@@ -959,11 +959,11 @@ export default function AttendingSchedule() {
                 disabled={resetting || !blockId || !programId}
                 style={{
                   padding: '9px 14px', borderRadius: 10, cursor: (resetting || !blockId) ? 'not-allowed' : 'pointer',
-                  background: '#FFF7ED', color: '#C2410C', border: '1.5px solid #FED7AA',
+                  background: 'var(--orange-soft)', color: 'var(--orange)', border: '1.5px solid var(--orange-border)',
                   fontSize: 13, fontWeight: 600, opacity: (!blockId || !programId) ? 0.5 : 1,
                 }}
-                onMouseEnter={e => { if (blockId && programId && !resetting) { e.currentTarget.style.background = '#FFEDD5'; e.currentTarget.style.borderColor = '#FB923C'; } }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#FFF7ED'; e.currentTarget.style.borderColor = '#FED7AA'; }}
+                onMouseEnter={e => { if (blockId && programId && !resetting) { e.currentTarget.style.background = 'var(--orange-soft-2)'; e.currentTarget.style.borderColor = 'var(--orange-accent)'; } }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--orange-soft)'; e.currentTarget.style.borderColor = 'var(--orange-border)'; }}
               >
                 Reset to template
               </motion.button>
@@ -976,11 +976,11 @@ export default function AttendingSchedule() {
                 disabled={applying || !blockId || !programId}
                 style={{
                   padding: '9px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                  background: '#7C3AED', color: '#fff', fontSize: 13, fontWeight: 600,
+                  background: 'var(--violet)', color: 'var(--ink-inverse)', fontSize: 13, fontWeight: 600,
                   opacity: (applying || !blockId) ? 0.5 : 1, maxWidth: '100%',
                 }}
-                onMouseEnter={e => { if (!applying && blockId) e.currentTarget.style.background = '#6D28D9'; }}
-                onMouseLeave={e => e.currentTarget.style.background = '#7C3AED'}
+                onMouseEnter={e => { if (!applying && blockId) e.currentTarget.style.background = 'var(--violet-hover)'; }}
+                onMouseLeave={e => e.currentTarget.style.background = 'var(--violet)'}
               >
                 {applying ? 'Applying…' : 'Apply template to block'}
               </motion.button>
@@ -988,11 +988,11 @@ export default function AttendingSchedule() {
               {applyScope && !applying && (
                 <div style={{
                   position: 'absolute', top: 'calc(100% + 6px)', right: 0,
-                  background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10,
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.08)', padding: 8, zIndex: 50,
+                  background: 'var(--surface-1)', border: '1px solid var(--border-2)', borderRadius: 10,
+                  boxShadow: 'var(--shadow-md)', padding: 8, zIndex: 50,
                   minWidth: 220,
                 }}>
-                  <p style={{ fontSize: 11, color: '#64748B', margin: '0 0 8px', padding: '0 6px' }}>
+                  <p style={{ fontSize: 11, color: 'var(--ink-4)', margin: '0 0 8px', padding: '0 6px' }}>
                     Apply weekly template to:
                   </p>
                   {[
@@ -1000,11 +1000,11 @@ export default function AttendingSchedule() {
                     ...(allYearBlocks.length > 1 ? [{ scope: 'all', label: 'All blocks in academic year', sub: `${allYearBlocks.length} blocks` }] : []),
                   ].map(opt => (
                     <button key={opt.scope} onClick={() => handleApplyTemplate(opt.scope)}
-                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', background: 'none', fontSize: 13, fontWeight: 600, color: '#1A3A5C' }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#F0F5FF'}
+                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', background: 'none', fontSize: 13, fontWeight: 600, color: 'var(--ink-1)' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-soft-2)'}
                       onMouseLeave={e => e.currentTarget.style.background = 'none'}>
                       {opt.label}
-                      <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: '#94A3B8' }}>{opt.sub}</span>
+                      <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--ink-5)' }}>{opt.sub}</span>
                     </button>
                   ))}
                 </div>
@@ -1027,11 +1027,11 @@ export default function AttendingSchedule() {
 
           {/* Section 2 — Day-by-day accordion */}
           {loading ? (
-            <div style={{ ...card, padding: '40px 0', textAlign: 'center', color: '#94A3B8', fontSize: 13, marginBottom: 16 }}>
+            <div style={{ ...card, padding: '40px 0', textAlign: 'center', color: 'var(--ink-5)', fontSize: 13, marginBottom: 16 }}>
               Loading schedule…
             </div>
           ) : !blockId ? (
-            <div style={{ ...card, padding: '48px 24px', textAlign: 'center', color: '#94A3B8', fontSize: 14, marginBottom: 16 }}>
+            <div style={{ ...card, padding: '48px 24px', textAlign: 'center', color: 'var(--ink-5)', fontSize: 14, marginBottom: 16 }}>
               <p style={{ margin: 0, fontSize: 13 }}>Select a block above to view and edit the attending schedule.</p>
             </div>
           ) : (
@@ -1065,17 +1065,17 @@ export default function AttendingSchedule() {
             footer={(
               <div style={{ display: 'flex', gap: 10 }}>
                 <button type="button" onClick={() => setShowResetModal(false)} disabled={resetting}
-                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#fff', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: resetting ? 'not-allowed' : 'pointer' }}>
+                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid var(--border-1)', background: 'var(--surface-1)', color: 'var(--ink-4)', fontSize: 13, fontWeight: 500, cursor: resetting ? 'not-allowed' : 'pointer' }}>
                   Cancel
                 </button>
                 <button type="button" onClick={handleResetBlock} disabled={resetting}
-                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#C2410C', color: '#fff', fontSize: 13, fontWeight: 600, cursor: resetting ? 'not-allowed' : 'pointer', opacity: resetting ? 0.7 : 1 }}>
+                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'var(--orange)', color: 'var(--ink-inverse)', fontSize: 13, fontWeight: 600, cursor: resetting ? 'not-allowed' : 'pointer', opacity: resetting ? 0.7 : 1 }}>
                   {resetting ? 'Resetting…' : 'Reset to template'}
                 </button>
               </div>
             )}
           >
-            <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
+            <p style={{ fontSize: 13, color: 'var(--ink-4)', lineHeight: 1.5 }}>
               This will clear all attending entries for Block {blockNum} and reapply the weekly pattern. Any
               manual changes will be lost.
             </p>
@@ -1092,17 +1092,17 @@ export default function AttendingSchedule() {
             footer={(
               <div style={{ display: 'flex', gap: 10 }}>
                 <button type="button" onClick={() => setShowClearModal(false)} disabled={resetting}
-                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E8EFF6', background: '#fff', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: resetting ? 'not-allowed' : 'pointer' }}>
+                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid var(--border-1)', background: 'var(--surface-1)', color: 'var(--ink-4)', fontSize: 13, fontWeight: 500, cursor: resetting ? 'not-allowed' : 'pointer' }}>
                   Cancel
                 </button>
                 <button type="button" onClick={handleClearBlock} disabled={resetting}
-                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#DC2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: resetting ? 'not-allowed' : 'pointer', opacity: resetting ? 0.7 : 1 }}>
+                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'var(--danger)', color: 'var(--ink-inverse)', fontSize: 13, fontWeight: 600, cursor: resetting ? 'not-allowed' : 'pointer', opacity: resetting ? 0.7 : 1 }}>
                   {resetting ? 'Clearing…' : 'Clear all entries'}
                 </button>
               </div>
             )}
           >
-            <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
+            <p style={{ fontSize: 13, color: 'var(--ink-4)', lineHeight: 1.5 }}>
               This will delete all attending entries for Block {blockNum}. The weekly template pattern will not
               be affected. This cannot be undone.
             </p>

@@ -115,6 +115,13 @@ jobs:
         working-directory: frontend
         run: npm run perf:guard
 
+      # Proves every colour still resolves through a design token and that both
+      # themes clear their contrast floor. A single hard-coded hex is all it
+      # takes for one surface to stop following the theme.
+      - name: Theme guard
+        working-directory: frontend
+        run: npm run theme:guard
+
       - name: Lint
         working-directory: frontend
         run: npm run lint

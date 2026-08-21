@@ -4,6 +4,7 @@ import { confirmDiscardUnsavedChanges, useGuardedNavigate } from '../lib/unsaved
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBlock, useUser } from '../context/AppContext';
 import api from '../api/axios';
+import ThemeToggle from './ThemeToggle';
 
 // â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -130,14 +131,14 @@ function NavItem({ label, icon, isActive, onClick }) {
         paddingRight: 12,
         fontSize: 13,
         fontWeight: isActive ? 600 : 400,
-        color: isActive ? '#1A3A5C' : '#5A7A9A',
-        background: isActive ? '#EEF4FF' : 'transparent',
+        color: isActive ? 'var(--ink-1)' : 'var(--accent-muted-2)',
+        background: isActive ? 'var(--accent-soft)' : 'transparent',
         border: 'none',
         cursor: 'pointer',
         textAlign: 'left',
         transition: 'color 0.15s, background 0.15s',
       }}
-      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#F0F5FF'; }}
+      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--accent-soft-2)'; }}
       onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
     >
       <AnimatePresence>
@@ -150,7 +151,7 @@ function NavItem({ label, icon, isActive, onClick }) {
             style={{
               position: 'absolute', left: 0, top: '15%', bottom: '15%',
               width: 3, borderRadius: '0 3px 3px 0',
-              background: 'linear-gradient(180deg, #2C5F8A 0%, #1A3A5C 100%)',
+              background: 'linear-gradient(180deg, var(--accent) 0%, var(--brand) 100%)',
               transformOrigin: 'center',
             }}
           />
@@ -183,12 +184,12 @@ function YearSwitcher({ years, current, onChange, onAddYear, addingYear }) {
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between rounded-lg px-2.5 py-1.5"
         style={{
-          background: '#F0F5FF', border: '1px solid #D6E4F7',
+          background: 'var(--accent-soft-2)', border: '1px solid var(--accent-border)',
           cursor: 'pointer', fontSize: 11, fontWeight: 600,
-          color: '#4A6FA5', letterSpacing: '0.02em',
+          color: 'var(--accent-muted)', letterSpacing: '0.02em',
         }}
-        onMouseEnter={e => e.currentTarget.style.background = '#E4EDFF'}
-        onMouseLeave={e => e.currentTarget.style.background = '#F0F5FF'}
+        onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-soft-3)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-soft-2)'}
       >
         <span>{current ? yearLabel(current) : '-'}</span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
@@ -205,8 +206,8 @@ function YearSwitcher({ years, current, onChange, onAddYear, addingYear }) {
             transition={{ duration: 0.15 }}
             style={{
               position: 'absolute', top: '110%', left: 8, right: 8, zIndex: 50,
-              background: '#fff', borderRadius: 10, border: '1px solid #E8EFF6',
-              boxShadow: '0 8px 24px rgba(26,58,92,0.12)',
+              background: 'var(--surface-1)', borderRadius: 10, border: '1px solid var(--border-1)',
+              boxShadow: 'var(--shadow-md)',
               overflow: 'hidden',
             }}
           >
@@ -217,29 +218,29 @@ function YearSwitcher({ years, current, onChange, onAddYear, addingYear }) {
                 style={{
                   width: '100%', textAlign: 'left', padding: '8px 12px',
                   fontSize: 12, fontWeight: ay.id === current?.id ? 700 : 400,
-                  color: ay.id === current?.id ? '#1A3A5C' : '#5A7A9A',
-                  background: ay.id === current?.id ? '#EEF4FF' : 'transparent',
+                  color: ay.id === current?.id ? 'var(--ink-1)' : 'var(--accent-muted-2)',
+                  background: ay.id === current?.id ? 'var(--accent-soft)' : 'transparent',
                   border: 'none', cursor: 'pointer', display: 'block',
                 }}
-                onMouseEnter={e => { if (ay.id !== current?.id) e.currentTarget.style.background = '#F0F5FF'; }}
+                onMouseEnter={e => { if (ay.id !== current?.id) e.currentTarget.style.background = 'var(--accent-soft-2)'; }}
                 onMouseLeave={e => { if (ay.id !== current?.id) e.currentTarget.style.background = 'transparent'; }}
               >
                 {yearLabel(ay)}
-                {ay.id === current?.id && <span style={{ marginLeft: 6, fontSize: 10, color: '#2C5F8A' }}>*</span>}
+                {ay.id === current?.id && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--accent)' }}>*</span>}
               </button>
             ))}
             {onAddYear && (
-            <div style={{ borderTop: '1px solid #E8EFF6' }}>
+            <div style={{ borderTop: '1px solid var(--border-1)' }}>
               <button
                 onClick={() => { setOpen(false); onAddYear(); }}
                 disabled={addingYear}
                 style={{
                   width: '100%', textAlign: 'left', padding: '8px 12px',
-                  fontSize: 11, fontWeight: 600, color: addingYear ? '#CBD5E1' : '#2C5F8A',
+                  fontSize: 11, fontWeight: 600, color: addingYear ? 'var(--ink-5)' : 'var(--accent)',
                   background: 'transparent', border: 'none', cursor: addingYear ? 'default' : 'pointer',
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}
-                onMouseEnter={e => { if (!addingYear) e.currentTarget.style.background = '#F0F5FF'; }}
+                onMouseEnter={e => { if (!addingYear) e.currentTarget.style.background = 'var(--accent-soft-2)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
               >
                 <PlusSmIcon />
@@ -300,26 +301,26 @@ const Sidebar = memo(function Sidebar({ userName }) {
 
   return (
     <aside
-      className="w-[220px] h-screen bg-white flex flex-col fixed top-0 left-0 z-20"
-      style={{ borderRight: '1px solid #E8EFF6' }}
+      className="w-[220px] h-screen flex flex-col fixed top-0 left-0 z-20"
+      style={{ background: 'var(--sidebar-bg)', borderRight: '1px solid var(--sidebar-border)' }}
     >
       {/* Logo + program selector */}
-      <div className="px-4 pt-5 pb-4" style={{ borderBottom: '1px solid #E8EFF6' }}>
+      <div className="px-4 pt-5 pb-4" style={{ borderBottom: '1px solid var(--border-1)' }}>
         <button
           onClick={() => navigate('/dashboard')}
           style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
           onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
           onMouseLeave={e => e.currentTarget.style.opacity = '1'}
         >
-          <p style={{ fontSize: 18, fontWeight: 700, color: '#1A3A5C', lineHeight: 1.2 }}>MedRota</p>
+          <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-1)', lineHeight: 1.2 }}>MedRota</p>
         </button>
 
         <button
           onClick={() => setProgramOpen(o => !o)}
           className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg w-full transition-colors duration-100"
-          style={{ background: '#F0F5FF', color: '#4A6FA5', border: 'none', cursor: 'pointer' }}
-          onMouseEnter={e => e.currentTarget.style.background = '#E4EDFF'}
-          onMouseLeave={e => e.currentTarget.style.background = '#F0F5FF'}
+          style={{ background: 'var(--accent-soft-2)', color: 'var(--accent-muted)', border: 'none', cursor: 'pointer' }}
+          onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-soft-3)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-soft-2)'}
         >
           <span style={{ fontSize: 12, fontWeight: 500, flex: 1, textAlign: 'left' }}>
             {currentProgram?.programName ?? 'No program'}
@@ -339,7 +340,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
               style={{ overflow: 'hidden' }}
             >
               <div className="mt-1.5 px-1">
-                <p className="px-2 py-1.5 text-xs rounded-lg" style={{ color: '#5A7A9A', background: '#F8FAFC' }}>
+                <p className="px-2 py-1.5 text-xs rounded-lg" style={{ color: 'var(--accent-muted-2)', background: 'var(--surface-2)' }}>
                   {currentProgram?.specialty ?? '—'} · {currentRoleLabel ?? '—'}
                 </p>
               </div>
@@ -349,7 +350,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
       </div>
 
       {/* Top nav */}
-      <nav className="px-3 pt-3 pb-2" style={{ borderBottom: '1px solid #E8EFF6' }}>
+      <nav className="px-3 pt-3 pb-2" style={{ borderBottom: '1px solid var(--border-1)' }}>
         <ul className="space-y-0.5">
           {NAV_LINKS.map(link => (
             <li key={link.path}>
@@ -364,8 +365,8 @@ const Sidebar = memo(function Sidebar({ userName }) {
       </nav>
 
       {/* Program nav */}
-      <nav className="px-3 pt-3 pb-2" style={{ borderBottom: '1px solid #E8EFF6' }}>
-        <p className="px-2 mb-1.5" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#A0AEBF' }}>
+      <nav className="px-3 pt-3 pb-2" style={{ borderBottom: '1px solid var(--border-1)' }}>
+        <p className="px-2 mb-1.5" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-5)' }}>
           Program
         </p>
         <ul className="space-y-0.5">
@@ -384,7 +385,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
       {/* Block navigation */}
       <div className="flex-1 relative min-h-0">
         <nav className="h-full overflow-y-auto py-3 px-3 sidebar-scroll sidebar-fade-bottom">
-          <p className="px-2 mb-1" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#A0AEBF' }}>
+          <p className="px-2 mb-1" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-5)' }}>
             Blocks
           </p>
 
@@ -426,14 +427,14 @@ const Sidebar = memo(function Sidebar({ userName }) {
                       paddingBottom: 6,
                       fontSize: 13,
                       fontWeight: isActive ? 600 : 400,
-                      color: isActive ? '#1A3A5C' : '#5A7A9A',
-                      background: isActive ? '#EEF4FF' : 'transparent',
+                      color: isActive ? 'var(--ink-1)' : 'var(--accent-muted-2)',
+                      background: isActive ? 'var(--accent-soft)' : 'transparent',
                       border: 'none',
                       cursor: 'pointer',
                       transition: 'color 0.15s, background 0.15s',
                       textAlign: 'left',
                     }}
-                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#F0F5FF'; }}
+                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--accent-soft-2)'; }}
                     onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
                   >
                     <AnimatePresence>
@@ -446,19 +447,19 @@ const Sidebar = memo(function Sidebar({ userName }) {
                           style={{
                             position: 'absolute', left: 0, top: '15%', bottom: '15%',
                             width: 3, borderRadius: '0 3px 3px 0',
-                            background: 'linear-gradient(180deg, #2C5F8A 0%, #1A3A5C 100%)',
+                            background: 'linear-gradient(180deg, var(--accent) 0%, var(--brand) 100%)',
                           }}
                         />
                       )}
                     </AnimatePresence>
                     <div style={{ paddingLeft: isActive ? 5 : 0, transition: 'padding 0.15s', flex: 1 }}>
                       <span style={{ display: 'block' }}>Block {block.number}</span>
-                      <span style={{ display: 'block', fontSize: 10, color: isActive ? '#4A6FA5' : '#A0AEBF', fontWeight: 400, marginTop: 1 }}>
+                      <span style={{ display: 'block', fontSize: 10, color: isActive ? 'var(--accent-muted)' : 'var(--ink-5)', fontWeight: 400, marginTop: 1 }}>
                         {fmtBlockDateRange(block)}
                       </span>
                     </div>
                     {isCurrent && (
-                      <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 99, background: '#DCFCE7', color: '#15803D', marginTop: 2, flexShrink: 0 }}>
+                      <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 99, background: 'var(--success-soft-2)', color: 'var(--success-ink)', marginTop: 2, flexShrink: 0 }}>
                         Now
                       </span>
                     )}
@@ -467,9 +468,9 @@ const Sidebar = memo(function Sidebar({ userName }) {
                       <span
                         onClick={e => { e.stopPropagation(); setCurrentBlock(block); navigate(`/blocks/${block.number}/residents`); }}
                         title="View residents for this block"
-                        style={{ marginLeft: 2, color: '#A0AEBF', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '2px 3px', borderRadius: 5 }}
-                        onMouseEnter={e => { e.currentTarget.style.color = '#16A34A'; e.currentTarget.style.background = '#DCFCE7'; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = '#A0AEBF'; e.currentTarget.style.background = 'transparent'; }}
+                        style={{ marginLeft: 2, color: 'var(--ink-5)', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '2px 3px', borderRadius: 5 }}
+                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--success)'; e.currentTarget.style.background = 'var(--success-soft-2)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-5)'; e.currentTarget.style.background = 'transparent'; }}
                       >
                         <PeopleIcon size={12} />
                       </span>
@@ -478,9 +479,9 @@ const Sidebar = memo(function Sidebar({ userName }) {
                       <span
                         onClick={e => { e.stopPropagation(); navigate(`/blocks/${block.number}/settings`); }}
                         title="Block settings"
-                        style={{ marginLeft: 2, color: '#A0AEBF', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '2px 3px', borderRadius: 5 }}
-                        onMouseEnter={e => { e.currentTarget.style.color = '#2C5F8A'; e.currentTarget.style.background = '#E4EDFF'; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = '#A0AEBF'; e.currentTarget.style.background = 'transparent'; }}
+                        style={{ marginLeft: 2, color: 'var(--ink-5)', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '2px 3px', borderRadius: 5 }}
+                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-soft-3)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-5)'; e.currentTarget.style.background = 'transparent'; }}
                       >
                         <GearIcon size={12} />
                       </span>
@@ -492,7 +493,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
 
             {blocks.length === 0 && (
               <li>
-                <p style={{ fontSize: 12, color: '#CBD5E1', padding: '8px 12px' }}>No blocks yet</p>
+                <p style={{ fontSize: 12, color: 'var(--ink-5)', padding: '8px 12px' }}>No blocks yet</p>
               </li>
             )}
           </ul>
@@ -500,13 +501,17 @@ const Sidebar = memo(function Sidebar({ userName }) {
       </div>
 
       {/* User section */}
-      <div className="px-4 py-4" style={{ borderTop: '1px solid #E8EFF6' }}>
+      <div className="px-4 py-4" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--ink-5)' }}>Theme</span>
+          <ThemeToggle />
+        </div>
         <div className="flex items-center gap-2.5">
           {/* Avatar */}
           <div className="relative">
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-default"
-              style={{ background: 'linear-gradient(135deg, #1A3A5C 0%, #2C5F8A 100%)', color: '#fff', fontSize: 11, fontWeight: 700 }}
+              style={{ background: 'linear-gradient(135deg, var(--brand) 0%, var(--accent) 100%)', color: 'var(--ink-inverse)', fontSize: 11, fontWeight: 700 }}
               onMouseEnter={() => setTooltip('avatar')}
               onMouseLeave={() => setTooltip(null)}
             >
@@ -521,23 +526,23 @@ const Sidebar = memo(function Sidebar({ userName }) {
                   transition={{ duration: 0.15 }}
                   style={{
                     position: 'absolute', bottom: 40, left: '50%', transform: 'translateX(-50%)',
-                    background: '#1A3A5C', color: '#fff', fontSize: 11, fontWeight: 500,
+                    background: 'var(--brand)', color: 'var(--ink-inverse)', fontSize: 11, fontWeight: 500,
                     padding: '5px 10px', borderRadius: 8, whiteSpace: 'nowrap',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 100,
+                    boxShadow: 'var(--shadow-md)', zIndex: 100,
                   }}
                 >
                   {displayName || 'User'}
-                  <div style={{ position: 'absolute', bottom: -4, left: '50%', transform: 'translateX(-50%)', width: 8, height: 8, background: '#1A3A5C', clipPath: 'polygon(50% 100%, 0 0, 100% 0)' }} />
+                  <div style={{ position: 'absolute', bottom: -4, left: '50%', transform: 'translateX(-50%)', width: 8, height: 8, background: 'var(--brand)', clipPath: 'polygon(50% 100%, 0 0, 100% 0)' }} />
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="truncate" style={{ fontSize: 13, fontWeight: 500, color: '#1A3A5C', lineHeight: 1.3 }}>
+            <p className="truncate" style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-1)', lineHeight: 1.3 }}>
               {displayName || 'User'}
             </p>
-            <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 1 }}>
+            <p style={{ fontSize: 11, color: 'var(--ink-5)', marginTop: 1 }}>
               {currentRoleLabel ?? 'Member'}
             </p>
           </div>
@@ -548,9 +553,9 @@ const Sidebar = memo(function Sidebar({ userName }) {
             <button
               aria-label="Program settings"
               className="rounded-lg transition-colors duration-100"
-              style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 34, minHeight: 34 }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#F0F5FF'; e.currentTarget.style.color = '#2C5F8A'; setTooltip('settings'); }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94A3B8'; setTooltip(null); }}
+              style={{ color: 'var(--ink-5)', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 34, minHeight: 34 }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft-2)'; e.currentTarget.style.color = 'var(--accent)'; setTooltip('settings'); }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ink-5)'; setTooltip(null); }}
               onClick={() => navigate('/settings')}
             >
               <GearIcon />
@@ -564,13 +569,13 @@ const Sidebar = memo(function Sidebar({ userName }) {
                   transition={{ duration: 0.15 }}
                   style={{
                     position: 'absolute', bottom: 38, right: 0,
-                    background: '#1A3A5C', color: '#fff', fontSize: 11, fontWeight: 500,
+                    background: 'var(--brand)', color: 'var(--ink-inverse)', fontSize: 11, fontWeight: 500,
                     padding: '5px 10px', borderRadius: 8, whiteSpace: 'nowrap',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 100,
+                    boxShadow: 'var(--shadow-md)', zIndex: 100,
                   }}
                 >
                   Program settings
-                  <div style={{ position: 'absolute', bottom: -4, right: 10, width: 8, height: 8, background: '#1A3A5C', clipPath: 'polygon(50% 100%, 0 0, 100% 0)' }} />
+                  <div style={{ position: 'absolute', bottom: -4, right: 10, width: 8, height: 8, background: 'var(--brand)', clipPath: 'polygon(50% 100%, 0 0, 100% 0)' }} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -582,9 +587,9 @@ const Sidebar = memo(function Sidebar({ userName }) {
             <button
               aria-label="Log out"
               className="rounded-lg transition-colors duration-100"
-              style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 34, minHeight: 34 }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626'; setTooltip('logout'); }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94A3B8'; setTooltip(null); }}
+              style={{ color: 'var(--ink-5)', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 34, minHeight: 34 }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--danger-soft)'; e.currentTarget.style.color = 'var(--danger)'; setTooltip('logout'); }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ink-5)'; setTooltip(null); }}
               onClick={() => { if (!confirmDiscardUnsavedChanges()) return; localStorage.clear(); window.location.href = '/login'; }}
             >
               <LogoutIcon />
@@ -598,13 +603,13 @@ const Sidebar = memo(function Sidebar({ userName }) {
                   transition={{ duration: 0.15 }}
                   style={{
                     position: 'absolute', bottom: 38, right: 0,
-                    background: '#1A3A5C', color: '#fff', fontSize: 11, fontWeight: 500,
+                    background: 'var(--brand)', color: 'var(--ink-inverse)', fontSize: 11, fontWeight: 500,
                     padding: '5px 10px', borderRadius: 8, whiteSpace: 'nowrap',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 100,
+                    boxShadow: 'var(--shadow-md)', zIndex: 100,
                   }}
                 >
                   Log out
-                  <div style={{ position: 'absolute', bottom: -4, right: 10, width: 8, height: 8, background: '#1A3A5C', clipPath: 'polygon(50% 100%, 0 0, 100% 0)' }} />
+                  <div style={{ position: 'absolute', bottom: -4, right: 10, width: 8, height: 8, background: 'var(--brand)', clipPath: 'polygon(50% 100%, 0 0, 100% 0)' }} />
                 </motion.div>
               )}
             </AnimatePresence>

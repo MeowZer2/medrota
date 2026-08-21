@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AnimatePresence } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 import { AppProvider, useUser } from './context/AppContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -21,7 +22,7 @@ function ProtectedRoute({ children, allowWithoutProgram = false }) {
   const location = useLocation();
 
   if (loading) {
-    return <div style={{ minHeight: '100vh', background: '#F8FAFC' }} aria-label="Loading application" />;
+    return <div style={{ minHeight: '100vh', background: 'var(--bg-canvas)' }} aria-label="Loading application" />;
   }
   if (!currentUser) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
@@ -65,32 +66,34 @@ function AnimatedRoutes() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <BrowserRouter>
-        <Toaster
-          position="bottom-right"
-          toastOptions={{
-            duration: 3000,
-            style: {
-              fontFamily: 'Inter, sans-serif',
-              fontSize: 13,
-              borderRadius: 12,
-              boxShadow: '0 8px 30px rgba(26,58,92,0.15)',
-              padding: '12px 16px',
-              color: '#1A3A5C',
-              background: '#fff',
-              border: '1px solid #E8EFF6',
-            },
-            success: {
-              iconTheme: { primary: '#16A34A', secondary: '#fff' },
-            },
-            error: {
-              iconTheme: { primary: '#DC2626', secondary: '#fff' },
-            },
-          }}
-        />
-        <AnimatedRoutes />
-      </BrowserRouter>
-    </AppProvider>
+    <ThemeProvider>
+      <AppProvider>
+        <BrowserRouter>
+          <Toaster
+            position="bottom-right"
+            toastOptions={{
+              duration: 3000,
+              style: {
+                fontFamily: 'Inter, sans-serif',
+                fontSize: 13,
+                borderRadius: 12,
+                boxShadow: 'var(--shadow-lg)',
+                padding: '12px 16px',
+                color: 'var(--ink-1)',
+                background: 'var(--surface-raised)',
+                border: '1px solid var(--border-1)',
+              },
+              success: {
+                iconTheme: { primary: 'var(--success)', secondary: 'var(--on-success)' },
+              },
+              error: {
+                iconTheme: { primary: 'var(--danger)', secondary: 'var(--on-danger)' },
+              },
+            }}
+          />
+          <AnimatedRoutes />
+        </BrowserRouter>
+      </AppProvider>
+    </ThemeProvider>
   );
 }

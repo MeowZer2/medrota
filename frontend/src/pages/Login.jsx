@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import api from '../api/axios';
 import { useUser } from '../context/AppContext';
+import { useTheme } from '../context/ThemeContext';
 import './Login.css';
 
 // ── icons ─────────────────────────────────────────────────────
@@ -86,18 +87,6 @@ function miniDayClass(k) {
   }
 }
 
-// ── Theme — local to this page, persisted to its own key ────
-
-const THEME_KEY = 'medrota-login-theme';
-function readStoredTheme() {
-  try {
-    const v = localStorage.getItem(THEME_KEY);
-    return v === 'dark' || v === 'light' ? v : 'light';
-  } catch {
-    return 'light';
-  }
-}
-
 // ── Page ──────────────────────────────────────────────────────
 
 export default function Login() {
@@ -107,11 +96,9 @@ export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
-  const [theme, setTheme] = useState(readStoredTheme);
-
-  useEffect(() => {
-    try { localStorage.setItem(THEME_KEY, theme); } catch { /* ignore */ }
-  }, [theme]);
+  // One preference for the whole product, so signing in never swaps the theme
+  // out from under you.
+  const { preference, resolved, setPreference } = useTheme();
 
   const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
@@ -132,24 +119,26 @@ export default function Login() {
   };
 
   return (
-    <div className="lg-page" data-theme={theme}>
-      {/* Theme toggle */}
+    <div className="lg-page">
+      {/* Theme toggle. Highlights whichever theme is in effect, but only marks a
+          button pressed when that theme was chosen outright rather than
+          inherited from the system. */}
       <div className="lg-theme">
-        <div className="lg-theme-pill" role="tablist" aria-label="Color theme">
+        <div className="lg-theme-pill" role="group" aria-label="Colour theme">
           <button
             type="button"
-            className={theme === 'light' ? 'on' : ''}
-            onClick={() => setTheme('light')}
+            className={resolved === 'light' ? 'on' : ''}
+            onClick={() => setPreference('light')}
             aria-label="Light theme"
-            aria-pressed={theme === 'light'}
+            aria-pressed={preference === 'light'}
             title="Light"
           ><Sun /></button>
           <button
             type="button"
-            className={theme === 'dark' ? 'on' : ''}
-            onClick={() => setTheme('dark')}
+            className={resolved === 'dark' ? 'on' : ''}
+            onClick={() => setPreference('dark')}
             aria-label="Dark theme"
-            aria-pressed={theme === 'dark'}
+            aria-pressed={preference === 'dark'}
             title="Dark"
           ><Moon /></button>
         </div>

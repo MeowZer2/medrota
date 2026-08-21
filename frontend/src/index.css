@@ -1,4 +1,37 @@
 @import "tailwindcss";
+@import "./styles/theme.css";
+
+/*
+ * Themed Tailwind colour utilities.
+ *
+ * `bg-white` and `text-white` are literal — no amount of theming reaches them —
+ * so the handful of utility-styled surfaces in this app get token-backed
+ * equivalents instead: bg-surface-1, text-on-solid, border-hairline, and so on.
+ *
+ * `inline` matters here: it makes the utility emit the referenced variable
+ * directly rather than through a second generated one, so a utility resolves
+ * against whichever theme block is active on <html> at the time.
+ */
+@theme inline {
+  --color-canvas: var(--bg-canvas);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-raised: var(--surface-raised);
+  --color-ink-1: var(--ink-1);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+  --color-ink-5: var(--ink-5);
+  --color-on-solid: var(--ink-inverse);
+  --color-hairline: var(--border-1);
+  --color-hairline-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-brand: var(--brand);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warn: var(--warn);
+}
 
 * {
   font-family: 'Inter', system-ui, sans-serif;
@@ -7,10 +40,17 @@
   box-sizing: border-box;
 }
 
+html {
+  /* The canvas has to be painted here as well as on body: an over-scroll or a
+     short page shows the root element's background, and a white strip there is
+     the most obvious way a dark theme gives itself away. */
+  background: var(--bg-canvas);
+}
+
 body {
   margin: 0;
-  background: #F8FAFC;
-  color: #1A3A5C;
+  background: var(--bg-canvas);
+  color: var(--ink-1);
 }
 
 #root {
@@ -18,12 +58,86 @@ body {
   min-height: 100vh;
 }
 
+/* ── Base element theming ────────────────────────────────────────────────────
+   Everything the app renders without styling it directly. Left alone, each of
+   these keeps a user-agent light default and shows up as a bright patch in an
+   otherwise dark page.
+
+   These MUST stay inside `@layer base`. An unlayered rule outranks every layered
+   one no matter how specific the layered selector is, so `button { color: … }`
+   written outside a layer silently beats Tailwind's `.text-on-solid` in
+   `@layer utilities` — which is exactly what happened here: primary buttons
+   rendered their label in --ink-1, giving navy-on-navy in light mode. */
+
+@layer base {
+  ::selection {
+    background: var(--selection-bg);
+    color: var(--selection-ink);
+  }
+
+  /* Scrollbars are deliberately left to the browser. `color-scheme` on :root is
+     exactly the mechanism for this — it makes the UA draw dark scrollbars,
+     native to each platform — so restyling them here would only change how light
+     already looks for no gain. The two component scrollbars further down were
+     already custom before this change and keep their own styling. */
+
+  input, select, textarea, button {
+    font-family: inherit;
+  }
+
+  /* Form controls do not inherit colour from body, so they are given it here.
+     Buttons are excluded: their label colour belongs to whatever fill they sit
+     on, and is set by the component or a `text-*` utility. */
+  input, select, textarea {
+    color: var(--ink-1);
+  }
+
+  /* Controls that carry no explicit style of their own still need a themed
+     ground; without this they inherit the UA's white and float on a dark page. */
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    background-color: var(--surface-1);
+    border-color: var(--border-strong);
+  }
+
+  ::placeholder { color: var(--ink-placeholder); opacity: 1; }
+
+  /* Checkboxes, radios, range thumbs and the native date/time pickers all follow
+     accent-color and color-scheme rather than any background we could set. */
+  input[type='checkbox'], input[type='radio'], input[type='range'], progress {
+    accent-color: var(--accent);
+  }
+
+  /* Chrome paints autofilled fields with a hard-coded pale yellow. The inset
+     shadow trick is the only way to override it. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  select:-webkit-autofill {
+    -webkit-text-fill-color: var(--ink-1);
+    -webkit-box-shadow: 0 0 0 1000px var(--surface-1) inset;
+    caret-color: var(--ink-1);
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  /* A visible, themed focus ring for keyboard users on anything interactive that
+     does not define its own. */
+  :focus-visible {
+    outline: 2px solid var(--focus-ring-color);
+    outline-offset: 2px;
+  }
+
+  hr { border: 0; border-top: 1px solid var(--border-2); }
+}
+
 /* ── Animated background ─────────────────────────────────────────────────── */
 
 .animated-bg {
   background:
-    radial-gradient(circle at 20% 0%, rgba(238,244,255,0.72) 0%, rgba(248,250,252,0) 34%),
-    linear-gradient(135deg, #F8FAFC 0%, #EEF4FF 48%, #F8FAFC 100%);
+    radial-gradient(circle at 20% 0%, var(--bg-canvas-glow) 0%, var(--bg-canvas-fade) 34%),
+    linear-gradient(135deg, var(--bg-canvas) 0%, var(--bg-canvas-2) 48%, var(--bg-canvas) 100%);
 }
 
 /* ── Skeleton shimmer ────────────────────────────────────────────────────── */
@@ -34,7 +148,7 @@ body {
 }
 
 .skeleton-shimmer {
-  background: linear-gradient(90deg, #EEF4FF 25%, #E0EBFA 50%, #EEF4FF 75%);
+  background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-highlight) 50%, var(--skeleton-base) 75%);
   background-size: 700px 100%;
   animation: shimmer 1.4s infinite linear;
   border-radius: 8px;
@@ -51,9 +165,10 @@ button:active:not([disabled]) {
 
 .sidebar-scroll::-webkit-scrollbar { width: 3px; }
 .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
-.sidebar-scroll::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 99px; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 99px; }
 
-/* Fade-to-white overflow gradient at bottom of sidebar block list */
+/* Fade-out overflow mask at the bottom of the sidebar block list. It masks to
+   transparent rather than painting a colour, so it holds up in both themes. */
 .sidebar-fade-bottom {
   -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 32px), transparent 100%);
   mask-image: linear-gradient(to bottom, black calc(100% - 32px), transparent 100%);
@@ -90,16 +205,16 @@ button:active:not([disabled]) {
 /* ── Holiday glow ────────────────────────────────────────────────────────── */
 
 .holiday-glow {
-  box-shadow: inset 0 0 0 1px rgba(220,38,38,0.16);
+  box-shadow: inset 0 0 0 1px var(--day-holiday-ring);
 }
 
 /* ── Input focus ring ────────────────────────────────────────────────────── */
 
 .premium-input:focus {
   outline: none;
-  border-color: #2C5F8A !important;
-  box-shadow: 0 0 0 3px rgba(44,95,138,0.12) !important;
-  background: #fff !important;
+  border-color: var(--accent) !important;
+  box-shadow: var(--focus-ring) !important;
+  background: var(--surface-1) !important;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -109,7 +224,7 @@ button:active:not([disabled]) {
   font-family: 'Inter', sans-serif !important;
   font-size: 13px !important;
   border-radius: 12px !important;
-  box-shadow: 0 8px 30px rgba(26,58,92,0.15) !important;
+  box-shadow: var(--shadow-lg) !important;
 }
 
 /* Calendar day edit modal */
@@ -119,7 +234,7 @@ button:active:not([disabled]) {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--overlay);
   opacity: 0;
   pointer-events: none;
   /* Hidden from the accessibility tree while closed, not merely invisible. */
@@ -187,16 +302,16 @@ button:active:not([disabled]) {
 
 .settings-nav::-webkit-scrollbar { height: 4px; }
 .settings-nav::-webkit-scrollbar-track { background: transparent; }
-.settings-nav::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 99px; }
+.settings-nav::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 99px; }
 
 .settings-nav-item {
   flex: 0 0 auto;
   white-space: nowrap;
   padding: 9px 14px;
   border-radius: 9px;
-  border: 1px solid #E8EFF6;
-  background: #fff;
-  color: #64748B;
+  border: 1px solid var(--border-1);
+  background: var(--surface-1);
+  color: var(--ink-4);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -204,12 +319,12 @@ button:active:not([disabled]) {
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 
-.settings-nav-item:hover { background: #F0F5FF; color: #2C5F8A; }
+.settings-nav-item:hover { background: var(--accent-soft-2); color: var(--accent); }
 
 .settings-nav-item[aria-selected='true'] {
-  background: #1A3A5C;
-  border-color: #1A3A5C;
-  color: #fff;
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--ink-inverse);
 }
 
 .settings-panel { min-width: 0; }
@@ -236,7 +351,7 @@ button:active:not([disabled]) {
   gap: 8px;
   align-items: center;
   padding: 9px 0;
-  border-bottom: 1px solid #F1F5F9;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .settings-registry-main { flex: 1 1 200px; min-width: 0; }
@@ -248,7 +363,7 @@ button:active:not([disabled]) {
   grid-template-columns: minmax(0, 1fr);
   gap: 4px 10px;
   padding: 10px 0;
-  border-bottom: 1px solid #F1F5F9;
+  border-bottom: 1px solid var(--border-subtle);
   align-items: center;
 }
 
@@ -265,9 +380,9 @@ button:active:not([disabled]) {
 .settings-roster-edit {
   padding: 12px;
   margin: 8px 0;
-  border: 1px solid #D6E4F7;
+  border: 1px solid var(--accent-border);
   border-radius: 10px;
-  background: #F8FCFF;
+  background: var(--accent-soft-2);
   min-width: 0;
 }
 
@@ -322,15 +437,15 @@ button:active:not([disabled]) {
 
 .primary-btn {
   border: 0;
-  background: #1a3a5c;
-  color: #fff;
+  background: var(--brand);
+  color: var(--ink-inverse);
   font-weight: 700;
 }
 
 .secondary-btn {
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  color: #475569;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  color: var(--ink-3);
   font-weight: 700;
 }
 
@@ -338,9 +453,9 @@ button:active:not([disabled]) {
   width: 100%;
   min-width: 0;
   padding: 8px 10px;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  color: #1a3a5c;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  color: var(--ink-1);
 }
 
 @media (max-width: 760px) {

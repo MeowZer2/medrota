@@ -3,8 +3,8 @@ import toast from 'react-hot-toast';
 import api from '../api/axios';
 import Modal from './Modal';
 
-const inputStyle = { width: '100%', minHeight: 40, padding: '9px 11px', borderRadius: 9, border: '1px solid #CBD5E1', color: '#1A3A5C', background: '#fff' };
-const labelStyle = { display: 'block', marginBottom: 5, color: '#334155', fontSize: 12, fontWeight: 700 };
+const inputStyle = { width: '100%', minHeight: 40, padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', color: 'var(--ink-1)', background: 'var(--surface-1)' };
+const labelStyle = { display: 'block', marginBottom: 5, color: 'var(--ink-2)', fontSize: 12, fontWeight: 700 };
 
 function initialForm(resident) {
   if (!resident) return { name: '', classification: 'in_service', programStartDate: '', expectedCompletionDate: '', pgyLevel: '1', residentRole: 'junior', residentRoleOverride: '', email: '', phone: '', homeProgram: '', isActive: true };
@@ -83,7 +83,7 @@ export default function ResidentFormModal({ programId, blockId = null, resident 
           <div><label htmlFor="resident-email" style={labelStyle}>Email (optional)</label><input id="resident-email" type="email" value={form.email} onChange={event => set('email', event.target.value)} style={inputStyle} /></div>
           <div><label htmlFor="resident-phone" style={labelStyle}>Phone (optional)</label><input id="resident-phone" type="tel" value={form.phone} onChange={event => set('phone', event.target.value)} style={inputStyle} /></div>
         </div>
-        {resident && <label style={{ display: 'flex', gap: 9, alignItems: 'center', fontSize: 13, color: '#334155' }}><input type="checkbox" checked={form.isActive} onChange={event => set('isActive', event.target.checked)} />Active in Resident Directory</label>}
+        {resident && <label style={{ display: 'flex', gap: 9, alignItems: 'center', fontSize: 13, color: 'var(--ink-2)' }}><input type="checkbox" checked={form.isActive} onChange={event => set('isActive', event.target.checked)} />Active in Resident Directory</label>}
       </form>
     </Modal>
   );

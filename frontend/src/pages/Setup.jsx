@@ -17,7 +17,7 @@ function fmtDate(iso) {
 function Spinner() {
   return (
     <div className="w-4 h-4 rounded-full border-2 animate-spin inline-block"
-      style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />
+      style={{ borderColor: 'var(--on-brand-track)', borderTopColor: 'var(--on-brand)' }} />
   );
 }
 
@@ -32,7 +32,7 @@ function StepDots({ step }) {
           key={s}
           animate={{
             width: s === step ? 24 : 8,
-            background: s === step ? '#1A3A5C' : s < step ? '#4A8FC0' : '#CBD5E1',
+            background: s === step ? 'var(--brand)' : s < step ? 'var(--accent-bright)' : 'var(--border-strong)',
           }}
           transition={{ duration: 0.3 }}
           style={{ height: 8, borderRadius: 4 }}
@@ -54,16 +54,16 @@ function BlockGrid({ blocks }) {
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: i * 0.04, duration: 0.2 }}
           className="flex items-center gap-3 px-3 py-2 rounded-lg"
-          style={{ background: '#F0F5FF', border: '1px solid #D6E4F7' }}
+          style={{ background: 'var(--accent-soft-2)', border: '1px solid var(--accent-border)' }}
         >
           <span
             className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
-            style={{ background: 'linear-gradient(135deg, #1A3A5C, #2C5F8A)', color: '#fff' }}
+            style={{ background: 'linear-gradient(135deg, var(--brand), var(--accent))', color: 'var(--ink-inverse)' }}
           >
             {b.number}
           </span>
-          <span className="text-[13px] font-medium flex-1" style={{ color: '#1A3A5C' }}>Block {b.number}</span>
-          <span className="text-[11px]" style={{ color: '#64748B' }}>
+          <span className="text-[13px] font-medium flex-1" style={{ color: 'var(--ink-1)' }}>Block {b.number}</span>
+          <span className="text-[11px]" style={{ color: 'var(--ink-4)' }}>
             {fmtDate(b.startDate)} – {fmtDate(b.endDate)}
           </span>
         </motion.div>
@@ -80,7 +80,7 @@ function Confetti() {
     x: Math.random() * 360 - 180,
     y: -(80 + Math.random() * 120),
     rotate: Math.random() * 360,
-    color: ['#1A3A5C', '#4A8FC0', '#16A34A', '#D97706', '#7C3AED', '#DC2626'][i % 6],
+    color: ['var(--ink-1)', 'var(--accent-bright)', 'var(--success)', 'var(--warn)', 'var(--violet)', 'var(--danger)'][i % 6],
   }));
   return (
     <div style={{ position: 'absolute', top: '50%', left: '50%', pointerEvents: 'none' }}>
@@ -180,18 +180,18 @@ export default function Setup() {
 
   const inputStyle = {
     width: '100%', padding: '10px 12px', borderRadius: 10,
-    border: '1.5px solid #E2E8F0', fontSize: 13, color: '#1A3A5C',
-    background: '#F8FAFC', outline: 'none', boxSizing: 'border-box',
+    border: '1.5px solid var(--border-2)', fontSize: 13, color: 'var(--ink-1)',
+    background: 'var(--surface-2)', outline: 'none', boxSizing: 'border-box',
     transition: 'border-color 0.15s, box-shadow 0.15s',
   };
-  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 };
+  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 };
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center"
-      style={{ background: 'linear-gradient(135deg, #F8FBFF 0%, #EEF4FF 40%, #F0F7FF 100%)' }}
+      style={{ background: 'linear-gradient(135deg, var(--accent-soft-2) 0%, var(--accent-soft) 40%, var(--accent-soft-2) 100%)' }}
     >
       <motion.div
         initial={{ opacity: 0, y: 24 }}
@@ -203,29 +203,29 @@ export default function Setup() {
         <div
           className="rounded-2xl overflow-hidden"
           style={{
-            background: '#fff',
-            boxShadow: '0 20px 60px rgba(26,58,92,0.12), 0 4px 16px rgba(26,58,92,0.06)',
-            border: '1px solid rgba(214,228,247,0.8)',
+            background: 'var(--surface-1)',
+            boxShadow: 'var(--shadow-lg)',
+            border: '1px solid var(--accent-border)',
           }}
         >
           {/* Gradient bar */}
-          <div style={{ height: 4, background: 'linear-gradient(90deg, #1A3A5C 0%, #2C5F8A 50%, #4A8FC0 100%)' }} />
+          <div style={{ height: 4, background: 'linear-gradient(90deg, var(--brand) 0%, var(--accent) 50%, var(--accent-bright) 100%)' }} />
 
           <div style={{ padding: '36px 32px 32px' }}>
             {/* Header */}
             <div className="text-center mb-2">
               <div
                 className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-4"
-                style={{ background: 'linear-gradient(135deg, #1A3A5C 0%, #2C5F8A 100%)', boxShadow: '0 8px 24px rgba(26,58,92,0.25)' }}
+                style={{ background: 'linear-gradient(135deg, var(--brand) 0%, var(--accent) 100%)', boxShadow: 'var(--shadow-md)' }}
               >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--on-brand)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
                 </svg>
               </div>
-              <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1A3A5C', letterSpacing: '-0.5px', margin: 0 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-1)', letterSpacing: '-0.5px', margin: 0 }}>
                 {step === 0 ? 'You are not in a program yet' : step === 3 ? "You're all set!" : 'Set up MedRota'}
               </h1>
-              <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 4 }}>
+              <p style={{ fontSize: 12, color: 'var(--ink-5)', marginTop: 4 }}>
                 {step === 0 && 'Choose how you want to get started'}
                 {step === 1 && 'Create your organization'}
                 {step === 2 && 'Set up your residency program'}
@@ -247,21 +247,21 @@ export default function Setup() {
                   data-testid="setup-choice"
                   style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
                 >
-                  <div style={{ padding: 16, borderRadius: 12, background: '#F0F5FF', border: '1px solid #D6E4F7' }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: '#1A3A5C', margin: 0 }}>
+                  <div style={{ padding: 16, borderRadius: 12, background: 'var(--accent-soft-2)', border: '1px solid var(--accent-border)' }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-1)', margin: 0 }}>
                       Your program already uses MedRota?
                     </p>
-                    <p style={{ fontSize: 12.5, color: '#475569', marginTop: 6, lineHeight: 1.55 }}>
+                    <p style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 6, lineHeight: 1.55 }}>
                       Ask your Program Admin for an invitation link. Opening it will add you to the program with
                       the right level of access, and nothing needs setting up here.
                     </p>
                   </div>
 
-                  <div style={{ padding: 16, borderRadius: 12, background: '#F8FAFC', border: '1px solid #E8EFF6' }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: '#1A3A5C', margin: 0 }}>
+                  <div style={{ padding: 16, borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border-1)' }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-1)', margin: 0 }}>
                       Starting a new program?
                     </p>
-                    <p style={{ fontSize: 12.5, color: '#475569', marginTop: 6, lineHeight: 1.55 }}>
+                    <p style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 6, lineHeight: 1.55 }}>
                       Create your organization and residency program. You will become its Program Admin and can
                       invite everyone else.
                     </p>
@@ -271,7 +271,7 @@ export default function Setup() {
                       data-testid="setup-create-program"
                       style={{
                         marginTop: 12, width: '100%', padding: '11px', borderRadius: 10, border: 'none',
-                        background: '#1A3A5C', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+                        background: 'var(--brand)', color: 'var(--ink-inverse)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
                       }}
                     >
                       Create a new program
@@ -299,8 +299,8 @@ export default function Setup() {
                       onChange={e => setOrgName(e.target.value)}
                       placeholder="e.g. St. Mary's Medical Center"
                       required
-                      onFocus={e => { e.target.style.border = '1.5px solid #2C5F8A'; e.target.style.boxShadow = '0 0 0 3px rgba(44,95,138,0.12)'; }}
-                      onBlur={e => { e.target.style.border = '1.5px solid #E2E8F0'; e.target.style.boxShadow = 'none'; }}
+                      onFocus={e => { e.target.style.border = '1.5px solid var(--accent)'; e.target.style.boxShadow = 'var(--focus-ring)'; }}
+                      onBlur={e => { e.target.style.border = '1.5px solid var(--border-2)'; e.target.style.boxShadow = 'none'; }}
                     />
                   </div>
                   <div>
@@ -311,8 +311,8 @@ export default function Setup() {
                       onChange={e => setCountry(e.target.value)}
                       placeholder="e.g. United States"
                       required
-                      onFocus={e => { e.target.style.border = '1.5px solid #2C5F8A'; e.target.style.boxShadow = '0 0 0 3px rgba(44,95,138,0.12)'; }}
-                      onBlur={e => { e.target.style.border = '1.5px solid #E2E8F0'; e.target.style.boxShadow = 'none'; }}
+                      onFocus={e => { e.target.style.border = '1.5px solid var(--accent)'; e.target.style.boxShadow = 'var(--focus-ring)'; }}
+                      onBlur={e => { e.target.style.border = '1.5px solid var(--border-2)'; e.target.style.boxShadow = 'none'; }}
                     />
                   </div>
                   <motion.button
@@ -322,11 +322,11 @@ export default function Setup() {
                     whileTap={!loading ? { scale: 0.97 } : {}}
                     style={{
                       marginTop: 4, padding: '12px', borderRadius: 10, border: 'none',
-                      background: 'linear-gradient(135deg, #1A3A5C 0%, #2C5F8A 100%)',
-                      color: '#fff', fontSize: 14, fontWeight: 600,
+                      background: 'linear-gradient(135deg, var(--brand) 0%, var(--accent) 100%)',
+                      color: 'var(--ink-inverse)', fontSize: 14, fontWeight: 600,
                       cursor: loading ? 'not-allowed' : 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                      boxShadow: '0 4px 16px rgba(26,58,92,0.3)',
+                      boxShadow: 'var(--shadow-md)',
                     }}
                   >
                     {loading ? <><Spinner /> Creating…</> : 'Continue →'}
@@ -353,10 +353,10 @@ export default function Setup() {
                       onChange={e => setProgramName(e.target.value)}
                       placeholder="e.g. Internal Medicine Residency"
                       required
-                      onFocus={e => { e.target.style.border = '1.5px solid #2C5F8A'; e.target.style.boxShadow = '0 0 0 3px rgba(44,95,138,0.12)'; }}
-                      onBlur={e => { e.target.style.border = '1.5px solid #E2E8F0'; e.target.style.boxShadow = 'none'; }}
+                      onFocus={e => { e.target.style.border = '1.5px solid var(--accent)'; e.target.style.boxShadow = 'var(--focus-ring)'; }}
+                      onBlur={e => { e.target.style.border = '1.5px solid var(--border-2)'; e.target.style.boxShadow = 'none'; }}
                     />
-                    <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
+                    <p style={{ fontSize: 11, color: 'var(--ink-5)', marginTop: 4 }}>
                       The name used throughout MedRota, such as “McMaster Vascular Surgery Residency.”
                     </p>
                   </div>
@@ -370,13 +370,13 @@ export default function Setup() {
                         setSpecialty(value);
                         if (!programName.trim() && value) setProgramName(`${value} Residency`);
                       }}
-                      onFocus={e => { e.target.style.border = '1.5px solid #2C5F8A'; e.target.style.boxShadow = '0 0 0 3px rgba(44,95,138,0.12)'; }}
-                      onBlur={e => { e.target.style.border = '1.5px solid #E2E8F0'; e.target.style.boxShadow = 'none'; }}
+                      onFocus={e => { e.target.style.border = '1.5px solid var(--accent)'; e.target.style.boxShadow = 'var(--focus-ring)'; }}
+                      onBlur={e => { e.target.style.border = '1.5px solid var(--border-2)'; e.target.style.boxShadow = 'none'; }}
                     >
                       <option value="">Select specialty…</option>
                       {MEDICAL_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>The program’s main specialty.</p>
+                    <p style={{ fontSize: 11, color: 'var(--ink-5)', marginTop: 4 }}>The program’s main specialty.</p>
                   </div>
                   <div>
                     <label style={labelStyle}>Academic year start date</label>
@@ -386,10 +386,10 @@ export default function Setup() {
                       value={startDate}
                       onChange={e => setStartDate(e.target.value)}
                       required
-                      onFocus={e => { e.target.style.border = '1.5px solid #2C5F8A'; e.target.style.boxShadow = '0 0 0 3px rgba(44,95,138,0.12)'; }}
-                      onBlur={e => { e.target.style.border = '1.5px solid #E2E8F0'; e.target.style.boxShadow = 'none'; }}
+                      onFocus={e => { e.target.style.border = '1.5px solid var(--accent)'; e.target.style.boxShadow = 'var(--focus-ring)'; }}
+                      onBlur={e => { e.target.style.border = '1.5px solid var(--border-2)'; e.target.style.boxShadow = 'none'; }}
                     />
-                    <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
+                    <p style={{ fontSize: 11, color: 'var(--ink-5)', marginTop: 4 }}>
                       13 blocks × 4 weeks will be generated from this date
                     </p>
                   </div>
@@ -399,8 +399,8 @@ export default function Setup() {
                       onClick={() => setStep(1)}
                       style={{
                         flex: '0 0 auto', padding: '12px 16px', borderRadius: 10,
-                        border: '1.5px solid #E2E8F0', background: '#F8FAFC',
-                        color: '#64748B', fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                        border: '1.5px solid var(--border-2)', background: 'var(--surface-2)',
+                        color: 'var(--ink-4)', fontSize: 14, fontWeight: 500, cursor: 'pointer',
                       }}
                     >
                       ← Back
@@ -412,11 +412,11 @@ export default function Setup() {
                       whileTap={!loading ? { scale: 0.97 } : {}}
                       style={{
                         flex: 1, padding: '12px', borderRadius: 10, border: 'none',
-                        background: 'linear-gradient(135deg, #1A3A5C 0%, #2C5F8A 100%)',
-                        color: '#fff', fontSize: 14, fontWeight: 600,
+                        background: 'linear-gradient(135deg, var(--brand) 0%, var(--accent) 100%)',
+                        color: 'var(--ink-inverse)', fontSize: 14, fontWeight: 600,
                         cursor: loading ? 'not-allowed' : 'pointer',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                        boxShadow: '0 4px 16px rgba(26,58,92,0.3)',
+                        boxShadow: 'var(--shadow-md)',
                       }}
                     >
                       {loading ? <><Spinner /> Creating blocks…</> : 'Generate schedule →'}
@@ -439,12 +439,12 @@ export default function Setup() {
 
                   <div
                     className="flex items-center gap-2 px-3 py-2 rounded-lg"
-                    style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}
+                    style={{ background: 'var(--success-soft)', border: '1px solid var(--success-border)' }}
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
-                    <span style={{ fontSize: 13, color: '#15803D', fontWeight: 500 }}>
+                    <span style={{ fontSize: 13, color: 'var(--success-ink)', fontWeight: 500 }}>
                       {createdBlocks.length} blocks created successfully
                     </span>
                   </div>
@@ -458,11 +458,11 @@ export default function Setup() {
                     whileTap={!loading ? { scale: 0.97 } : {}}
                     style={{
                       marginTop: 4, padding: '12px', borderRadius: 10, border: 'none',
-                      background: 'linear-gradient(135deg, #1A3A5C 0%, #2C5F8A 100%)',
-                      color: '#fff', fontSize: 14, fontWeight: 600,
+                      background: 'linear-gradient(135deg, var(--brand) 0%, var(--accent) 100%)',
+                      color: 'var(--ink-inverse)', fontSize: 14, fontWeight: 600,
                       cursor: loading ? 'not-allowed' : 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                      boxShadow: '0 4px 16px rgba(26,58,92,0.3)',
+                      boxShadow: 'var(--shadow-md)',
                     }}
                   >
                     {loading ? <><Spinner /> Loading…</> : 'Go to Dashboard →'}

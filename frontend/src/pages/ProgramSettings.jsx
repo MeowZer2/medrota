@@ -19,10 +19,10 @@ function Card({ title, subtitle, children }) {
   // trailing action button of any row that grew past the card width, which left
   // Deactivate/Restore impossible to reach with a pointer. Rows now shrink.
   return (
-    <div style={{ background: '#fff', border: '1px solid #E8EFF6', borderRadius: 12, boxShadow: '0 1px 3px rgba(26,58,92,0.05)', marginBottom: 20 }}>
-      <div style={{ padding: '18px 24px', borderBottom: '1px solid #E8EFF6', background: '#F8FAFC', borderTopLeftRadius: 12, borderTopRightRadius: 12 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 700, color: '#1A3A5C', margin: 0 }}>{title}</h2>
-        {subtitle && <p style={{ fontSize: 12, color: '#94A3B8', margin: '3px 0 0' }}>{subtitle}</p>}
+    <div style={{ background: 'var(--surface-1)', border: '1px solid var(--border-1)', borderRadius: 12, boxShadow: 'var(--shadow-xs)', marginBottom: 20 }}>
+      <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-1)', background: 'var(--surface-2)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-1)', margin: 0 }}>{title}</h2>
+        {subtitle && <p style={{ fontSize: 12, color: 'var(--ink-5)', margin: '3px 0 0' }}>{subtitle}</p>}
       </div>
       <div style={{ padding: '20px 24px' }}>{children}</div>
     </div>
@@ -31,23 +31,23 @@ function Card({ title, subtitle, children }) {
 
 const inputStyle = {
   width: '100%', padding: '9px 12px', borderRadius: 8,
-  border: '1px solid #E2E8F0', fontSize: 14, color: '#1A3A5C',
-  background: '#F8FAFC', outline: 'none', boxSizing: 'border-box',
+  border: '1px solid var(--border-strong)', fontSize: 14, color: 'var(--ink-1)',
+  background: 'var(--surface-2)', outline: 'none', boxSizing: 'border-box',
 };
 
 const primaryButtonStyle = {
-  padding: '9px 14px', border: 0, borderRadius: 8, background: '#1A3A5C',
-  color: '#fff', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer',
+  padding: '9px 14px', border: 0, borderRadius: 8, background: 'var(--brand)',
+  color: 'var(--ink-inverse)', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer',
 };
 
 const deactivateButtonStyle = {
-  padding: '7px 12px', border: '1px solid #E2E8F0', borderRadius: 7, background: '#fff',
-  color: '#64748B', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 34, whiteSpace: 'nowrap',
+  padding: '7px 12px', border: '1px solid var(--border-strong)', borderRadius: 7, background: 'var(--surface-1)',
+  color: 'var(--ink-4)', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 34, whiteSpace: 'nowrap',
 };
 
 const restoreButtonStyle = {
-  padding: '7px 12px', border: '1px solid #BBF7D0', borderRadius: 7, background: '#F0FDF4',
-  color: '#15803D', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 34, whiteSpace: 'nowrap',
+  padding: '7px 12px', border: '1px solid var(--success-border)', borderRadius: 7, background: 'var(--success-soft)',
+  color: 'var(--success-ink)', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 34, whiteSpace: 'nowrap',
 };
 
 const SERVICE_DESCRIPTION_MAX_LENGTH = 500;
@@ -75,18 +75,18 @@ function isValidOptionalEmail(value) {
 // Paired edit controls. Every inline editor in this page shows both, so an edit
 // is always reversible without reloading the section.
 const editSaveButtonStyle = {
-  padding: '7px 12px', border: '1px solid #D6E4F7', borderRadius: 7, background: '#EEF4FF',
-  color: '#2C5F8A', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 34, whiteSpace: 'nowrap',
+  padding: '7px 12px', border: '1px solid var(--accent-border)', borderRadius: 7, background: 'var(--accent-soft)',
+  color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 34, whiteSpace: 'nowrap',
 };
 
 const cancelButtonStyle = {
-  padding: '7px 12px', border: '1px solid #E2E8F0', borderRadius: 7, background: '#fff',
-  color: '#64748B', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 34, whiteSpace: 'nowrap',
+  padding: '7px 12px', border: '1px solid var(--border-strong)', borderRadius: 7, background: 'var(--surface-1)',
+  color: 'var(--ink-4)', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 34, whiteSpace: 'nowrap',
 };
 
 function Label({ htmlFor, children }) {
   return (
-    <label htmlFor={htmlFor} style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#64748B', marginBottom: 5 }}>
+    <label htmlFor={htmlFor} style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-4)', marginBottom: 5 }}>
       {children}
     </label>
   );
@@ -94,7 +94,7 @@ function Label({ htmlFor, children }) {
 
 function InactiveBadge() {
   return (
-    <span style={{ fontSize: 10, fontWeight: 700, color: '#B45309', background: '#FEF3C7', padding: '2px 7px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--warn-ink)', background: 'var(--warn-soft-2)', padding: '2px 7px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
       Inactive
     </span>
   );
@@ -106,7 +106,7 @@ function InactiveBadge() {
 function RegistryHeader({ activeCount, inactiveCount, noun, showInactive, onToggle }) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: '#64748B' }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-4)' }}>
         {activeCount} active {noun}
       </span>
       {(inactiveCount > 0 || showInactive) && (
@@ -114,7 +114,7 @@ function RegistryHeader({ activeCount, inactiveCount, noun, showInactive, onTogg
           type="button"
           onClick={onToggle}
           aria-expanded={showInactive}
-          style={{ padding: '6px 11px', border: '1px solid #E2E8F0', borderRadius: 7, background: '#F8FAFC', color: '#2C5F8A', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 32, whiteSpace: 'nowrap' }}
+          style={{ padding: '6px 11px', border: '1px solid var(--border-strong)', borderRadius: 7, background: 'var(--surface-2)', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 32, whiteSpace: 'nowrap' }}
         >
           {showInactive ? `Hide inactive ${noun}` : `Show inactive ${noun} (${inactiveCount})`}
         </button>
@@ -145,12 +145,12 @@ function InactiveGroup({ noun, items, labelOf, renderItem }) {
   const visible = showAll ? matches : matches.slice(0, INACTIVE_PAGE_SIZE);
 
   return (
-    <div data-testid={`inactive-${noun}`} style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed #E2E8F0' }}>
-      <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 6px' }}>
+    <div data-testid={`inactive-${noun}`} style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--border-2)' }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-5)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 6px' }}>
         Inactive {noun}
       </p>
       {items.length === 0 ? (
-        <p style={{ fontSize: 13, color: '#94A3B8', margin: 0 }}>No inactive {noun}.</p>
+        <p style={{ fontSize: 13, color: 'var(--ink-5)', margin: 0 }}>No inactive {noun}.</p>
       ) : (
         <>
           {items.length > INACTIVE_PAGE_SIZE && (
@@ -162,17 +162,17 @@ function InactiveGroup({ noun, items, labelOf, renderItem }) {
               style={{ ...inputStyle, marginBottom: 8 }}
             />
           )}
-          <p style={{ fontSize: 12, color: '#64748B', margin: '0 0 6px' }}>
+          <p style={{ fontSize: 12, color: 'var(--ink-4)', margin: '0 0 6px' }}>
             Showing {visible.length} of {matches.length} inactive {noun}
           </p>
           {matches.length === 0
-            ? <p style={{ fontSize: 13, color: '#94A3B8', margin: 0 }}>No inactive {noun} match that search.</p>
+            ? <p style={{ fontSize: 13, color: 'var(--ink-5)', margin: 0 }}>No inactive {noun} match that search.</p>
             : visible.map(renderItem)}
           {matches.length > INACTIVE_PAGE_SIZE && (
             <button
               type="button"
               onClick={() => setShowAll(current => !current)}
-              style={{ marginTop: 8, padding: '6px 11px', border: '1px solid #E2E8F0', borderRadius: 7, background: '#F8FAFC', color: '#2C5F8A', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 32 }}
+              style={{ marginTop: 8, padding: '6px 11px', border: '1px solid var(--border-strong)', borderRadius: 7, background: 'var(--surface-2)', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', minHeight: 32 }}
             >
               {showAll ? `Show fewer ${noun}` : `Show all ${matches.length} inactive ${noun}`}
             </button>
@@ -233,9 +233,9 @@ function RegistryRow({ item, canManage, onSave, onEditingChange, showDescription
             if (event.key === 'Enter' && isEdited) { event.preventDefault(); save(); }
           }}
           disabled={!canManage}
-          style={{ ...inputStyle, background: canManage ? '#F8FAFC' : '#fff', borderColor: isBlank ? '#FCA5A5' : '#E2E8F0' }}
+          style={{ ...inputStyle, background: canManage ? 'var(--surface-2)' : 'var(--surface-1)', borderColor: isBlank ? 'var(--danger-border)' : 'var(--border-strong)' }}
         />
-        {isBlank && <span role="alert" style={{ display: 'block', fontSize: 11, color: '#B91C1C', marginTop: 3 }}>A name is required.</span>}
+        {isBlank && <span role="alert" style={{ display: 'block', fontSize: 11, color: 'var(--danger-ink)', marginTop: 3 }}>A name is required.</span>}
         {showDescription && (
           <>
             <input
@@ -246,11 +246,11 @@ function RegistryRow({ item, canManage, onSave, onEditingChange, showDescription
               disabled={!canManage}
               maxLength={SERVICE_DESCRIPTION_MAX_LENGTH}
               placeholder="Optional description"
-              style={{ ...inputStyle, marginTop: 6, background: canManage ? '#F8FAFC' : '#fff', color: '#64748B', fontSize: 12 }}
+              style={{ ...inputStyle, marginTop: 6, background: canManage ? 'var(--surface-2)' : 'var(--surface-1)', color: 'var(--ink-4)', fontSize: 12 }}
             />
           </>
         )}
-        {references > 0 && <span style={{ display: 'block', fontSize: 11, color: '#94A3B8', marginTop: 3 }}>{references} schedule reference{references === 1 ? '' : 's'} preserved</span>}
+        {references > 0 && <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-5)', marginTop: 3 }}>{references} schedule reference{references === 1 ? '' : 's'} preserved</span>}
       </div>
       <div className="settings-registry-actions">
         {!item.isActive && <InactiveBadge />}
@@ -277,7 +277,7 @@ function RegistryRow({ item, canManage, onSave, onEditingChange, showDescription
           >
             {item.isActive ? 'Deactivate' : 'Restore'}
           </button>
-        ) : <span style={{ fontSize: 11, color: item.isActive ? '#15803D' : '#94A3B8' }}>{item.isActive ? 'Active' : 'Inactive'}</span>}
+        ) : <span style={{ fontSize: 11, color: item.isActive ? 'var(--success-ink)' : 'var(--ink-5)' }}>{item.isActive ? 'Active' : 'Inactive'}</span>}
       </div>
     </div>
   );
@@ -290,7 +290,7 @@ function RegistryList({ items, canManage, noun, emptyMessage, onSave, onEditingC
   const active = items.filter(item => item.isActive);
   const inactive = items.filter(item => !item.isActive);
 
-  if (items.length === 0) return <p style={{ fontSize: 13, color: '#94A3B8' }}>{emptyMessage}</p>;
+  if (items.length === 0) return <p style={{ fontSize: 13, color: 'var(--ink-5)' }}>{emptyMessage}</p>;
 
   return (
     <div>
@@ -302,7 +302,7 @@ function RegistryList({ items, canManage, noun, emptyMessage, onSave, onEditingC
         onToggle={() => setShowInactive(current => !current)}
       />
       {active.length === 0
-        ? <p style={{ fontSize: 13, color: '#94A3B8' }}>No active {noun}.</p>
+        ? <p style={{ fontSize: 13, color: 'var(--ink-5)' }}>No active {noun}.</p>
         : active.map(item => <RegistryRow key={item.id} item={item} canManage={canManage} onSave={onSave} onEditingChange={onEditingChange} showDescription={showDescription} />)}
       {showInactive && (
         <InactiveGroup
@@ -385,13 +385,13 @@ function RosterRow({ item, canManage, onSave, onSetActive, onEditingChange }) {
                 type={field === 'email' ? 'email' : 'text'}
                 aria-invalid={field === 'email' && emailInvalid ? 'true' : undefined}
                 aria-describedby={field === 'email' && emailInvalid ? `roster-${item.id}-email-error` : undefined}
-                style={{ ...inputStyle, borderColor: (field === 'attendingName' && isBlank) || (field === 'email' && emailInvalid) ? '#FCA5A5' : '#E2E8F0' }}
+                style={{ ...inputStyle, borderColor: (field === 'attendingName' && isBlank) || (field === 'email' && emailInvalid) ? 'var(--danger-border)' : 'var(--border-strong)' }}
               />
-              {field === 'email' && emailInvalid && <span id={`roster-${item.id}-email-error`} role="alert" style={{ display: 'block', fontSize: 11, color: '#B91C1C', marginTop: 3 }}>Enter a valid email address.</span>}
+              {field === 'email' && emailInvalid && <span id={`roster-${item.id}-email-error`} role="alert" style={{ display: 'block', fontSize: 11, color: 'var(--danger-ink)', marginTop: 3 }}>Enter a valid email address.</span>}
             </div>
           ))}
         </div>
-        {isBlank && <p role="alert" style={{ fontSize: 11, color: '#B91C1C', margin: '6px 0 0' }}>A name is required.</p>}
+        {isBlank && <p role="alert" style={{ fontSize: 11, color: 'var(--danger-ink)', margin: '6px 0 0' }}>A name is required.</p>}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
           <button
             type="button"
@@ -409,14 +409,14 @@ function RosterRow({ item, canManage, onSave, onSetActive, onEditingChange }) {
   }
 
   return (
-    <div className="settings-roster-row" style={{ background: item.isActive ? 'transparent' : '#FFFBEB' }}>
+    <div className="settings-roster-row" style={{ background: item.isActive ? 'transparent' : 'var(--warn-soft)' }}>
       <span style={{ display: 'flex', gap: 8, alignItems: 'center', minWidth: 0 }}>
-        <strong style={{ fontSize: 13, color: '#1A3A5C', overflowWrap: 'anywhere' }}>{item.attendingName}</strong>
+        <strong style={{ fontSize: 13, color: 'var(--ink-1)', overflowWrap: 'anywhere' }}>{item.attendingName}</strong>
         {!item.isActive && <InactiveBadge />}
       </span>
-      <span style={{ fontSize: 12, color: '#64748B', overflowWrap: 'anywhere' }}>{item.email || '—'}</span>
-      <span style={{ fontSize: 12, color: '#64748B', overflowWrap: 'anywhere' }}>{item.phone || '—'}</span>
-      <span style={{ fontSize: 12, color: '#64748B', overflowWrap: 'anywhere' }}>{item.officeLocation || '—'}</span>
+      <span style={{ fontSize: 12, color: 'var(--ink-4)', overflowWrap: 'anywhere' }}>{item.email || '—'}</span>
+      <span style={{ fontSize: 12, color: 'var(--ink-4)', overflowWrap: 'anywhere' }}>{item.phone || '—'}</span>
+      <span style={{ fontSize: 12, color: 'var(--ink-4)', overflowWrap: 'anywhere' }}>{item.officeLocation || '—'}</span>
       <span className="settings-roster-actions">
         {canManage ? (
           <>
@@ -437,7 +437,7 @@ function RosterRow({ item, canManage, onSave, onSetActive, onEditingChange }) {
               {item.isActive ? 'Deactivate' : 'Restore'}
             </button>
           </>
-        ) : <span style={{ fontSize: 11, color: item.isActive ? '#15803D' : '#94A3B8' }}>{item.isActive ? 'Active' : 'Inactive'}</span>}
+        ) : <span style={{ fontSize: 11, color: item.isActive ? 'var(--success-ink)' : 'var(--ink-5)' }}>{item.isActive ? 'Active' : 'Inactive'}</span>}
       </span>
     </div>
   );
@@ -515,11 +515,11 @@ function CallTypeToggle({ id, label, description, checked, onChange, disabled = 
         checked={checked}
         onChange={e => onChange(e.target.checked)}
         disabled={disabled}
-        style={{ width: 18, height: 18, marginTop: 1, accentColor: '#1A3A5C' }}
+        style={{ width: 18, height: 18, marginTop: 1, accentColor: 'var(--ink-1)' }}
       />
       <span>
-        <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#1A3A5C' }}>{label}</span>
-        <span style={{ display: 'block', fontSize: 12, color: '#64748B', marginTop: 2 }}>{description}</span>
+        <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--ink-1)' }}>{label}</span>
+        <span style={{ display: 'block', fontSize: 12, color: 'var(--ink-4)', marginTop: 2 }}>{description}</span>
       </span>
     </label>
   );
@@ -607,11 +607,11 @@ export default function ProgramSettings() {
           aria-label={label}
           style={{
             padding: '9px 22px', borderRadius: 9, border: 'none',
-            background: '#1A3A5C', color: '#fff', fontSize: 13, fontWeight: 600,
+            background: 'var(--brand)', color: 'var(--ink-inverse)', fontSize: 13, fontWeight: 600,
             cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1,
           }}
-          onMouseEnter={e => { if (!saving) e.currentTarget.style.background = '#2C5F8A'; }}
-          onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}
+          onMouseEnter={e => { if (!saving) e.currentTarget.style.background = 'var(--accent)'; }}
+          onMouseLeave={e => e.currentTarget.style.background = 'var(--brand)'}
         >
           {saving ? 'Saving...' : 'Save'}
         </motion.button>
@@ -796,7 +796,7 @@ export default function ProgramSettings() {
               toast.error(err.response?.data?.error ?? `Unable to restore ${label}`);
             }
           }}
-          style={{ border: 0, background: 'transparent', color: '#2C5F8A', fontWeight: 700, cursor: 'pointer', padding: '2px 0' }}
+          style={{ border: 0, background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer', padding: '2px 0' }}
         >
           Undo
         </button>
@@ -1008,7 +1008,7 @@ export default function ProgramSettings() {
     return (
       <PageWrapper>
         <Layout>
-          <div style={{ background: '#fff', border: '1px solid #E8EFF6', borderRadius: 12, padding: 24, color: '#64748B' }}>
+          <div style={{ background: 'var(--surface-1)', border: '1px solid var(--border-1)', borderRadius: 12, padding: 24, color: 'var(--ink-4)' }}>
             You do not have access to program configuration.
           </div>
         </Layout>
@@ -1026,7 +1026,7 @@ export default function ProgramSettings() {
           <div>
             <Label htmlFor="ps-program-name">Program display name</Label>
             <input id="ps-program-name" value={name} onChange={e => setName(e.target.value)} style={inputStyle} placeholder="e.g. Internal Medicine Residency" disabled={!canEditProgramSettings} />
-            <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>The name used throughout MedRota, such as &ldquo;McMaster Vascular Surgery Residency.&rdquo;</p>
+            <p style={{ fontSize: 11, color: 'var(--ink-5)', marginTop: 4 }}>The name used throughout MedRota, such as &ldquo;McMaster Vascular Surgery Residency.&rdquo;</p>
           </div>
           <div>
             <Label htmlFor="ps-specialty">Primary specialty</Label>
@@ -1034,7 +1034,7 @@ export default function ProgramSettings() {
               {MEDICAL_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
               {specialty && !MEDICAL_SPECIALTIES.includes(specialty) && <option value={specialty}>{specialty}</option>}
             </select>
-            <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>The program&rsquo;s main specialty.</p>
+            <p style={{ fontSize: 11, color: 'var(--ink-5)', marginTop: 4 }}>The program&rsquo;s main specialty.</p>
           </div>
           {sectionSaveButton('general', handleSaveGeneral, 'Save program details')}
         </div>
@@ -1050,7 +1050,7 @@ export default function ProgramSettings() {
               <input id="new-clinical-service" aria-label="New clinical service" value={newServiceName} onChange={event => setNewServiceName(event.target.value)} style={inputStyle} placeholder="e.g. Acute Care Surgery" />
             </div>
             <div>
-              <Label htmlFor="new-clinical-service-description">Description <span style={{ color: '#94A3B8', fontWeight: 400 }}>(optional)</span></Label>
+              <Label htmlFor="new-clinical-service-description">Description <span style={{ color: 'var(--ink-5)', fontWeight: 400 }}>(optional)</span></Label>
               <textarea
                 id="new-clinical-service-description"
                 aria-label="New clinical service description"
@@ -1083,11 +1083,11 @@ export default function ProgramSettings() {
           <div className="settings-field-grid" style={{ marginBottom: 14 }}>
             {[['attendingName', 'Name', 'Dr. Smith'], ['email', 'Email', 'name@example.org'], ['phone', 'Phone', 'Optional'], ['officeLocation', 'Office / location', 'Optional']].map(([field, label, placeholder]) => {
               const emailInvalid = field === 'email' && !isValidOptionalEmail(newAttending.email);
-              return <div key={field}><Label htmlFor={`new-attending-${field}`}>{label}</Label><input id={`new-attending-${field}`} type={field === 'email' ? 'email' : 'text'} value={newAttending[field]} onChange={event => setNewAttending(previous => ({ ...previous, [field]: event.target.value }))} placeholder={placeholder} aria-invalid={emailInvalid ? 'true' : undefined} aria-describedby={emailInvalid ? 'new-attending-email-error' : undefined} style={{ ...inputStyle, borderColor: emailInvalid ? '#FCA5A5' : '#E2E8F0' }} />{emailInvalid && <span id="new-attending-email-error" role="alert" style={{ display: 'block', fontSize: 11, color: '#B91C1C', marginTop: 3 }}>Enter a valid email address.</span>}</div>;
+              return <div key={field}><Label htmlFor={`new-attending-${field}`}>{label}</Label><input id={`new-attending-${field}`} type={field === 'email' ? 'email' : 'text'} value={newAttending[field]} onChange={event => setNewAttending(previous => ({ ...previous, [field]: event.target.value }))} placeholder={placeholder} aria-invalid={emailInvalid ? 'true' : undefined} aria-describedby={emailInvalid ? 'new-attending-email-error' : undefined} style={{ ...inputStyle, borderColor: emailInvalid ? 'var(--danger-border)' : 'var(--border-strong)' }} />{emailInvalid && <span id="new-attending-email-error" role="alert" style={{ display: 'block', fontSize: 11, color: 'var(--danger-ink)', marginTop: 3 }}>Enter a valid email address.</span>}</div>;
             })}
             <button onClick={addAttending} disabled={!newAttending.attendingName.trim() || !isValidOptionalEmail(newAttending.email)} style={{ ...primaryButtonStyle, opacity: !newAttending.attendingName.trim() || !isValidOptionalEmail(newAttending.email) ? 0.6 : 1, cursor: !newAttending.attendingName.trim() || !isValidOptionalEmail(newAttending.email) ? 'not-allowed' : 'pointer' }}>Add attending</button>
           </div>
-          {attendingRoster.length === 0 ? <p style={{ fontSize: 13, color: '#94A3B8' }}>No attending staff configured.</p> : (
+          {attendingRoster.length === 0 ? <p style={{ fontSize: 13, color: 'var(--ink-5)' }}>No attending staff configured.</p> : (
             <div>
               <RegistryHeader
                 activeCount={activeAttendings.length}
@@ -1097,7 +1097,7 @@ export default function ProgramSettings() {
                 onToggle={() => setShowInactiveAttendings(current => !current)}
               />
               {activeAttendings.length === 0
-                ? <p style={{ fontSize: 13, color: '#94A3B8' }}>No active attendings.</p>
+                ? <p style={{ fontSize: 13, color: 'var(--ink-5)' }}>No active attendings.</p>
                 : activeAttendings.map(item => <RosterRow key={item.id} item={item} canManage={canManageActivities} onSave={updateAttending} onSetActive={setAttendingActive} onEditingChange={trackRowEditing} />)}
               {showInactiveAttendings && (
                 <InactiveGroup
@@ -1151,11 +1151,11 @@ export default function ProgramSettings() {
               disabled={!canEditProgramSettings}
             />
           </div>
-          <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
-            <div style={{ color: '#1A3A5C', fontSize: 13, fontWeight: 700 }}>Junior PGY levels</div>
-            <p style={{ color: '#64748B', fontSize: 12, margin: '4px 0 10px' }}>Checked levels schedule as junior; remaining resident levels schedule as senior. Individual overrides remain available.</p>
+          <div style={{ borderTop: '1px solid var(--border-2)', paddingTop: 16 }}>
+            <div style={{ color: 'var(--ink-1)', fontSize: 13, fontWeight: 700 }}>Junior PGY levels</div>
+            <p style={{ color: 'var(--ink-4)', fontSize: 12, margin: '4px 0 10px' }}>Checked levels schedule as junior; remaining resident levels schedule as senior. Individual overrides remain available.</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {[1,2,3,4,5,6,7,8,9,10].map(level => <label key={level} style={{ minWidth: 74, display: 'flex', alignItems: 'center', gap: 6, border: '1px solid #CBD5E1', borderRadius: 8, padding: '7px 9px', color: '#334155', fontSize: 12 }}><input type="checkbox" aria-label={`PGY-${level} is junior`} checked={juniorPgyLevels.includes(level)} disabled={!canEditProgramSettings} onChange={event => setJuniorPgyLevels(current => event.target.checked ? [...current, level].sort((a,b) => a-b) : current.filter(item => item !== level))} />PGY-{level}</label>)}
+              {[1,2,3,4,5,6,7,8,9,10].map(level => <label key={level} style={{ minWidth: 74, display: 'flex', alignItems: 'center', gap: 6, border: '1px solid var(--border-strong)', borderRadius: 8, padding: '7px 9px', color: 'var(--ink-2)', fontSize: 12 }}><input type="checkbox" aria-label={`PGY-${level} is junior`} checked={juniorPgyLevels.includes(level)} disabled={!canEditProgramSettings} onChange={event => setJuniorPgyLevels(current => event.target.checked ? [...current, level].sort((a,b) => a-b) : current.filter(item => item !== level))} />PGY-{level}</label>)}
             </div>
           </div>
           {sectionSaveButton('scheduling', handleSaveScheduling, 'Save call configuration')}
@@ -1168,15 +1168,15 @@ export default function ProgramSettings() {
         {canManageUsers && <>
         <Card title="Team Members" subtitle="View and manage who has access to this program.">
           {loadingMembers ? (
-            <p style={{ fontSize: 13, color: '#94A3B8' }}>Loading...</p>
+            <p style={{ fontSize: 13, color: 'var(--ink-5)' }}>Loading...</p>
           ) : members.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#CBD5E1', fontStyle: 'italic' }}>No members yet.</p>
+            <p style={{ fontSize: 13, color: 'var(--ink-5)', fontStyle: 'italic' }}>No members yet.</p>
           ) : (
             <div>
-              <div className="settings-member-row" style={{ padding: '8px 12px', borderRadius: 8, background: '#F8FAFC', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Name</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Email</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Role</span>
+              <div className="settings-member-row" style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--surface-2)', marginBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-5)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Name</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-5)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Email</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-5)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Role</span>
                 <span />
               </div>
               <div className="space-y-2">
@@ -1184,18 +1184,18 @@ export default function ProgramSettings() {
                   const isSelf = m.userId === currentUser?.userId;
                   const memberLabel = m.user?.name ?? m.user?.email ?? 'member';
                   return (
-                    <div key={m.id} className="settings-member-row" style={{ padding: '10px 12px', borderRadius: 8, border: isSelf ? '1px solid #C7D9EC' : '1px solid #F1F5F9', background: isSelf ? '#F8FCFF' : '#fff' }}>
-                      <span style={{ fontSize: 13, fontWeight: 500, color: '#1A3A5C', overflowWrap: 'anywhere' }}>
+                    <div key={m.id} className="settings-member-row" style={{ padding: '10px 12px', borderRadius: 8, border: isSelf ? '1px solid var(--accent-border-2)' : '1px solid var(--border-subtle)', background: isSelf ? 'var(--accent-soft-2)' : 'var(--surface-1)' }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-1)', overflowWrap: 'anywhere' }}>
                         {m.user?.name ?? '-'}
-                        {isSelf && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#2C5F8A', background: '#EEF4FF', padding: '1px 6px', borderRadius: 99 }}>You</span>}
+                        {isSelf && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'var(--accent-soft)', padding: '1px 6px', borderRadius: 99 }}>You</span>}
                       </span>
-                      <span style={{ fontSize: 13, color: '#64748B', overflowWrap: 'anywhere' }}>{m.user?.email ?? '-'}</span>
+                      <span style={{ fontSize: 13, color: 'var(--ink-4)', overflowWrap: 'anywhere' }}>{m.user?.email ?? '-'}</span>
                       <select
                         aria-label={`Role for ${memberLabel}`}
                         value={m.role}
                         onChange={e => handleRoleChange(m.userId, e.target.value)}
                         disabled={!canManageUsers}
-                        style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #E2E8F0', fontSize: 12, color: '#1A3A5C', background: '#F8FAFC', outline: 'none', cursor: 'pointer', maxWidth: '100%' }}
+                        style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border-strong)', fontSize: 12, color: 'var(--ink-1)', background: 'var(--surface-2)', outline: 'none', cursor: 'pointer', maxWidth: '100%' }}
                       >
                         {ROLE_OPTIONS.map(role => (
                           <option key={role.value} value={role.value}>{role.label}</option>
@@ -1204,9 +1204,9 @@ export default function ProgramSettings() {
                       {isSelf ? (
                         <button
                           onClick={handleLeaveProgram}
-                          style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#DC2626', fontSize: 12, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', justifySelf: 'start' }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#FEE2E2'}
-                          onMouseLeave={e => e.currentTarget.style.background = '#FEF2F2'}
+                          style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--danger-border)', background: 'var(--danger-soft)', color: 'var(--danger)', fontSize: 12, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', justifySelf: 'start' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--danger-soft-2)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'var(--danger-soft)'}
                         >
                           Leave program
                         </button>
@@ -1215,9 +1215,9 @@ export default function ProgramSettings() {
                           onClick={() => handleRemoveMember(m.userId)}
                           disabled={!canManageUsers}
                           aria-label={`Remove ${memberLabel}`}
-                          style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#DC2626', fontSize: 12, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', justifySelf: 'start' }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#FEE2E2'}
-                          onMouseLeave={e => e.currentTarget.style.background = '#FEF2F2'}
+                          style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--danger-border)', background: 'var(--danger-soft)', color: 'var(--danger)', fontSize: 12, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', justifySelf: 'start' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--danger-soft-2)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'var(--danger-soft)'}
                         >
                           Remove
                         </button>
@@ -1244,19 +1244,19 @@ export default function ProgramSettings() {
                   readOnly
                   aria-label="Invite link"
                   value={inviteLink}
-                  style={{ ...inputStyle, background: '#F0F5FF', color: '#2C5F8A', fontFamily: 'monospace', fontSize: 12 }}
+                  style={{ ...inputStyle, background: 'var(--accent-soft-2)', color: 'var(--accent)', fontFamily: 'monospace', fontSize: 12 }}
                 />
                 <button
                   onClick={handleCopyInvite}
-                  style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #C7D9EC', background: '#EEF4FF', color: '#2C5F8A', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#DCE9F5'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#EEF4FF'}
+                  style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid var(--accent-border-2)', background: 'var(--accent-soft)', color: 'var(--accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--border-3)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-soft)'}
                 >
                   Copy
                 </button>
               </div>
             ) : (
-              <p style={{ fontSize: 13, color: '#94A3B8', fontStyle: 'italic' }}>No invite link generated yet.</p>
+              <p style={{ fontSize: 13, color: 'var(--ink-5)', fontStyle: 'italic' }}>No invite link generated yet.</p>
             )}
             <div style={{ display: 'flex', gap: 8 }}>
               <motion.button
@@ -1265,11 +1265,11 @@ export default function ProgramSettings() {
                 disabled={generatingInvite}
                 style={{
                   padding: '9px 18px', borderRadius: 9, border: 'none',
-                  background: '#1A3A5C', color: '#fff', fontSize: 13, fontWeight: 600,
+                  background: 'var(--brand)', color: 'var(--ink-inverse)', fontSize: 13, fontWeight: 600,
                   cursor: generatingInvite ? 'not-allowed' : 'pointer', opacity: generatingInvite ? 0.7 : 1,
                 }}
-                onMouseEnter={e => { if (!generatingInvite) e.currentTarget.style.background = '#2C5F8A'; }}
-                onMouseLeave={e => e.currentTarget.style.background = '#1A3A5C'}
+                onMouseEnter={e => { if (!generatingInvite) e.currentTarget.style.background = 'var(--accent)'; }}
+                onMouseLeave={e => e.currentTarget.style.background = 'var(--brand)'}
               >
                 {generatingInvite ? 'Generating...' : inviteLink ? 'Regenerate' : 'Generate invite link'}
               </motion.button>
@@ -1280,13 +1280,13 @@ export default function ProgramSettings() {
 
         {canConfigurePermissions && <Card title="Role permissions" subtitle="Program Admins and Directors always retain full access. Viewers always remain read-only.">
           <div style={{ display: 'grid', gap: 12 }}>
-            <div style={{ padding: 12, borderRadius: 8, background: '#F8FAFC', fontSize: 13, color: '#475569' }}><strong style={{ color: '#1A3A5C' }}>Program Admin / Program Director</strong><br />Full program access</div>
-            <div style={{ padding: 12, borderRadius: 8, border: '1px solid #D6E4F7' }}>
-              <strong style={{ color: '#1A3A5C', fontSize: 14 }}>Chief Resident</strong>
-              {!permissionsLoaded ? <p style={{ fontSize: 13, color: '#94A3B8', marginTop: 10 }}>Loading permissions&hellip;</p> : PERMISSION_GROUPS.map(group => <div key={group.title} style={{ marginTop: 14 }}><p style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginBottom: 6 }}>{group.title}</p>{group.items.map(([permission, label]) => <label key={permission} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '5px 0', fontSize: 13, color: '#374151' }}><input type="checkbox" checked={chiefPermissions.includes(permission)} onChange={event => setChiefPermissions(previous => event.target.checked ? [...previous, permission] : previous.filter(item => item !== permission))} />{label}</label>)}</div>)}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}><button onClick={saveChiefPermissions} disabled={savingPermissions || !permissionsLoaded} style={{ padding: '8px 14px', border: 0, borderRadius: 8, background: '#1A3A5C', color: '#fff', fontSize: 12, fontWeight: 600, cursor: permissionsLoaded ? 'pointer' : 'not-allowed', opacity: permissionsLoaded ? 1 : 0.6 }}>{savingPermissions ? 'Saving…' : 'Save permissions'}</button></div>
+            <div style={{ padding: 12, borderRadius: 8, background: 'var(--surface-2)', fontSize: 13, color: 'var(--ink-3)' }}><strong style={{ color: 'var(--ink-1)' }}>Program Admin / Program Director</strong><br />Full program access</div>
+            <div style={{ padding: 12, borderRadius: 8, border: '1px solid var(--accent-border)' }}>
+              <strong style={{ color: 'var(--ink-1)', fontSize: 14 }}>Chief Resident</strong>
+              {!permissionsLoaded ? <p style={{ fontSize: 13, color: 'var(--ink-5)', marginTop: 10 }}>Loading permissions&hellip;</p> : PERMISSION_GROUPS.map(group => <div key={group.title} style={{ marginTop: 14 }}><p style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-4)', textTransform: 'uppercase', marginBottom: 6 }}>{group.title}</p>{group.items.map(([permission, label]) => <label key={permission} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '5px 0', fontSize: 13, color: 'var(--ink-2)' }}><input type="checkbox" checked={chiefPermissions.includes(permission)} onChange={event => setChiefPermissions(previous => event.target.checked ? [...previous, permission] : previous.filter(item => item !== permission))} />{label}</label>)}</div>)}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}><button onClick={saveChiefPermissions} disabled={savingPermissions || !permissionsLoaded} style={{ padding: '8px 14px', border: 0, borderRadius: 8, background: 'var(--brand)', color: 'var(--ink-inverse)', fontSize: 12, fontWeight: 600, cursor: permissionsLoaded ? 'pointer' : 'not-allowed', opacity: permissionsLoaded ? 1 : 0.6 }}>{savingPermissions ? 'Saving…' : 'Save permissions'}</button></div>
             </div>
-            <div style={{ padding: 12, borderRadius: 8, background: '#F8FAFC', fontSize: 13, color: '#475569' }}><strong style={{ color: '#1A3A5C' }}>Viewer</strong><br />Published schedule access only</div>
+            <div style={{ padding: 12, borderRadius: 8, background: 'var(--surface-2)', fontSize: 13, color: 'var(--ink-3)' }}><strong style={{ color: 'var(--ink-1)' }}>Viewer</strong><br />Published schedule access only</div>
           </div>
         </Card>}
       </>
@@ -1299,11 +1299,11 @@ export default function ProgramSettings() {
           subtitle={currentBlock ? `Version history for Block ${currentBlock.number}` : 'Select a block to see published versions.'}
         >
           {!currentBlock ? (
-            <p style={{ fontSize: 13, color: '#CBD5E1', fontStyle: 'italic' }}>No block selected.</p>
+            <p style={{ fontSize: 13, color: 'var(--ink-5)', fontStyle: 'italic' }}>No block selected.</p>
           ) : loadingVersions ? (
-            <p style={{ fontSize: 13, color: '#94A3B8' }}>Loading...</p>
+            <p style={{ fontSize: 13, color: 'var(--ink-5)' }}>Loading...</p>
           ) : versions.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#CBD5E1', fontStyle: 'italic' }}>No published versions yet.</p>
+            <p style={{ fontSize: 13, color: 'var(--ink-5)', fontStyle: 'italic' }}>No published versions yet.</p>
           ) : (
             <div className="space-y-2">
               {versions.map((v, i) => (
@@ -1311,30 +1311,30 @@ export default function ProgramSettings() {
                   display: 'flex', flexWrap: 'wrap', gap: 8,
                   alignItems: 'center', justifyContent: 'space-between',
                   padding: '10px 12px', borderRadius: 8,
-                  border: '1px solid #F1F5F9', background: i === 0 ? '#F0FDF4' : '#fff',
+                  border: '1px solid var(--border-subtle)', background: i === 0 ? 'var(--success-soft)' : 'var(--surface-1)',
                 }}>
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 500, color: '#1A3A5C' }}>
+                    <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-1)' }}>
                       {fmtVersionDate(v.publishedAt)}
                       {i === 0 && (
-                        <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: '#15803D', background: '#DCFCE7', padding: '1px 6px', borderRadius: 99 }}>
+                        <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: 'var(--success-ink)', background: 'var(--success-soft-2)', padding: '1px 6px', borderRadius: 99 }}>
                           Latest
                         </span>
                       )}
                     </p>
-                    <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
+                    <p style={{ fontSize: 11, color: 'var(--ink-5)', marginTop: 2 }}>
                       {v.publishedBy ? `By ${v.publishedBy}` : 'Unknown user'} - {v.assignedDays} assigned days
                     </p>
                   </div>
                   <button
                     onClick={() => setSnapshotModal(v)}
                     style={{
-                      padding: '5px 12px', borderRadius: 6, border: '1px solid #D6E4F7',
-                      background: '#EEF4FF', color: '#2C5F8A', fontSize: 12, fontWeight: 600,
+                      padding: '5px 12px', borderRadius: 6, border: '1px solid var(--accent-border)',
+                      background: 'var(--accent-soft)', color: 'var(--accent)', fontSize: 12, fontWeight: 600,
                       cursor: 'pointer', whiteSpace: 'nowrap',
                     }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#DCE9F5'}
-                    onMouseLeave={e => e.currentTarget.style.background = '#EEF4FF'}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--border-3)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-soft)'}
                   >
                     View snapshot
                   </button>
@@ -1363,8 +1363,8 @@ export default function ProgramSettings() {
           transition={{ duration: 0.3 }}
         >
           <div className="mb-6">
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1A3A5C', margin: 0 }}>Program Settings</h1>
-            <p style={{ fontSize: 13, color: '#94A3B8', marginTop: 4 }}>Manage your program details, team, and invitations.</p>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-1)', margin: 0 }}>Program Settings</h1>
+            <p style={{ fontSize: 13, color: 'var(--ink-5)', marginTop: 4 }}>Manage your program details, team, and invitations.</p>
           </div>
 
           <div className="settings-shell">
@@ -1395,7 +1395,7 @@ export default function ProgramSettings() {
                   {(() => {
                     const snap = snapshotModal.snapshotJson;
                     const callDays = snap?.callDays ?? [];
-                    if (callDays.length === 0) return <p style={{ color: '#94A3B8', fontSize: 13 }}>No schedule data in this snapshot.</p>;
+                    if (callDays.length === 0) return <p style={{ color: 'var(--ink-5)', fontSize: 13 }}>No schedule data in this snapshot.</p>;
 
                     return (
                       <div className="space-y-1.5">
@@ -1411,16 +1411,16 @@ export default function ProgramSettings() {
                             <div key={i} style={{
                               display: 'grid', gridTemplateColumns: 'minmax(0, 120px) minmax(0, 1fr) minmax(0, 1fr)', gap: 8,
                               padding: '6px 10px', borderRadius: 6, fontSize: 12,
-                              background: isHol ? '#FFF5F5' : i % 2 === 0 ? '#F8FAFC' : '#fff',
-                              border: '1px solid #F1F5F9',
+                              background: isHol ? 'var(--danger-soft-3)' : i % 2 === 0 ? 'var(--surface-2)' : 'var(--surface-1)',
+                              border: '1px solid var(--border-subtle)',
                             }}>
-                              <span style={{ fontWeight: 600, color: isHol ? '#DC2626' : '#1A3A5C' }}>
+                              <span style={{ fontWeight: 600, color: isHol ? 'var(--danger)' : 'var(--ink-1)' }}>
                                 {dayLabel} {isHol && '(H)'}
                               </span>
-                              <span style={{ color: seniors ? '#15803D' : '#CBD5E1', overflowWrap: 'anywhere' }}>
+                              <span style={{ color: seniors ? 'var(--success-ink)' : 'var(--ink-5)', overflowWrap: 'anywhere' }}>
                                 {seniors || '-'}
                               </span>
-                              <span style={{ color: juniors ? '#B45309' : '#CBD5E1', overflowWrap: 'anywhere' }}>
+                              <span style={{ color: juniors ? 'var(--warn-ink)' : 'var(--ink-5)', overflowWrap: 'anywhere' }}>
                                 {juniors || '-'}
                               </span>
                             </div>

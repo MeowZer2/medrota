@@ -1,86 +1,50 @@
 /* ─────────────────────────────────────────────────────────────
    Login — split-screen auth + calendar preview.
 
-   Tokens are declared ON the .lg-page wrapper (not :root), so
-   this page is fully self-contained — nothing leaks out.
+   This page used to carry its own light/dark palette and its own
+   stored preference, which meant signing in could hand you an app
+   in the opposite theme to the screen you just left. The --lg-*
+   names are kept — the page's layout rules are written against
+   them — but they are now aliases of the product tokens in
+   styles/theme.css, so login and the app cannot disagree and there
+   is only one palette to maintain.
    ───────────────────────────────────────────────────────────── */
 
-.lg-page[data-theme="light"] {
-  --lg-surface-0: #FFFFFF;
-  --lg-surface-1: #FAFAF9;
-  --lg-surface-2: #F4F5F7;
-  --lg-surface-3: #ECEEF1;
-  --lg-surface-raised: #FFFFFF;
+.lg-page {
+  --lg-surface-0: var(--surface-1);
+  --lg-surface-1: var(--bg-canvas);
+  --lg-surface-2: var(--surface-3);
+  --lg-surface-3: var(--surface-hover);
+  --lg-surface-raised: var(--surface-raised);
 
-  --lg-ink-0: #0B1220;
-  --lg-ink-1: #1F2A3C;
-  --lg-ink-2: #4B5563;
-  --lg-ink-3: #6B7280;
-  --lg-ink-4: #9CA3AF;
+  --lg-ink-0: var(--ink-1);
+  --lg-ink-1: var(--ink-2);
+  --lg-ink-2: var(--ink-3);
+  --lg-ink-3: var(--ink-4);
+  --lg-ink-4: var(--ink-5);
 
-  --lg-border-1: #ECEDF0;
-  --lg-border-2: #E1E4E9;
-  --lg-border-strong: #CDD2DA;
+  --lg-border-1: var(--border-1);
+  --lg-border-2: var(--border-2);
+  --lg-border-strong: var(--border-strong);
 
-  --lg-accent: #2C5FE0;
-  --lg-accent-hover: #1F4FC9;
-  --lg-accent-soft: #EEF2FF;
-  --lg-accent-ink: #1A3A8E;
-  --lg-on-accent: #FFFFFF;
+  --lg-accent: var(--accent);
+  --lg-accent-hover: var(--accent-hover);
+  --lg-accent-soft: var(--accent-soft);
+  --lg-accent-ink: var(--accent-ink);
+  --lg-on-accent: var(--on-accent);
 
-  --lg-ok: #1A8A4A;
-  --lg-ok-soft: #E7F6EC;
-  --lg-warn: #B85C00;
-  --lg-warn-soft: #FBF1E2;
-  --lg-danger: #C4332D;
-  --lg-danger-soft: #FBEAE8;
+  --lg-ok: var(--success);
+  --lg-ok-soft: var(--success-soft);
+  --lg-warn: var(--warn);
+  --lg-warn-soft: var(--warn-soft);
+  --lg-danger: var(--danger);
+  --lg-danger-soft: var(--danger-soft);
 
-  --lg-weekend: #F7F7F5;
-  --lg-holiday: #FCEFEE;
+  --lg-weekend: var(--day-weekend);
+  --lg-holiday: var(--day-holiday);
 
-  --lg-shadow-2: 0 4px 12px rgba(15,23,42,0.06);
-  --lg-focus: 0 0 0 3px rgba(44,95,224,0.18);
-
-  color-scheme: light;
-}
-
-.lg-page[data-theme="dark"] {
-  --lg-surface-0: #0B0F17;
-  --lg-surface-1: #0F1420;
-  --lg-surface-2: #161C2A;
-  --lg-surface-3: #1E2536;
-  --lg-surface-raised: #131826;
-
-  --lg-ink-0: #F4F6FA;
-  --lg-ink-1: #E3E7EE;
-  --lg-ink-2: #B3B9C5;
-  --lg-ink-3: #8A92A1;
-  --lg-ink-4: #5E6679;
-
-  --lg-border-1: #1F2638;
-  --lg-border-2: #2A3349;
-  --lg-border-strong: #3A4561;
-
-  --lg-accent: #7AA1FF;
-  --lg-accent-hover: #93B1FF;
-  --lg-accent-soft: #1A2545;
-  --lg-accent-ink: #B7CCFF;
-  --lg-on-accent: #0B1220;
-
-  --lg-ok: #3DBF6E;
-  --lg-ok-soft: #0E2A1A;
-  --lg-warn: #E29A4A;
-  --lg-warn-soft: #2A1E10;
-  --lg-danger: #EE6A63;
-  --lg-danger-soft: #2A1413;
-
-  --lg-weekend: #0E121C;
-  --lg-holiday: #2A1413;
-
-  --lg-shadow-2: 0 6px 18px rgba(0,0,0,0.45);
-  --lg-focus: 0 0 0 3px rgba(122,161,255,0.30);
-
-  color-scheme: dark;
+  --lg-shadow-2: var(--shadow-md);
+  --lg-focus: var(--focus-ring);
 }
 
 /* ── Page ───────────────────────────────────────────────────── */
@@ -134,7 +98,7 @@
 .lg-theme-pill button.on {
   background: var(--lg-surface-raised);
   color: var(--lg-ink-0);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  box-shadow: var(--shadow-xs);
 }
 
 /* ── Left panel (form) ──────────────────────────────────────── */
@@ -154,7 +118,7 @@
 
 .lg-mark {
   width: 28px; height: 28px; border-radius: 7px;
-  background: var(--lg-ink-0); color: var(--lg-surface-0);
+  background: var(--brand); color: var(--on-brand);
   display: grid; place-items: center;
   font-weight: 700; font-size: 13px; letter-spacing: -0.02em;
 }
@@ -198,7 +162,7 @@
 .lg-input {
   display: block; width: 100%;
   height: 38px; padding: 0 12px;
-  border-radius: 9px; border: 1px solid var(--lg-border-2);
+  border-radius: 9px; border: 1px solid var(--lg-border-strong);
   background: var(--lg-surface-raised);
   font-size: 14px; color: var(--lg-ink-0);
   transition: border-color 80ms ease, box-shadow 80ms ease;
@@ -226,13 +190,13 @@
   width: 100%; height: 40px;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   margin-top: 20px;
-  background: var(--lg-ink-0); color: var(--lg-surface-0);
+  background: var(--brand); color: var(--on-brand);
   border: 0; border-radius: 9px;
   font-size: 14px; font-weight: 500; cursor: pointer;
   font-family: inherit;
   transition: background 80ms ease;
 }
-.lg-submit:hover:not([disabled]) { background: var(--lg-ink-1); }
+.lg-submit:hover:not([disabled]) { background: var(--brand-hover); }
 .lg-submit[disabled] { opacity: 0.7; cursor: not-allowed; }
 
 .lg-divider {
@@ -292,7 +256,7 @@
   opacity: 0.7;
   pointer-events: none;
 }
-.lg-page[data-theme="dark"] .lg-right::before { opacity: 0.5; }
+:root[data-theme="dark"] .lg-right::before { opacity: 0.5; }
 
 .lg-pitch { position: relative; z-index: 1; max-width: 460px; }
 .lg-pitch-eyebrow {
@@ -394,7 +358,7 @@
 @keyframes lg-spin { to { transform: rotate(360deg); } }
 .lg-spinner {
   width: 14px; height: 14px; border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.3);
+  border: 2px solid var(--on-brand-track);
   border-top-color: currentColor;
   display: inline-block;
   animation: lg-spin 0.7s linear infinite;

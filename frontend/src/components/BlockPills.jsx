@@ -42,13 +42,13 @@ export default function BlockPills({ blocks, activeBlockId, onSelect }) {
       {/* Left fade overlay */}
       <div style={{
         position: 'absolute', left: 0, top: 0, bottom: 0, width: 20,
-        background: 'linear-gradient(to right, #F8FAFC, transparent)',
+        background: 'linear-gradient(to right, var(--surface-2), transparent)',
         zIndex: 1, pointerEvents: 'none',
       }} />
       {/* Right fade overlay */}
       <div style={{
         position: 'absolute', right: 0, top: 0, bottom: 0, width: 20,
-        background: 'linear-gradient(to left, #F8FAFC, transparent)',
+        background: 'linear-gradient(to left, var(--surface-2), transparent)',
         zIndex: 1, pointerEvents: 'none',
       }} />
 
@@ -92,9 +92,9 @@ export default function BlockPills({ blocks, activeBlockId, onSelect }) {
                 fontSize: isMobile ? 11 : 12,
                 fontWeight: 600,
                 transition: 'all 0.15s',
-                borderColor: isActive ? '#1A3A5C' : '#D6E4F7',
-                background:  isActive ? '#1A3A5C' : '#fff',
-                color:       isActive ? '#fff'    : '#2C5F8A',
+                borderColor: isActive ? 'var(--brand)' : 'var(--accent-border)',
+                background:  isActive ? 'var(--brand)' : 'var(--surface-1)',
+                color:       isActive ? 'var(--ink-inverse)'    : 'var(--accent)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: isMobile ? 0 : 4,
@@ -102,14 +102,14 @@ export default function BlockPills({ blocks, activeBlockId, onSelect }) {
               }}
               onMouseEnter={e => {
                 if (!isActive) {
-                  e.currentTarget.style.borderColor = '#2C5F8A';
-                  e.currentTarget.style.background = '#EEF4FF';
+                  e.currentTarget.style.borderColor = 'var(--accent)';
+                  e.currentTarget.style.background = 'var(--accent-soft)';
                 }
               }}
               onMouseLeave={e => {
                 if (!isActive) {
-                  e.currentTarget.style.borderColor = '#D6E4F7';
-                  e.currentTarget.style.background = '#fff';
+                  e.currentTarget.style.borderColor = 'var(--accent-border)';
+                  e.currentTarget.style.background = 'var(--surface-1)';
                 }
               }}
             >

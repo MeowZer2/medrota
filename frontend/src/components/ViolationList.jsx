@@ -6,9 +6,9 @@
 // readable.
 
 const TONE = {
-  error: { bg: '#FEF2F2', border: '#FECACA', heading: '#991B1B', body: '#7F1D1D' },
-  warning: { bg: '#FFFBEB', border: '#FDE68A', heading: '#92400E', body: '#78350F' },
-  override: { bg: '#FFFBEB', border: '#FDE68A', heading: '#B45309', body: '#78350F' },
+  error: { bg: 'var(--danger-soft)', border: 'var(--danger-border-2)', heading: 'var(--danger-ink-strong)', body: 'var(--danger-ink-deep)' },
+  warning: { bg: 'var(--warn-soft)', border: 'var(--warn-border)', heading: 'var(--warn-ink-strong)', body: 'var(--warn-ink-deep)' },
+  override: { bg: 'var(--warn-soft)', border: 'var(--warn-border)', heading: 'var(--warn-ink)', body: 'var(--warn-ink-deep)' },
 };
 
 function formatDate(dateKey) {
@@ -63,7 +63,7 @@ export function ViolationCard({ item, onEditDate }) {
           {/* Is it an intentional override? */}
           {item.isOverride ? (
             <div style={{ marginTop: 6 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#B45309' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--warn-ink)' }}>
                 Documented manual override
               </span>
               {item.overrideReasons?.length > 0 && (
@@ -86,7 +86,7 @@ export function ViolationCard({ item, onEditDate }) {
             type="button"
             onClick={() => onEditDate(item.date)}
             className="px-3 py-1.5 rounded-lg shrink-0"
-            style={{ border: `1px solid ${tone.border}`, background: '#fff', color: tone.heading, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+            style={{ border: `1px solid ${tone.border}`, background: 'var(--surface-1)', color: tone.heading, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
           >
             Open {dateLabel}
           </button>
@@ -106,37 +106,37 @@ export function UnfilledSlotCard({ slot, onEditDate }) {
     <li
       data-testid={`unfilled-${slot.date}-${slot.roleOnDay}`}
       className="rounded-xl px-4 py-3"
-      style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}
+      style={{ background: 'var(--surface-2)', border: '1px solid var(--border-2)' }}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div style={{ minWidth: 0, flex: '1 1 220px' }}>
-          <p style={{ fontSize: 13.5, fontWeight: 750, color: '#1A3A5C' }}>
+          <p style={{ fontSize: 13.5, fontWeight: 750, color: 'var(--ink-1)' }}>
             {dateLabel} — {roleLabel} unassigned
           </p>
           {slot.candidates.length === 0 ? (
-            <p style={{ fontSize: 12.5, color: '#475569', marginTop: 4 }}>
+            <p style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 4 }}>
               No resident is enrolled for this slot in the block.
             </p>
           ) : (
             <>
-              <p style={{ fontSize: 12.5, color: '#475569', marginTop: 4 }}>
+              <p style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 4 }}>
                 {slot.candidates.length} resident{slot.candidates.length === 1 ? '' : 's'} unavailable:
               </p>
               <ul style={{ listStyle: 'none', margin: '4px 0 0', padding: 0 }}>
                 {shown.map(candidate => (
-                  <li key={candidate.residentId} style={{ fontSize: 12.5, color: '#475569' }}>
+                  <li key={candidate.residentId} style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>
                     • {candidate.residentName} — {candidate.reason}
                   </li>
                 ))}
               </ul>
               {remaining > 0 && (
                 <details style={{ marginTop: 4 }}>
-                  <summary style={{ fontSize: 12, color: '#2C5F8A', cursor: 'pointer', fontWeight: 600 }}>
+                  <summary style={{ fontSize: 12, color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>
                     Show {remaining} more
                   </summary>
                   <ul style={{ listStyle: 'none', margin: '4px 0 0', padding: 0 }}>
                     {slot.candidates.slice(4).map(candidate => (
-                      <li key={candidate.residentId} style={{ fontSize: 12.5, color: '#475569' }}>
+                      <li key={candidate.residentId} style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>
                         • {candidate.residentName} — {candidate.reason}
                       </li>
                     ))}
@@ -151,7 +151,7 @@ export function UnfilledSlotCard({ slot, onEditDate }) {
             type="button"
             onClick={() => onEditDate(slot.date)}
             className="px-3 py-1.5 rounded-lg shrink-0"
-            style={{ border: '1px solid #CBD5E1', background: '#fff', color: '#1A3A5C', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+            style={{ border: '1px solid var(--border-strong)', background: 'var(--surface-1)', color: 'var(--ink-1)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
           >
             Open {dateLabel}
           </button>
