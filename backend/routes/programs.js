@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const { ROLES, normalizeRole, isValidRole, resolvePermissions, requireProgramPermission, requireBlockView } = require('../lib/roles');
 const { isAllowedSpecialty } = require('../lib/medicalSpecialties');
 const { recordAuditEvent } = require('../services/auditLog');
+const { buildResidentDisplayNames } = require('../services/residentDisplayName');
 
 const router = express.Router();
 router.use(auth);
@@ -69,6 +70,7 @@ router.get('/mine', async (req, res) => {
       specialty: program.specialty,
       juniorInHouseCall: program.juniorInHouseCall,
       seniorInHouseCall: program.seniorInHouseCall,
+      juniorPgyLevels: program.juniorPgyLevels,
       role,
       permissions,
       academicYears: program.academicYears,
@@ -120,10 +122,12 @@ router.get('/stats', async (req, res) => {
       ? parseFloat((allAssignments.length / residents).toFixed(1))
       : 0;
 
+    const displayNames = buildResidentDisplayNames(block.enrollments.map(item => item.resident));
+
     // Per-resident call count
     const countMap = {};
     for (const e of block.enrollments) {
-      countMap[e.residentId] = { residentName: e.resident.name, callCount: 0 };
+      countMap[e.residentId] = { residentName: displayNames.get(e.residentId) ?? e.resident.name, callCount: 0 };
     }
     for (const a of allAssignments) {
       if (countMap[a.residentId]) countMap[a.residentId].callCount++;
@@ -138,7 +142,7 @@ router.get('/stats', async (req, res) => {
     // Fetch recent enrollments (new residents added)
     const recentEnrollments = await prisma.blockEnrollment.findMany({
       where: { blockId },
-      include: { resident: { select: { name: true } } },
+      include: { resident: { select: { id: true, name: true } } },
       orderBy: { id: 'desc' },
       take: 5,
     });
@@ -146,7 +150,7 @@ router.get('/stats', async (req, res) => {
     // Fetch recent call assignments
     const recentAssignments = await prisma.callAssignment.findMany({
       where: { callDay: { blockId } },
-      include: { resident: { select: { name: true } } },
+      include: { resident: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'desc' },
       take: 5,
     });
@@ -155,7 +159,7 @@ router.get('/stats', async (req, res) => {
     const activityEvents = [
       ...recentEnrollments.map(e => ({
         type: 'resident_added',
-        description: `${e.resident.name} enrolled in Block ${block.number}`,
+        description: `${displayNames.get(e.resident.id) ?? e.resident.name} enrolled in Block ${block.number}`,
         icon: '👤',
         color: '#16A34A',
         timestamp: e.id, // use id as proxy since BlockEnrollment has no createdAt
@@ -163,7 +167,7 @@ router.get('/stats', async (req, res) => {
       })),
       ...recentAssignments.map(a => ({
         type: 'call_assigned',
-        description: `Call assigned to ${a.resident.name}`,
+        description: `Call assigned to ${displayNames.get(a.resident.id) ?? a.resident.name}`,
         icon: '📋',
         color: '#2C5F8A',
         timestamp: a.createdAt,
@@ -268,7 +272,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, specialty, juniorInHouseCall, seniorInHouseCall } = req.body;
+  const { name, specialty, juniorInHouseCall, seniorInHouseCall, juniorPgyLevels } = req.body;
   if (specialty !== undefined && !isAllowedSpecialty(specialty)) {
     return res.status(400).json({ error: 'Invalid specialty' });
   }
@@ -277,6 +281,13 @@ router.put('/:id', async (req, res) => {
   }
   if (seniorInHouseCall !== undefined && typeof seniorInHouseCall !== 'boolean') {
     return res.status(400).json({ error: 'seniorInHouseCall must be a boolean' });
+  }
+  if (juniorPgyLevels !== undefined && (
+    !Array.isArray(juniorPgyLevels)
+    || juniorPgyLevels.some(level => !Number.isInteger(level) || level < 1 || level > 10)
+    || new Set(juniorPgyLevels).size !== juniorPgyLevels.length
+  )) {
+    return res.status(400).json({ error: 'juniorPgyLevels must contain unique PGY levels from 1 to 10' });
   }
   try {
     const membership = await requireProgramPermission(req, res, id, 'edit_program_settings');
@@ -289,6 +300,7 @@ router.put('/:id', async (req, res) => {
         ...(specialty !== undefined && { specialty }),
         ...(juniorInHouseCall !== undefined && { juniorInHouseCall }),
         ...(seniorInHouseCall !== undefined && { seniorInHouseCall }),
+        ...(juniorPgyLevels !== undefined && { juniorPgyLevels: [...juniorPgyLevels].sort((a, b) => a - b) }),
       },
       select: {
         id: true,
@@ -296,6 +308,7 @@ router.put('/:id', async (req, res) => {
         specialty: true,
         juniorInHouseCall: true,
         seniorInHouseCall: true,
+        juniorPgyLevels: true,
       },
     });
     if (juniorInHouseCall !== undefined || seniorInHouseCall !== undefined) {
@@ -310,6 +323,18 @@ router.put('/:id', async (req, res) => {
           juniorInHouseCall: program.juniorInHouseCall,
           seniorInHouseCall: program.seniorInHouseCall,
         },
+      });
+    }
+    if (juniorPgyLevels !== undefined) {
+      await recordAuditEvent({
+        programId: id,
+        actorUserId: req.user?.userId,
+        action: 'program.pgy_role_mapping.updated',
+        category: 'scheduling',
+        entityType: 'Program',
+        entityId: id,
+        summary: 'Updated the automatic PGY junior/senior mapping',
+        metadata: { juniorPgyLevels: program.juniorPgyLevels },
       });
     }
     res.json(program);

@@ -1,4 +1,5 @@
 const prisma = require('./prisma');
+const { effectiveResidentRole } = require('../services/residentLifecycle');
 
 const ROLES = Object.freeze({
   CHIEF_RESIDENT: 'chief_resident',
@@ -157,12 +158,13 @@ async function assertResidentBelongsToBlockProgram(res, residentId, blockId) {
     res.status(400).json({ error: 'residentId and blockId are required' });
     return null;
   }
-  const [resident, blockAccess] = await Promise.all([
+  const [resident, blockAccess, block] = await Promise.all([
     prisma.residentProfile.findUnique({
       where: { id: residentId },
-      select: { id: true, programId: true, residentRole: true, isMedStudent: true, isActive: true },
+      select: { id: true, programId: true, residentRole: true, residentRoleOverride: true, pgyLevel: true, programStartDate: true, isMedStudent: true, isServiceResident: true, isActive: true },
     }),
     getProgramIdForBlock(blockId),
+    prisma.block.findUnique({ where: { id: blockId }, include: { academicYear: { include: { program: true } } } }),
   ]);
   if (!resident) {
     res.status(404).json({ error: 'Resident not found' });
@@ -176,7 +178,8 @@ async function assertResidentBelongsToBlockProgram(res, residentId, blockId) {
     res.status(400).json({ error: 'Resident and block must belong to the same program' });
     return null;
   }
-  return { resident, blockAccess };
+  resident.residentRole = effectiveResidentRole(resident, block?.academicYear?.program, block?.academicYear?.startDate ?? block?.startDate).role;
+  return { resident, blockAccess, block };
 }
 
 async function requireProgramPermission(req, res, programId, permission) {

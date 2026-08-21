@@ -23,6 +23,7 @@ model Program {
   orgId          String
   juniorInHouseCall Boolean       @default(true)
   seniorInHouseCall Boolean       @default(false)
+  juniorPgyLevels  Int[]          @default([1, 2])
   org            Organization     @relation(fields: [orgId], references: [id])
   createdAt      DateTime         @default(now())
   members        ProgramMember[]
@@ -149,6 +150,11 @@ model ResidentProfile {
   pgyLevel          String
   residentRole      String
   email             String?
+  phone             String?
+  homeProgram       String?
+  programStartDate  DateTime?
+  expectedCompletionDate DateTime?
+  residentRoleOverride String?
   isMedStudent      Boolean  @default(false)
   isServiceResident Boolean  @default(true)
   isActive          Boolean  @default(true)
@@ -157,6 +163,7 @@ model ResidentProfile {
   assignments       CallAssignment[]
 
   @@index([programId])
+  @@index([programId, programStartDate, expectedCompletionDate])
 }
 
 model BlockEnrollment {
@@ -166,7 +173,11 @@ model BlockEnrollment {
   residentId      String
   resident        ResidentProfile @relation(fields: [residentId], references: [id])
   vacationDates   DateTime[]
-  academicDayPref String?
+  academicDayPref       String?
+  academicTimes         Json?
+  otherUnavailableDates DateTime[] @default([])
+  autoEnrolled          Boolean    @default(false)
+  availabilityConfirmed Boolean    @default(true)
   callCapOverride Int?
 
   @@unique([blockId, residentId])
