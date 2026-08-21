@@ -27,6 +27,7 @@ export default function ReadinessPanel({ readiness, onDismiss }) {
   const errors = blockers.filter(item => item.severity === 'error');
   const warnings = blockers.filter(item => item.severity === 'warning');
   const allGood = blockers.length === 0;
+  const residentTotal = residents.inBlockTotal ?? residents.activeServiceTotal;
 
   return (
     <section
@@ -53,8 +54,8 @@ export default function ReadinessPanel({ readiness, onDismiss }) {
         <div className="flex flex-wrap gap-x-6 gap-y-3">
           <Stat
             label="residents have block availability"
-            value={`${residents.withAvailability}/${residents.activeServiceTotal}`}
-            tone={residents.withAvailability === residents.activeServiceTotal ? '#16A34A' : '#B91C1C'}
+            value={`${residents.withAvailability}/${residentTotal}`}
+            tone={residents.withAvailability === residentTotal ? '#16A34A' : '#B91C1C'}
           />
           <Stat
             label={`vacation period${vacation.periods === 1 ? '' : 's'} entered`}
@@ -103,8 +104,8 @@ export default function ReadinessPanel({ readiness, onDismiss }) {
                   <p style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>
                     {residents.missingAvailability.map(r => r.residentName).join(', ')}
                     {' · '}
-                    <Link to="/residents" style={{ color: '#2C5F8A', fontWeight: 600 }}>
-                      Set block availability
+                    <Link to={`/blocks/${readiness.blockNumber}/residents`} style={{ color: '#2C5F8A', fontWeight: 600 }}>
+                      Manage block residents
                     </Link>
                   </p>
                 )}

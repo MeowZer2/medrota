@@ -7,6 +7,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Residents from './pages/Residents';
 import BlockPage from './pages/BlockPage';
+import BlockResidents from './pages/BlockResidents';
 import AttendingSchedule from './pages/AttendingSchedule';
 import Calendar from './pages/Calendar';
 import Setup from './pages/Setup';
@@ -52,6 +53,7 @@ function AnimatedRoutes() {
         <Route path="/calendar"           element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
         <Route path="/settings"           element={<ProtectedRoute><ProgramSettings /></ProtectedRoute>} />
         <Route path="/blocks/:blockNumber"                  element={<ProtectedRoute><BlockPage /></ProtectedRoute>} />
+        <Route path="/blocks/:blockNumber/residents"        element={<ProtectedRoute><BlockResidents /></ProtectedRoute>} />
         <Route path="/blocks/:blockNumber/calendar"         element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
         <Route path="/blocks/:blockNumber/settings"         element={<ProtectedRoute><BlockSettings /></ProtectedRoute>} />
 

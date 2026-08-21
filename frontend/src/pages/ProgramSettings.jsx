@@ -557,18 +557,21 @@ export default function ProgramSettings() {
   const [specialty, setSpecialty] = useState(currentProgram?.specialty   ?? '');
   const [juniorInHouseCall, setJuniorInHouseCall] = useState(currentProgram?.juniorInHouseCall ?? true);
   const [seniorInHouseCall, setSeniorInHouseCall] = useState(currentProgram?.seniorInHouseCall ?? false);
+  const [juniorPgyLevels, setJuniorPgyLevels] = useState(currentProgram?.juniorPgyLevels ?? [1, 2]);
   const [savingSection, setSavingSection] = useState(null);
 
   const savedName = currentProgram?.programName ?? '';
   const savedSpecialty = currentProgram?.specialty ?? '';
   const savedJuniorInHouseCall = currentProgram?.juniorInHouseCall ?? true;
   const savedSeniorInHouseCall = currentProgram?.seniorInHouseCall ?? false;
+  const savedJuniorPgyLevels = useMemo(() => currentProgram?.juniorPgyLevels ?? [1, 2], [currentProgram?.juniorPgyLevels]);
 
   useEffect(() => {
     setName(currentProgram?.programName ?? '');
     setSpecialty(currentProgram?.specialty ?? '');
     setJuniorInHouseCall(currentProgram?.juniorInHouseCall ?? true);
     setSeniorInHouseCall(currentProgram?.seniorInHouseCall ?? false);
+    setJuniorPgyLevels(currentProgram?.juniorPgyLevels ?? [1, 2]);
   }, [currentProgram]);
 
   const saveProgramFields = async (fields, section, successMessage) => {
@@ -588,7 +591,7 @@ export default function ProgramSettings() {
   };
 
   const handleSaveGeneral = () => saveProgramFields({ name, specialty }, 'general', 'Program details saved');
-  const handleSaveScheduling = () => saveProgramFields({ juniorInHouseCall, seniorInHouseCall }, 'scheduling', 'Call configuration saved');
+  const handleSaveScheduling = () => saveProgramFields({ juniorInHouseCall, seniorInHouseCall, juniorPgyLevels }, 'scheduling', 'Call configuration saved');
 
   // Each section renders its own Save so the button means what it says: it
   // persists that section and nothing else.
@@ -909,7 +912,7 @@ export default function ProgramSettings() {
 
   const dirtyBySection = {
     general: name !== savedName || specialty !== savedSpecialty,
-    scheduling: juniorInHouseCall !== savedJuniorInHouseCall || seniorInHouseCall !== savedSeniorInHouseCall,
+    scheduling: juniorInHouseCall !== savedJuniorInHouseCall || seniorInHouseCall !== savedSeniorInHouseCall || juniorPgyLevels.join(',') !== savedJuniorPgyLevels.join(','),
     clinical: rowsBeingEdited.size > 0 || newServiceName.trim() !== '' || newServiceDescription.trim() !== '',
     attendings: rowsBeingEdited.size > 0 || newActivityName.trim() !== '' || newAttendingDirty,
     access: permissionsDirty,
@@ -925,6 +928,7 @@ export default function ProgramSettings() {
     if (section === 'scheduling') {
       setJuniorInHouseCall(savedJuniorInHouseCall);
       setSeniorInHouseCall(savedSeniorInHouseCall);
+      setJuniorPgyLevels(savedJuniorPgyLevels);
     }
     if (section === 'access') setChiefPermissions(savedChiefPermissions);
     if (section === 'clinical') {
@@ -937,7 +941,7 @@ export default function ProgramSettings() {
     }
     // Inline row editors discard their own drafts: leaving a section unmounts
     // the rows, and unmounting is what clears them.
-  }, [savedName, savedSpecialty, savedJuniorInHouseCall, savedSeniorInHouseCall, savedChiefPermissions]);
+  }, [savedName, savedSpecialty, savedJuniorInHouseCall, savedSeniorInHouseCall, savedJuniorPgyLevels, savedChiefPermissions]);
 
   // Registers the page-wide guard used by the sidebar and by the browser's own
   // unload prompt.
@@ -1146,6 +1150,13 @@ export default function ProgramSettings() {
               onChange={setSeniorInHouseCall}
               disabled={!canEditProgramSettings}
             />
+          </div>
+          <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
+            <div style={{ color: '#1A3A5C', fontSize: 13, fontWeight: 700 }}>Junior PGY levels</div>
+            <p style={{ color: '#64748B', fontSize: 12, margin: '4px 0 10px' }}>Checked levels schedule as junior; remaining resident levels schedule as senior. Individual overrides remain available.</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {[1,2,3,4,5,6,7,8,9,10].map(level => <label key={level} style={{ minWidth: 74, display: 'flex', alignItems: 'center', gap: 6, border: '1px solid #CBD5E1', borderRadius: 8, padding: '7px 9px', color: '#334155', fontSize: 12 }}><input type="checkbox" aria-label={`PGY-${level} is junior`} checked={juniorPgyLevels.includes(level)} disabled={!canEditProgramSettings} onChange={event => setJuniorPgyLevels(current => event.target.checked ? [...current, level].sort((a,b) => a-b) : current.filter(item => item !== level))} />PGY-{level}</label>)}
+            </div>
           </div>
           {sectionSaveButton('scheduling', handleSaveScheduling, 'Save call configuration')}
         </div>

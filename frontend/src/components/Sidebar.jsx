@@ -415,7 +415,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
                   <button
                     onClick={() => {
                       setCurrentBlock(block);
-                      navigate(`/blocks/${block.number}/calendar`);
+                      navigate(`/blocks/${block.number}`);
                     }}
                     className="w-full flex items-start justify-between rounded-lg relative overflow-hidden"
                     style={{
@@ -465,7 +465,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
                     {/* People icon â€” view residents for this block */}
                     {can('edit_residents') && (isActive || isHovered) && (
                       <span
-                        onClick={e => { e.stopPropagation(); setCurrentBlock(block); navigate('/residents'); }}
+                        onClick={e => { e.stopPropagation(); setCurrentBlock(block); navigate(`/blocks/${block.number}/residents`); }}
                         title="View residents for this block"
                         style={{ marginLeft: 2, color: '#A0AEBF', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '2px 3px', borderRadius: 5 }}
                         onMouseEnter={e => { e.currentTarget.style.color = '#16A34A'; e.currentTarget.style.background = '#DCFCE7'; }}
