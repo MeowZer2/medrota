@@ -37,6 +37,8 @@ const REJECTION_LABELS = Object.freeze({
   ROLE_MISMATCH: 'Not eligible for this slot',
   MISSING_AVAILABILITY: 'No block availability on record',
   INACTIVE: 'Not an active resident',
+  OTHER_UNAVAILABLE: 'Unavailable for this block day',
+  ACADEMIC_FULL_DAY: 'Protected for a full academic day',
 });
 
 function rejectionLabel(code) {
@@ -61,7 +63,8 @@ function smallestPositive(...values) {
  */
 function buildResidentState({ resident, enrollment, blockDateKeys, settings = {} }) {
   const vacationDateKeys = (enrollment?.vacationDates ?? []).map(normalizeDateKey).filter(Boolean);
-  const daysOnService = calculateDaysOnService(blockDateKeys, vacationDateKeys);
+  const otherUnavailableDateKeys = (enrollment?.otherUnavailableDates ?? []).map(normalizeDateKey).filter(Boolean);
+  const daysOnService = calculateDaysOnService(blockDateKeys, [...vacationDateKeys, ...otherUnavailableDateKeys]);
   const isMedStudent = Boolean(resident.isMedStudent);
 
   return {
@@ -72,6 +75,9 @@ function buildResidentState({ resident, enrollment, blockDateKeys, settings = {}
     isActive: resident.isActive !== false,
     availabilityComplete: Boolean(enrollment),
     vacationDateKeys,
+    otherUnavailableDateKeys,
+    academicTimes: Array.isArray(enrollment?.academicTimes) ? enrollment.academicTimes : [],
+    avoidAcademicDays: settings.avoidAcademicDays !== false,
     daysOnService,
     inHouseMax: getInHouseMax(daysOnService),
     homeMax: getHomeCallMax(daysOnService),
@@ -118,6 +124,12 @@ function checkEligibility(state, dateKey, roleOnDay, programSettings, blockDateK
     return reject('ROLE_MISMATCH', 'role-mismatch');
   }
   if (violatesVacation(dateKey, state.vacationDateKeys)) return reject('VACATION', 'vacation');
+  if (violatesVacation(dateKey, state.otherUnavailableDateKeys ?? [])) return reject('OTHER_UNAVAILABLE', 'other-unavailable');
+  if (state.avoidAcademicDays && (state.academicTimes ?? []).some(entry => {
+    if (entry?.period !== 'Full day') return false;
+    const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(new Date(`${dateKey}T00:00:00.000Z`));
+    return entry.day === weekday;
+  })) return reject('ACADEMIC_FULL_DAY', 'academic-full-day');
   if (violatesPostCallBeforeVacation(dateKey, state.vacationDateKeys)) {
     return reject('POST_CALL_BEFORE_VACATION', 'post-call-before-vacation');
   }

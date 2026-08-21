@@ -5,6 +5,8 @@ const { assertResidentBelongsToBlockProgram, requireBlockPermission, requireBloc
 const { validateProposedDayAssignments } = require('../services/scheduleValidator');
 const { recordAuditEvent, recordAuditEventTx } = require('../services/auditLog');
 const { normalizeDateKey } = require('../services/paroRules');
+const { buildResidentDisplayNames } = require('../services/residentDisplayName');
+const { syncAutomaticEnrollmentsForBlock } = require('../services/residentLifecycle');
 
 const router = express.Router();
 router.use(auth);
@@ -28,6 +30,18 @@ function residentCanFillRole(resident, roleOnDay) {
   if (!resident?.isActive) return false;
   if (roleOnDay === 'senior') return !resident.isMedStudent && resident.residentRole === 'senior';
   return resident.isMedStudent || resident.residentRole === 'junior';
+}
+
+async function withDisplayNames(assignments, blockId) {
+  const block = await prisma.block.findUnique({ where: { id: blockId }, select: { academicYear: { select: { programId: true } } } });
+  const residents = block?.academicYear?.programId
+    ? await prisma.residentProfile.findMany({ where: { programId: block.academicYear.programId } })
+    : [...new Map(assignments.filter(item => item.resident).map(item => [item.resident.id, item.resident])).values()];
+  const names = buildResidentDisplayNames(residents);
+  return assignments.map(item => ({
+    ...item,
+    resident: item.resident ? { ...item.resident, displayName: names.get(item.resident.id), name: names.get(item.resident.id) ?? item.resident.name } : item.resident,
+  }));
 }
 
 async function validateAttendingEntryForBlock(res, attendingEntryId, blockId) {
@@ -58,12 +72,12 @@ router.get('/', async (req, res) => {
     const assignments = await prisma.callAssignment.findMany({
       where: { callDay: { blockId } },
       include: {
-        resident: { select: { id: true, name: true, residentRole: true } },
+        resident: { select: { id: true, name: true, residentRole: true, pgyLevel: true, isMedStudent: true, isServiceResident: true, homeProgram: true } },
         callDay:  { select: { id: true, date: true } },
       },
       orderBy: { callDay: { date: 'asc' } },
     });
-    return res.json(assignments);
+    return res.json(await withDisplayNames(assignments, blockId));
   }
 
   if (!callDayId) return res.status(400).json({ error: 'blockId or callDayId required' });
@@ -76,7 +90,7 @@ router.get('/', async (req, res) => {
     where: { callDayId },
     include: { resident: true },
   });
-  res.json(assignments);
+  res.json(await withDisplayNames(assignments, callDay.blockId));
 });
 
 // POST /api/assignments — upsert CallDay + assignment for (blockId, date, residentId, roleOnDay)
@@ -90,8 +104,11 @@ router.post('/', async (req, res) => {
   }
   const membership = await requireBlockPermission(req, res, blockId, 'manual_assign_calls');
   if (!membership) return;
+  await syncAutomaticEnrollmentsForBlock(blockId);
   const ownership = await assertResidentBelongsToBlockProgram(res, residentId, blockId);
   if (!ownership) return;
+  const enrollment = await prisma.blockEnrollment.findUnique({ where: { blockId_residentId: { blockId, residentId } } });
+  if (!enrollment) return res.status(400).json({ error: 'Resident must be in this block before they can be assigned' });
   if (!residentCanFillRole(ownership.resident, roleOnDay)) {
     return res.status(400).json({ error: `Resident is not eligible for the ${roleOnDay} slot` });
   }
@@ -169,6 +186,7 @@ router.put('/day', async (req, res) => {
 
   const membership = await requireBlockPermission(req, res, blockId, 'manual_assign_calls');
   if (!membership) return;
+  await syncAutomaticEnrollmentsForBlock(blockId);
   if (!await validateAttendingEntryForBlock(res, attendingEntryId, blockId)) return;
 
   const requested = [
@@ -178,6 +196,8 @@ router.put('/day', async (req, res) => {
   for (const item of requested) {
     const ownership = await assertResidentBelongsToBlockProgram(res, item.residentId, blockId);
     if (!ownership) return;
+    const enrollment = await prisma.blockEnrollment.findUnique({ where: { blockId_residentId: { blockId, residentId: item.residentId } } });
+    if (!enrollment) return res.status(400).json({ error: 'Resident must be in this block before they can be assigned' });
     if (!residentCanFillRole(ownership.resident, item.roleOnDay)) {
       return res.status(400).json({ error: `Resident is not eligible for the ${item.roleOnDay} slot` });
     }

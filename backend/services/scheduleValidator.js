@@ -17,6 +17,8 @@ const {
   isAcademicDayLabel,
 } = require('./paroRules');
 const { buildResidentState, applyAssignment, checkEligibility } = require('./eligibility');
+const { effectiveResidentRole, isResidentEligibleForBlock, syncAutomaticEnrollmentsForBlock } = require('./residentLifecycle');
+const { buildResidentDisplayNames } = require('./residentDisplayName');
 
 // What each violation code means in plain language. The code stays the
 // machine-readable contract; `rule`, `why` and `remedy` are what a Chief
@@ -159,6 +161,7 @@ function warning(code, resident, date, message, details = {}) {
 }
 
 async function loadScheduleBlock(blockId) {
+  await syncAutomaticEnrollmentsForBlock(blockId);
   const block = await prisma.block.findUnique({
     where: { id: blockId },
     include: {
@@ -179,8 +182,19 @@ async function loadScheduleBlock(blockId) {
     ? await prisma.residentProfile.findMany({
         where: { programId, isActive: true, isServiceResident: true },
         orderBy: { createdAt: 'asc' },
-      })
+      }).then(items => items.filter(resident => isResidentEligibleForBlock(resident, block)))
     : [];
+  const visibleResidents = [
+    ...block.enrollments.map(item => item.resident),
+    ...block.activeServiceResidents,
+    ...(block.callDays ?? []).flatMap(day => day.assignments.map(item => item.resident)),
+  ];
+  const uniqueResidents = [...new Map(visibleResidents.map(item => [item.id, item])).values()];
+  const displayNames = buildResidentDisplayNames(uniqueResidents);
+  for (const resident of visibleResidents) {
+    resident.name = displayNames.get(resident.id) ?? resident.name;
+    resident.residentRole = effectiveResidentRole(resident, block.academicYear.program, block.academicYear.startDate).role;
+  }
   return block;
 }
 
@@ -227,6 +241,7 @@ function analyzeUnfilledSlots(block, assignments, blockDateKeys, programSettings
   const settings = {
     maxCallsPerResident: block.settings?.maxCallsPerResident ?? 9,
     maxCallsMedStudent: block.settings?.maxCallsMedStudent ?? 5,
+    avoidAcademicDays: block.settings?.avoidAcademicDays ?? true,
   };
   const enrollmentByResident = new Map((block.enrollments ?? []).map(item => [item.residentId, item]));
   const residentsById = new Map();
@@ -355,7 +370,8 @@ function validateLoadedSchedule(block, options = {}) {
       .filter(item => item.residentId === resident.id)
       .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
     const vacationDateKeys = (enrollment?.vacationDates ?? []).map(normalizeDateKey).filter(Boolean);
-    const daysOnService = enrollment ? calculateDaysOnService(blockDateKeys, vacationDateKeys) : null;
+    const otherUnavailableDateKeys = (enrollment?.otherUnavailableDates ?? []).map(normalizeDateKey).filter(Boolean);
+    const daysOnService = enrollment ? calculateDaysOnService(blockDateKeys, [...vacationDateKeys, ...otherUnavailableDateKeys]) : null;
     const inHouseAssignments = residentAssignments.filter(
       item => getAssignmentCallType(item.roleOnDay, programSettings) === 'in_house'
     );
@@ -370,7 +386,7 @@ function validateLoadedSchedule(block, options = {}) {
     const localCap = minimumPositive(blockCap, residentCap);
     const medStudentCap = resident.isMedStudent ? nonNegativeInteger(block.settings?.maxCallsMedStudent) : null;
 
-    if (!enrollment && resident.isServiceResident && resident.isActive) {
+    if ((!enrollment || enrollment.availabilityConfirmed === false) && resident.isServiceResident && resident.isActive) {
       const message = `${resident.name} has no block enrollment/availability record.`;
       warnings.push(warning('MISSING_RESIDENT_AVAILABILITY', resident, null, message, {
         action: 'Complete block enrollment and vacation availability before generation.',
@@ -390,6 +406,18 @@ function validateLoadedSchedule(block, options = {}) {
           'VACATION_CONFLICT', resident, assignment.dateKey,
           `${resident.name} is assigned while on vacation.`, {}, [assignment],
         ));
+      }
+      if (enrollment && violatesVacation(assignment.dateKey, otherUnavailableDateKeys)) {
+        violations.push(violation('OTHER_UNAVAILABLE_CONFLICT', resident, assignment.dateKey, `${resident.name} is assigned on a day marked unavailable.`, {}, [assignment]));
+      }
+      if (enrollment && Array.isArray(enrollment.academicTimes)) {
+        const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(new Date(`${assignment.dateKey}T00:00:00.000Z`));
+        const academic = enrollment.academicTimes.filter(entry => entry?.day === weekday);
+        if (block.settings?.avoidAcademicDays !== false && academic.some(entry => entry.period === 'Full day')) {
+          violations.push(violation('ACADEMIC_FULL_DAY_CONFLICT', resident, assignment.dateKey, `${resident.name} is assigned on a protected full academic day.`, {}, [assignment]));
+        } else if (academic.some(entry => entry.period === 'AM' || entry.period === 'PM')) {
+          warnings.push(warning('HALF_DAY_ACADEMIC_TIME', resident, assignment.dateKey, `${resident.name} has half-day academic time; local review is required because call is modeled at whole-day granularity.`));
+        }
       }
       if (enrollment && violatesPostCallBeforeVacation(assignment.dateKey, vacationDateKeys)) {
         violations.push(violation(

@@ -9,6 +9,7 @@ const { requireBlockPermission, requireBlockView } = require('../lib/roles');
 const { hasPermission } = require('../lib/roles');
 const { validateSchedule } = require('../services/scheduleValidator');
 const { recordAuditEvent, recordAuditEventTx } = require('../services/auditLog');
+const { buildResidentDisplayNames } = require('../services/residentDisplayName');
 
 const router = express.Router();
 router.use(auth);
@@ -145,12 +146,15 @@ router.post('/publish', async (req, res) => {
       where: { id: blockId },
       include: {
         academicYear: { include: { program: { select: { id: true, name: true, specialty: true } }, holidays: true } },
+        enrollments: {
+          include: { resident: { select: { id: true, name: true, residentRole: true, pgyLevel: true, isMedStudent: true, isServiceResident: true, homeProgram: true } } },
+        },
         attendingEntries: true,
         callDays: {
           orderBy: { date: 'asc' },
           include: {
             assignments: {
-              include: { resident: { select: { id: true, name: true, residentRole: true } } },
+              include: { resident: { select: { id: true, name: true, residentRole: true, pgyLevel: true, isMedStudent: true, isServiceResident: true, homeProgram: true } } },
             },
           },
         },
@@ -158,7 +162,17 @@ router.post('/publish', async (req, res) => {
     });
     if (!block) return res.status(404).json({ error: 'Block not found' });
 
-    // Build the snapshot JSON
+    const visibleResidents = block.enrollments.map(item => item.resident);
+    const displayNames = buildResidentDisplayNames(visibleResidents);
+    const publicSafeCallDays = block.callDays.map(day => ({
+      ...day,
+      assignments: day.assignments.map(assignment => ({
+        ...assignment,
+        resident: { ...assignment.resident, name: displayNames.get(assignment.resident.id) ?? assignment.resident.name },
+      })),
+    }));
+
+    // Build the immutable snapshot with public-safe, unambiguous names.
     const snapshot = {
       block: {
         id: block.id,
@@ -170,7 +184,7 @@ router.post('/publish', async (req, res) => {
         holidays: block.academicYear?.holidays ?? [],
       },
       attendingEntries: block.attendingEntries,
-      callDays: block.callDays,
+      callDays: publicSafeCallDays,
     };
 
     // Ensure publicToken exists, reuse if already set
@@ -380,7 +394,8 @@ router.get('/export/excel', async (req, res) => {
       include: {
         academicYear: { include: { program: true, holidays: true } },
         attendingEntries: true,
-        callDays: { include: { assignments: { include: { resident: { select: { name: true } } } } } },
+        enrollments: { include: { resident: true } },
+        callDays: { include: { assignments: { include: { resident: true } } } },
         flags: true,
       },
     });
@@ -411,7 +426,8 @@ router.get('/export/pdf', async (req, res) => {
       include: {
         academicYear: { include: { program: true, holidays: true } },
         attendingEntries: true,
-        callDays: { include: { assignments: { include: { resident: { select: { name: true } } } } } },
+        enrollments: { include: { resident: true } },
+        callDays: { include: { assignments: { include: { resident: true } } } },
         flags: true,
       },
     });

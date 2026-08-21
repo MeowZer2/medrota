@@ -1,4 +1,5 @@
 const ExcelJS = require('exceljs');
+const { buildResidentDisplayNames } = require('./residentDisplayName');
 const { toDateKey } = require('./publicScheduleShape');
 
 const HEADERS = [
@@ -235,6 +236,10 @@ function createScheduleWorkbook(schedule, options = {}) {
 }
 
 function shapeProtectedSchedule(block) {
+  const enrolledResidents = (block.enrollments ?? []).map(item => item.resident).filter(Boolean);
+  const assignedResidents = (block.callDays ?? []).flatMap(day => day.assignments ?? []).map(item => item.resident).filter(Boolean);
+  const residents = [...new Map([...enrolledResidents, ...assignedResidents].map(item => [item.id, item])).values()];
+  const displayNames = buildResidentDisplayNames(residents);
   return {
     scheduleState: 'draft',
     block: {
@@ -266,7 +271,7 @@ function shapeProtectedSchedule(block) {
       assignments: (callDay.assignments ?? []).map(assignment => ({
         roleOnDay: assignment.roleOnDay ?? '',
         resident: {
-          name: assignment.resident?.name ?? '',
+          name: displayNames.get(assignment.resident?.id) ?? assignment.resident?.name ?? '',
         },
       })),
     })),

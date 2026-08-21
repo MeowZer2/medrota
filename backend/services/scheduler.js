@@ -29,6 +29,8 @@ const {
 } = require('./paroRules');
 const { minimumPositive, validateSchedule } = require('./scheduleValidator');
 const { checkEligibility } = require('./eligibility');
+const { effectiveResidentRole, isResidentEligibleForBlock, syncAutomaticEnrollmentsForBlock } = require('./residentLifecycle');
+const { buildResidentDisplayNames } = require('./residentDisplayName');
 
 function startOfLogicalDay(value) {
   const dateKey = normalizeDateKey(value);
@@ -56,17 +58,21 @@ function vacationKeysFromEnrollment(enrollment) {
 
 function makeResidentState(enrollment, blockDateKeys, cfg, availabilityComplete = true) {
   const vacationDateKeys = vacationKeysFromEnrollment(enrollment);
-  const daysOnService = calculateDaysOnService(blockDateKeys, vacationDateKeys);
+  const otherUnavailableDateKeys = (enrollment.otherUnavailableDates ?? []).map(normalizeDateKey).filter(Boolean);
+  const daysOnService = calculateDaysOnService(blockDateKeys, [...vacationDateKeys, ...otherUnavailableDateKeys]);
   const isMedStudent = Boolean(enrollment.resident.isMedStudent);
 
   return {
     id: enrollment.resident.id,
     name: enrollment.resident.name,
-    role: enrollment.resident.residentRole,
+    role: enrollment.resident._effectiveRole ?? enrollment.resident.residentRole,
     isMedStudent,
     isActive: enrollment.resident.isActive !== false,
     availabilityComplete,
     vacationDateKeys,
+    otherUnavailableDateKeys,
+    academicTimes: Array.isArray(enrollment.academicTimes) ? enrollment.academicTimes : [],
+    avoidAcademicDays: cfg.avoidAcademicDays,
     daysOnService,
     inHouseMax: getInHouseMax(daysOnService),
     homeMax: getHomeCallMax(daysOnService),
@@ -184,6 +190,7 @@ function buildSummaryRow(resident) {
 }
 
 async function generateSchedule(blockId) {
+  await syncAutomaticEnrollmentsForBlock(blockId);
   const block = await prisma.block.findUnique({
     where: { id: blockId },
     include: {
@@ -229,15 +236,21 @@ async function generateSchedule(blockId) {
     ? await prisma.residentProfile.findMany({
         where: { programId, isActive: true, isServiceResident: true },
         orderBy: { createdAt: 'asc' },
-      })
+      }).then(items => items.filter(resident => isResidentEligibleForBlock(resident, block)))
     : [];
 
   const enrollmentByResidentId = new Map();
+  const displayNames = buildResidentDisplayNames(block.enrollments.map(item => item.resident));
   for (const enrollment of block.enrollments) {
-    enrollment._availabilityComplete = true;
+    enrollment.resident.name = displayNames.get(enrollment.resident.id) ?? enrollment.resident.name;
+    const role = effectiveResidentRole(enrollment.resident, block.academicYear.program, block.academicYear.startDate);
+    enrollment.resident._effectiveRole = role.role;
+    enrollment._availabilityComplete = enrollment.availabilityConfirmed !== false;
     enrollmentByResidentId.set(enrollment.resident.id, enrollment);
   }
-  const missingAvailabilityResidents = [];
+  const missingAvailabilityResidents = block.enrollments
+    .filter(enrollment => enrollment.availabilityConfirmed === false)
+    .map(enrollment => enrollment.resident);
   for (const resident of activeServiceResidents) {
     if (!enrollmentByResidentId.has(resident.id)) {
       missingAvailabilityResidents.push(resident);
@@ -324,6 +337,12 @@ async function generateSchedule(blockId) {
       data: { callDayId, residentId: resident.id, roleOnDay },
     });
     incrementResidentCall(resident, dateKey, roleOnDay, programSettings);
+    const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(new Date(`${dateKey}T00:00:00.000Z`));
+    const halfDay = (resident.academicTimes ?? []).find(entry => entry.day === weekday && (entry.period === 'AM' || entry.period === 'PM'));
+    if (halfDay) warnings.push({
+      code: 'HALF_DAY_ACADEMIC_TIME', date: dateKey, residentId: resident.id, residentName: resident.name,
+      message: `${resident.name} has ${halfDay.period} academic time. Call impact requires local review.`,
+    });
   }
 
   function eligibleResidents(pool, roleOnDay, dateKey) {

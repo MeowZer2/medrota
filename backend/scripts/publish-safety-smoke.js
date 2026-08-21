@@ -123,7 +123,7 @@ async function main() {
     assert.ok(consecutive, 'the deliberate consecutive call must be detected');
 
     // Validation must answer all six questions.
-    assert.equal(consecutive.residentName, `${tag}_SENIOR`, 'who');
+    assert.equal(consecutive.residentName, `Dr. ${tag}_SENIOR`, 'who');
     assert.equal(consecutive.date, '2036-03-03', 'what date');
     assert.equal(consecutive.rule, 'Consecutive call', 'what rule');
     assert.match(consecutive.why, /two days in a row/i, 'why it is a problem');
@@ -179,7 +179,7 @@ async function main() {
     assert.ok(rejected, 'the junior who could not take it must be listed');
     assert.equal(rejected.code, 'CONSECUTIVE_CALL');
     assert.equal(rejected.reason, 'Already on call the day before or after');
-    assert.equal(rejected.residentName, `${tag}_JUNIOR`);
+    assert.equal(rejected.residentName, `Dr. ${tag}_JUNIOR`);
 
     // Days that are not meant to be covered are not reported as gaps.
     await prisma.publicHoliday.create({ data: { academicYearId: year.id, date: dateFromDateKey('2036-03-05'), name: 'Holiday' } });

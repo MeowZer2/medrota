@@ -115,9 +115,9 @@ async function main() {
   assert(summary.warnings.some(w => w.date === dates[1] && /academic/i.test(w.message)), 'academic day warning should be returned');
 
   const byResident = new Map(summary.callSummary.map(r => [r.name, r.calls]));
-  assert.strictEqual(byResident.get('Senior Override'), 1, 'manual override senior should count toward call totals');
-  assert.strictEqual(byResident.get('Junior Override'), 1, 'manual override junior should count toward call totals');
-  assert.strictEqual(byResident.get('Med Student'), 0, 'maxCallsMedStudent=0 should prevent med student assignment');
+  assert.strictEqual(byResident.get('Dr. S. Override'), 1, 'manual override senior should count toward call totals');
+  assert.strictEqual(byResident.get('Dr. J. Override'), 1, 'manual override junior should count toward call totals');
+  assert.strictEqual(byResident.get('Dr. Student'), 0, 'maxCallsMedStudent=0 should prevent med student assignment');
 
   assert(createdAssignments.every(a => a.isOverride !== true), 'generated assignments must not be marked as overrides');
   assert(!createdAssignments.some(a => a.callDayId === 'call-day-override'), 'generate must not add assignments to an override-covered day');

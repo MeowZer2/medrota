@@ -177,7 +177,7 @@ async function main() {
   const summary = await generateSchedule(block.id);
   assert(summary.callSummary.some(r => r.name.endsWith('Senior Override') && r.calls === 1), 'override senior was not counted in callSummary');
   assert(summary.callSummary.some(r => r.name.endsWith('Junior Override') && r.calls === 1), 'override junior was not counted in callSummary');
-  assert(summary.callSummary.some(r => r.name.endsWith('Med Student') && r.calls === 0), 'maxCallsMedStudent=0 was not honored');
+  assert(summary.callSummary.some(r => r.name === 'Dr. Student' && r.calls === 0), 'maxCallsMedStudent=0 was not honored');
   assert(summary.unassignedDates.includes('2026-01-02'), 'academic day was not reported unassigned');
   assert(summary.warnings.some(w => w.date === '2026-01-02' && /academic/i.test(w.message)), 'academic day warning was not returned');
 

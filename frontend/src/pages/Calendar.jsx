@@ -557,7 +557,7 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
   }
 
   const seniors = residents.filter(r => r.residentRole === 'senior' && !r.isMedStudent);
-  const juniors = residents.filter(r => r.residentRole === 'junior' && !r.isMedStudent);
+  const juniors = residents.filter(r => r.residentRole === 'junior' || r.isMedStudent);
   const assignedSeniorMissing = assignment?.seniorId && !seniors.some(r => r.id === assignment.seniorId);
   const assignedJuniorMissing = assignment?.juniorId && !juniors.some(r => r.id === assignment.juniorId);
 
@@ -1412,7 +1412,7 @@ export default function Calendar() {
         const [att, asgn, res, ros, fl, hol, ready] = await Promise.all([
           api.get(`/attending?blockId=${currentBlockId}`, { signal }),
           api.get(`/assignments?blockId=${currentBlockId}`, { signal }),
-          programId && canEditResidents ? api.get(`/residents?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
+          programId && canEditResidents ? api.get(`/residents?programId=${programId}&blockId=${currentBlockId}`, { signal }) : Promise.resolve({ data: [] }),
           programId && canEditAttending ? api.get(`/attending/roster?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
           api.get(`/flags?blockId=${currentBlockId}`, { signal }),
           api.get(`/blocks/${currentBlockId}/holidays`, { signal }),
@@ -1424,7 +1424,7 @@ export default function Calendar() {
         if (cancelled || latestBlockIdRef.current !== currentBlockId) return;
         setAttendingEntries(att.data);
         setAssignmentsMap(buildAssignmentsMap(asgn.data));
-        setResidents(res.data);
+        setResidents(res.data.filter(resident => resident.isEnrolledThisBlock).map(resident => ({ ...resident, name: resident.displayName || resident.name })));
         setRoster(ros.data.map(r => ({ id: r.id, name: r.attendingName, activities: r.typicalActivities })));
         setFlags(fl.data);
         setHolidays(hol.data);

@@ -561,7 +561,7 @@ async function scenarioE() {
       item => item.code === 'MISSING_RESIDENT_AVAILABILITY' && item.residentId === excluded.id,
     );
     assert.ok(warningItem, 'E: the missing resident must produce a warning');
-    assert.match(warningItem.message, /Junior 3/, 'E: the warning must name the resident');
+    assert.ok(warningItem.residentName && warningItem.message.includes(warningItem.residentName), 'E: the warning must name the resident');
     assert.ok(warningItem.action && warningItem.action.length > 0, 'E: the warning must say what to do about it');
     assert.ok(
       summary.excludedResidents.some(item => item.residentId === excluded.id),
@@ -575,8 +575,9 @@ async function scenarioE() {
     assertNoHardViolations('E', validation);
 
     // 2. Supplying valid block availability must make them schedulable.
-    await prisma.blockEnrollment.create({
-      data: { blockId: scenario.blockId, residentId: excluded.id, vacationDates: [] },
+    await prisma.blockEnrollment.update({
+      where: { blockId_residentId: { blockId: scenario.blockId, residentId: excluded.id } },
+      data: { availabilityConfirmed: true },
     });
     await prisma.callAssignment.deleteMany({
       where: { callDay: { blockId: scenario.blockId }, isOverride: false },
