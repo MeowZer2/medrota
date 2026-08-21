@@ -38,11 +38,26 @@ async function login(page, email) {
 }
 
 async function expectNoHorizontalScroll(page, label) {
-  const overflow = await page.evaluate(() => {
+  const measurement = await page.evaluate(() => {
     const doc = document.documentElement;
-    return doc.scrollWidth - doc.clientWidth;
+    const offenders = [...document.querySelectorAll('body *')]
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          tag: element.tagName.toLowerCase(),
+          className: typeof element.className === 'string' ? element.className : '',
+          overflow: Math.round(rect.right - window.innerWidth),
+        };
+      })
+      .filter((entry) => entry.overflow > 0)
+      .sort((a, b) => b.overflow - a.overflow)
+      .slice(0, 3);
+    return { overflow: doc.scrollWidth - doc.clientWidth, offenders };
   });
-  expect(overflow, `${label} must not scroll horizontally`).toBeLessThanOrEqual(0);
+  expect(
+    measurement.overflow,
+    `${label} must not scroll horizontally; offenders: ${JSON.stringify(measurement.offenders)}`,
+  ).toBeLessThanOrEqual(0);
 }
 
 for (const viewport of VIEWPORTS) {

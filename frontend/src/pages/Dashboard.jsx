@@ -46,9 +46,9 @@ function callColor(n) {
 
 function StatsSkeleton() {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 min-w-0">
       {[...Array(4)].map((_, i) => (
-        <div key={i} className="bg-white rounded-xl p-5" style={{ border: '1px solid #E8EFF6', borderLeft: '4px solid #E8EFF6' }}>
+        <div key={i} className="bg-white rounded-xl p-5 min-w-0" style={{ border: '1px solid #E8EFF6', borderLeft: '4px solid #E8EFF6' }}>
           <div className="skeleton-shimmer h-8 w-8 rounded-lg mb-3" />
           <div className="skeleton-shimmer h-3 w-20 rounded mb-2" />
           <div className="skeleton-shimmer h-9 w-12 rounded" />
@@ -231,7 +231,7 @@ export default function Dashboard() {
         {/* Stats cards */}
         {loadingStats ? <StatsSkeleton /> : (
           <motion.div
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"
+            className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 min-w-0"
             variants={staggerContainer}
             initial="initial"
             animate="animate"
@@ -243,7 +243,7 @@ export default function Dashboard() {
                   key={s.key}
                   variants={fadeSlideUp}
                   whileHover={{ y: -1 }}
-                  className="bg-white rounded-xl p-5 flex flex-col"
+                  className="bg-white rounded-xl p-5 flex flex-col min-w-0"
                   style={{
                     border: '1px solid #E8EFF6',
                     borderLeft: `4px solid ${s.accent}`,
@@ -268,7 +268,7 @@ export default function Dashboard() {
 
         {/* Bottom grid */}
         <motion.div
-          className="grid grid-cols-1 md:grid-cols-3 gap-4"
+          className="grid grid-cols-1 md:grid-cols-3 gap-4 min-w-0"
           variants={staggerContainer}
           initial="initial"
           animate="animate"
@@ -276,15 +276,15 @@ export default function Dashboard() {
           {/* Current block card */}
           <motion.div
             variants={fadeSlideUp}
-            className="md:col-span-2 rounded-xl p-6 flex flex-col"
+            className="md:col-span-2 rounded-xl p-6 flex flex-col min-w-0"
             style={{
               background: 'linear-gradient(135deg, #EEF4FF 0%, #ffffff 60%)',
               border: '1px solid #D6E4F7',
               boxShadow: '0 1px 3px rgba(26,58,92,0.06)',
             }}
           >
-            <div className="flex items-start justify-between mb-5">
-              <div>
+            <div className="flex flex-wrap items-start justify-between gap-2 mb-5 min-w-0">
+              <div className="min-w-0">
                 <h2 style={{ fontSize: 15, fontWeight: 600, color: '#1A3A5C' }}>Current Block</h2>
                 <p className="mt-0.5 text-sm" style={{ color: '#5A7A9A' }}>
                   {stats
@@ -339,7 +339,7 @@ export default function Dashboard() {
           {/* Activity feed */}
           <motion.div
             variants={fadeSlideUp}
-            className="rounded-xl p-5"
+            className="rounded-xl p-5 min-w-0"
             style={{ background: '#ffffff', border: '1px solid #E8EFF6', boxShadow: '0 1px 3px rgba(26,58,92,0.05)' }}
           >
             <h2 className="mb-4" style={{ fontSize: 15, fontWeight: 600, color: '#1A3A5C' }}>Recent activity</h2>
@@ -384,7 +384,7 @@ export default function Dashboard() {
           {/* Call distribution */}
           <motion.div
             variants={fadeSlideUp}
-            className="md:col-span-3 rounded-xl p-6"
+            className="md:col-span-3 rounded-xl p-6 min-w-0"
             style={{ background: '#ffffff', border: '1px solid #E8EFF6', boxShadow: '0 1px 3px rgba(26,58,92,0.05)' }}
           >
             <h2 className="mb-5" style={{ fontSize: 15, fontWeight: 600, color: '#1A3A5C' }}>
@@ -402,12 +402,12 @@ export default function Dashboard() {
               </div>
             ) : stats?.callDistribution?.length ? (
               <>
-                <div className="flex items-end gap-3">
+                <div className="flex items-end gap-3 min-w-0">
                   {stats.callDistribution.map((r, i) => {
                     const heightPx = Math.round((r.callCount / maxCalls) * 100) * 0.7;
                     const { bar } = callColor(r.callCount);
                     return (
-                      <div key={r.residentName} className="flex flex-col items-center gap-1.5 flex-1">
+                      <div key={r.residentName} className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
                         <span className="text-xs font-semibold" style={{ color: '#1A3A5C' }}>{r.callCount}</span>
                         <motion.div
                           className="w-full rounded-t-md"
@@ -427,7 +427,7 @@ export default function Dashboard() {
                     );
                   })}
                 </div>
-                <div className="flex gap-4 mt-4">
+                <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4">
                   {[
                     { color: '#D6E4F7', label: '0–6 calls (normal)' },
                     { color: '#FDE68A', label: '7–8 calls (high)' },
