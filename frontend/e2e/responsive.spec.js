@@ -15,6 +15,10 @@ const VIEWPORTS = [
 ];
 
 const PAGES = [
+  { label: 'block overview', path: '/blocks/1' },
+  { label: 'block residents', path: '/blocks/1/residents' },
+  { label: 'block attendings', path: '/blocks/1/attending' },
+  { label: 'block schedule', path: '/blocks/1/calendar' },
   { label: 'calendar', path: '/calendar' },
   { label: 'residents', path: '/residents' },
   { label: 'attending schedule', path: '/attending' },

@@ -1,3 +1,4 @@
+import { formatBlockDate } from '../lib/blockUtils';
 import { useState, useRef, useEffect } from 'react';
 
 /**
@@ -20,8 +21,8 @@ export default function BlockSelector({ blocks, activeBlockId, onSelect }) {
 
   function fmtRange(b) {
     if (!b?.startDate || !b?.endDate) return '';
-    const s = new Date(b.startDate).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
-    const e = new Date(b.endDate).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+    const s = formatBlockDate(b.startDate, { month: 'short', day: 'numeric' });
+    const e = formatBlockDate(b.endDate, { month: 'short', day: 'numeric' });
     return `${s} – ${e}`;
   }
 

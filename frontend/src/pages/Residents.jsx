@@ -1,3 +1,4 @@
+import { blockPath } from '../lib/blockNavigation';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -81,7 +82,7 @@ export default function Residents() {
         <div><strong style={{ color: 'var(--accent-strong)', fontSize: 13 }}>Need to change who is rotating?</strong><div style={{ color: 'var(--ink-4)', fontSize: 12, marginTop: 3 }}>Manage Block {currentBlock.number} residents, availability, vacation, and academic time from the block workflow.</div></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <BlockSelector blocks={currentAcademicYear?.blocks ?? []} activeBlockId={currentBlock.id} onSelect={setCurrentBlock} />
-          <button type="button" data-testid="set-block-availability" onClick={() => navigate(`/blocks/${currentBlock.number}/residents`)} style={{ minHeight: 38, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--info-border-2)', background: 'var(--surface-1)', color: 'var(--info-strong)', fontWeight: 700 }}>Manage block residents</button>
+          <button type="button" data-testid="set-block-availability" onClick={() => navigate(blockPath(currentBlock, 'residents'))} style={{ minHeight: 38, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--info-border-2)', background: 'var(--surface-1)', color: 'var(--info-strong)', fontWeight: 700 }}>Manage block residents</button>
         </div>
       </section>}
 

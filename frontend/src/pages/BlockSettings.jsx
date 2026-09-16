@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import Layout from '../components/Layout';
+import { BlockPageFrame as Layout } from '../components/BlockWorkspace';
+import { useWorkingBlock } from '../lib/useWorkingBlock';
+import { blockPath } from '../lib/blockNavigation';
 import PageWrapper from '../components/PageWrapper';
 import api from '../api/axios';
-import { useBlock, useUser } from '../context/AppContext';
+import { useUser } from '../context/AppContext';
 
 // ── Toggle ────────────────────────────────────────────────────────────────────
 
@@ -72,13 +74,12 @@ function NumberInput({ value, onChange, min = 0, max = 30, id }) {
 // ── main ──────────────────────────────────────────────────────────────────────
 
 export default function BlockSettings() {
-  const { blockNumber } = useParams();
+  const block = useWorkingBlock();
+  const blockNumber = block?.number;
   const navigate        = useNavigate();
-  const { currentAcademicYear } = useBlock();
   const { can } = useUser();
 
   // Resolve the block from context
-  const block = currentAcademicYear?.blocks?.find(b => String(b.number) === String(blockNumber));
   const blockId = block?.id ?? null;
 
   const [settings, setSettings] = useState({
@@ -135,7 +136,7 @@ export default function BlockSettings() {
           {/* Page header */}
           <div className="flex items-center gap-3 mb-6">
             <button
-              onClick={() => navigate(`/blocks/${blockNumber}/calendar`)}
+              onClick={() => navigate(blockPath(block, 'calendar'))}
               style={{ background: 'var(--accent-soft-2)', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: 'var(--accent)', fontSize: 13, fontWeight: 500 }}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--border-3)'}
               onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-soft-2)'}

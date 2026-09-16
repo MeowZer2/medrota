@@ -87,10 +87,11 @@ If browsers have not been installed on the machine yet, run once from `frontend`
 npx playwright install chromium
 ```
 
-Current E2E coverage is 58 tests across nine spec files:
+Current E2E coverage includes the existing workflow suites and ten block-workspace checks:
 
 | Spec | Covers |
 |---|---|
+| `block-workspace.spec.js` | A real preparation job at 375/768/1024/1440px: save vacation and academic time directly from Overview, apply attending coverage, reach schedule readiness in two page transitions, retain the same shell and exact block through refresh, keyboard navigation, resident search, block changes/Back, invalid links, readiness failures, date/DST handling and Viewer/limited-Chief controls |
 | `core-calendar.spec.js` | Route guards, calendar prefill/save/reload, duplicate-resident rejection, override confirmation and reason, actionable validation detail, unfilled-slot explanations, publishing with documented overrides, holidays, Viewer restrictions and direct mutation rejection, call-type settings, password visibility, public access, mojibake checks |
 | `availability.spec.js` | Block-centered readiness, per-resident availability confirmation, compatibility bulk confirmation, block history visible to a Chief Resident and hidden from a Viewer |
 | `resident-workflow.spec.js` | Resident Directory creation/editing, calculated PGY, in-service auto-participation, off-service/student enrollment, one Medical Student badge, Tuesday academic time, workload summaries, duplicate-name handling, assigned-removal protection, mobile and Viewer behavior |

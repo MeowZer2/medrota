@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import Sidebar from './Sidebar';
 import ThemeToggle from './ThemeToggle';
+import { useUser } from '../context/AppContext';
 
 export default function Layout({ children }) {
+  const { currentProgram } = useUser();
   const [activeBlock, setActiveBlock] = useState(3);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -55,7 +57,7 @@ export default function Layout({ children }) {
         >
           <div>
             <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-1)', lineHeight: 1.2 }}>MedRota</p>
-            <p style={{ fontSize: 10, color: 'var(--ink-5)', marginTop: 1 }}>Vascular Surgery</p>
+            <p style={{ fontSize: 10, color: 'var(--ink-5)', marginTop: 1 }}>{currentProgram?.programName ?? 'Call scheduling'}</p>
           </div>
           <div className="flex items-center gap-1">
             {/* The sidebar's three-way control does not fit here, so the phone

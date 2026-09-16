@@ -16,6 +16,7 @@ import PublicSchedule from './pages/PublicSchedule';
 import BlockSettings from './pages/BlockSettings';
 import ProgramSettings from './pages/ProgramSettings';
 import JoinProgram from './pages/JoinProgram';
+import BlockWorkspace from './components/BlockWorkspace';
 
 function ProtectedRoute({ children, allowWithoutProgram = false }) {
   const { currentUser, hasProgram, loading } = useUser();
@@ -39,7 +40,7 @@ function AnimatedRoutes() {
 
   return (
     <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
+      <Routes location={location} key={location.pathname.startsWith('/blocks/') ? 'block-workspace' : location.pathname}>
         {/* ── Public (no auth required) ──────────────────────────── */}
         <Route path="/login"              element={<Login />} />
         <Route path="/register"           element={<Register />} />
@@ -53,10 +54,13 @@ function AnimatedRoutes() {
         <Route path="/attending"          element={<ProtectedRoute><AttendingSchedule /></ProtectedRoute>} />
         <Route path="/calendar"           element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
         <Route path="/settings"           element={<ProtectedRoute><ProgramSettings /></ProtectedRoute>} />
-        <Route path="/blocks/:blockNumber"                  element={<ProtectedRoute><BlockPage /></ProtectedRoute>} />
-        <Route path="/blocks/:blockNumber/residents"        element={<ProtectedRoute><BlockResidents /></ProtectedRoute>} />
-        <Route path="/blocks/:blockNumber/calendar"         element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
-        <Route path="/blocks/:blockNumber/settings"         element={<ProtectedRoute><BlockSettings /></ProtectedRoute>} />
+        <Route path="/blocks/:blockNumber" element={<ProtectedRoute><BlockWorkspace /></ProtectedRoute>}>
+          <Route index element={<BlockPage />} />
+          <Route path="residents" element={<BlockResidents />} />
+          <Route path="attending" element={<AttendingSchedule />} />
+          <Route path="calendar" element={<Calendar />} />
+          <Route path="settings" element={<BlockSettings />} />
+        </Route>
 
         <Route path="*" element={<Navigate to={loading || currentUser ? '/dashboard' : '/login'} replace />} />
       </Routes>

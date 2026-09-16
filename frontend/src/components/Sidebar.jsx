@@ -1,4 +1,6 @@
-﻿import { memo, useState, useRef, useEffect } from 'react';
+import { formatBlockDate } from '../lib/blockUtils';
+import { blockPath } from '../lib/blockNavigation';
+import { memo, useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { confirmDiscardUnsavedChanges, useGuardedNavigate } from '../lib/unsavedChanges';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -27,8 +29,8 @@ function isBlockCurrent(block) {
 
 function fmtBlockDateRange(block) {
   const opts = { month: 'short', day: 'numeric' };
-  const s = new Date(block.startDate).toLocaleDateString('en-GB', opts);
-  const e = new Date(block.endDate).toLocaleDateString('en-GB', opts);
+  const s = formatBlockDate(block.startDate, opts);
+  const e = formatBlockDate(block.endDate, opts);
   return `${s} - ${e}`;
 }
 
@@ -357,7 +359,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
               <NavItem
                 {...link}
                 isActive={location.pathname === link.path}
-                onClick={() => navigate(link.path)}
+                onClick={() => navigate(link.path === '/attending' && currentBlock ? blockPath(currentBlock, 'attending') : link.path)}
               />
             </li>
           ))}
@@ -393,7 +395,10 @@ const Sidebar = memo(function Sidebar({ userName }) {
           <YearSwitcher
             years={academicYears}
             current={currentAcademicYear}
-            onChange={setCurrentAcademicYear}
+            onChange={year => {
+              setCurrentAcademicYear(year);
+              if (year.blocks?.[0]) navigate(blockPath(year.blocks[0]));
+            }}
             onAddYear={can('create_academic_year') ? handleAddYear : undefined}
             addingYear={addingYear}
           />
@@ -416,7 +421,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
                   <button
                     onClick={() => {
                       setCurrentBlock(block);
-                      navigate(`/blocks/${block.number}`);
+                      navigate(blockPath(block));
                     }}
                     className="w-full flex items-start justify-between rounded-lg relative overflow-hidden"
                     style={{
@@ -466,7 +471,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
                     {/* People icon â€” view residents for this block */}
                     {can('edit_residents') && (isActive || isHovered) && (
                       <span
-                        onClick={e => { e.stopPropagation(); setCurrentBlock(block); navigate(`/blocks/${block.number}/residents`); }}
+                        onClick={e => { e.stopPropagation(); setCurrentBlock(block); navigate(blockPath(block, 'residents')); }}
                         title="View residents for this block"
                         style={{ marginLeft: 2, color: 'var(--ink-5)', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '2px 3px', borderRadius: 5 }}
                         onMouseEnter={e => { e.currentTarget.style.color = 'var(--success)'; e.currentTarget.style.background = 'var(--success-soft-2)'; }}
@@ -477,7 +482,7 @@ const Sidebar = memo(function Sidebar({ userName }) {
                     )}
                     {can('edit_block_settings') && isActive && (
                       <span
-                        onClick={e => { e.stopPropagation(); navigate(`/blocks/${block.number}/settings`); }}
+                        onClick={e => { e.stopPropagation(); navigate(blockPath(block, 'settings')); }}
                         title="Block settings"
                         style={{ marginLeft: 2, color: 'var(--ink-5)', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '2px 3px', borderRadius: 5 }}
                         onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-soft-3)'; }}

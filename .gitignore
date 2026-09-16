@@ -17,6 +17,7 @@ blob-report/
 playwright/.cache/
 
 # Local scratch
+.audit/
 *.local
 *.log
 

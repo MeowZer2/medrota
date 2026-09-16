@@ -1,14 +1,16 @@
 ﻿import { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import Layout from '../components/Layout';
+import { BlockPageFrame as Layout } from '../components/BlockWorkspace';
+import { useWorkingBlock } from '../lib/useWorkingBlock';
+import { blockPath } from '../lib/blockNavigation';
 import PageWrapper from '../components/PageWrapper';
 import { Skeleton } from '../components/Skeleton';
 import api from '../api/axios';
 import { useBlock, useUser } from '../context/AppContext';
 import {
-  getDaysInBlock, isWeekend,
+  getDaysInBlock, isWeekend, formatBlockDate,
   toISODate, fmtShort, fmtDay, fmtFull, DAYS_OF_WEEK,
 } from '../lib/blockUtils';
 import ReadinessPanel from '../components/ReadinessPanel';
@@ -1087,7 +1089,7 @@ function Spinner() {
     style={{ borderColor: 'var(--on-brand-track)', borderTopColor: 'var(--on-brand)' }} />;
 }
 
-function BlockSettingsSummary({ settings, blockNum, loading }) {
+function BlockSettingsSummary({ settings, block, loading }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
@@ -1099,7 +1101,7 @@ function BlockSettingsSummary({ settings, blockNum, loading }) {
         {!loading && <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>Med-student cap: {settings.maxCallsMedStudent}</span>}
         {!loading && <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{settings.avoidAcademicDays ? 'Avoid academic days' : 'Academic days allowed'}</span>}
       </div>
-      <Link to={`/blocks/${blockNum}/settings`} style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}>Edit settings</Link>
+      <Link to={blockPath(block, 'settings')} style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}>Edit settings</Link>
     </div>
   );
 }
@@ -1129,7 +1131,7 @@ const CalendarTopBar = memo(function CalendarTopBar({
   const unassigned = days.length - assigned;
   const warnings   = days.filter(d => assignmentMap[toISODate(d)]?.warning).length;
 
-  const fmtRange = (iso) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
+  const fmtRange = (iso) => iso ? formatBlockDate(iso) : null;
 
   const stat = (label, value, color) => (
     <div className="flex flex-col items-center">
@@ -1349,23 +1351,11 @@ const CalendarTopBar = memo(function CalendarTopBar({
 // â”€â”€ main page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function Calendar() {
-  const { blockNumber } = useParams();
+  const shownBlock = useWorkingBlock();
   const { currentProgram, refreshContext, can } = useUser();
-  const { currentBlock, setCurrentBlock, currentAcademicYear } = useBlock();
-
-  const blockNum  = parseInt(blockNumber ?? '1', 10);
+  const { setCurrentBlock } = useBlock();
+  const blockNum = shownBlock?.number ?? 1;
   const programId = currentProgram?.programId ?? null;
-  const routeBlock = blockNumber && currentAcademicYear?.blocks
-    ? currentAcademicYear.blocks.find(b => b.number === blockNum)
-    : null;
-  const shownBlock = routeBlock ?? currentBlock;
-
-  // Sync currentBlock from context when navigating directly to a block URL
-  useEffect(() => {
-    if (routeBlock && routeBlock.id !== currentBlock?.id) {
-      setCurrentBlock(routeBlock);
-    }
-  }, [routeBlock, currentBlock?.id, setCurrentBlock]);
 
   const blockId = shownBlock?.id ?? null;
 
@@ -1439,8 +1429,8 @@ export default function Calendar() {
   }, [blockId, can]);
 
   // Derived from context — persists across tab switches
-  const isPublished = currentBlock?.isPublished ?? false;
-  const publicToken = currentBlock?.publicToken ?? null;
+  const isPublished = shownBlock?.isPublished ?? false;
+  const publicToken = shownBlock?.publicToken ?? null;
 
   useEffect(() => {
     if (!blockId) return;
@@ -1879,7 +1869,7 @@ export default function Calendar() {
           canClearSchedule={can('clear_schedule')}
           canGenerateSchedule={can('generate_schedule')}
           canPublishSchedule={can('publish_schedule')}
-          canValidateSchedule={can('view_draft_schedule')}
+          canValidateSchedule={can('validate_schedule')}
         />
 
         {canGenerate && readiness && !readiness.dismissed && (
@@ -1898,6 +1888,7 @@ export default function Calendar() {
               settings={blockSettings}
               loading={settingsLoading}
               blockNum={blockNum}
+              block={shownBlock}
             />
           </details>
         )}

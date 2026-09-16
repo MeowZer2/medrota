@@ -55,9 +55,9 @@ Canonical program roles are `chief_resident`, `program_admin`, `program_director
 ## Chief Resident workflow
 
 1. **Resident Directory** — maintain program-level identity, classification, optional contact information and training dates. In-service residents are reusable across the program; off-service residents and medical students remain directory records without being copied.
-2. **Open a Block** — immediately review *Residents this block*, then use *Manage block residents* to add reusable rotating residents and confirm availability, vacation, other unavailable days and academic time. Eligible in-service residents appear automatically; off-service residents and medical students are added only to selected blocks.
-3. **Attending Schedule** — build attending coverage from the roster or a weekly template.
-4. **Calendar** — the readiness panel above *Generate* shows how many block residents have confirmed availability, how many vacation periods are entered, and whether attending coverage is complete, with each gap linking to the fix.
+2. **Open a Block** — its Overview identifies the next preparation task. Search *Residents this block* and confirm availability, vacation, unavailable days and academic time directly from a resident's row. Use *Residents & availability* to add reusable rotating residents. Eligible in-service residents appear automatically; off-service residents and medical students are added only to selected blocks.
+3. **Attendings** — use the block workspace navigation to build coverage from the roster or a weekly template without selecting the block again.
+4. **Schedule** — continue within the same workspace. Overview and Calendar reuse the server's readiness check. Counts describe confirmed availability, vacation periods and days with attending entries; an entry does not necessarily mean on-call coverage, and readiness does not guarantee that generation can fill every call.
 5. **Auto-generate**, then adjust individual days. A violating edit needs explicit confirmation and a reason.
 6. **Validate** — every violation says who, what date, what rule, why it matters, what to do about it, and whether it was an intentional override. Unfilled slots list which residents were unavailable and why.
 7. **Publish** — validation runs first; an unreviewed non-compliant schedule is never published silently. Share the public link, or unpublish or rotate it later.
@@ -237,6 +237,10 @@ Deactivating a roster entry, an activity type or a clinical service takes it out
 The canonical roles remain Program Admin, Program Director, Chief Resident, and Viewer. Admins and Directors always resolve to full program-management access, and Viewers always remain read-only. Admins and Directors may configure a bounded canonical set of Chief Resident operational permissions. `manage_scheduling_rules` is included for the future rule builder, but this release does not add that builder.
 
 ## Resident and block model
+
+The block workspace keeps a shared header and navigation across Overview, Residents & availability, Attendings and Schedule. New links include the block's stable ID (`/blocks/2/attending?blockId=...`) so a refresh or link opened in another session identifies the same block across academic years. Existing numbered URLs remain supported in the selected academic year. Invalid or mismatched block links show an error instead of silently opening a different block. Block boundaries are displayed as calendar dates, without a timezone shift.
+
+The workspace distinguishes the editable draft from an existing published snapshot: changes reach the public schedule only after re-publication. This explanation does not imply that a draft/snapshot difference comparison has been implemented. Block rules and workload calculations remain available behind disclosures. See [WORKFLOW_UX_AUDIT.md](WORKFLOW_UX_AUDIT.md) for the pre-implementation audit and [WORKFLOW_UX_RESULTS.md](WORKFLOW_UX_RESULTS.md) for the measured workflow and validation results.
 
 `ResidentProfile` is the durable program directory record; `BlockEnrollment` is participation and availability for one block. Adding someone to a block never creates another person. In-service residents are automatically attached only to blocks overlapping their active training window. Changing dates or deactivating a resident updates safe future automatic participation, while historical enrollments, assignments and published snapshots remain readable and are never silently rewritten.
 

@@ -5,6 +5,8 @@
 // Showing it before Generate turns it into a task to finish.
 
 import { Link } from 'react-router-dom';
+import { blockPath } from '../lib/blockNavigation';
+import { useUser } from '../context/AppContext';
 
 const SEVERITY_STYLE = {
   error: { bg: 'var(--danger-soft)', border: 'var(--danger-border-2)', text: 'var(--danger-ink)', label: 'Needs attention' },
@@ -20,7 +22,8 @@ function Stat({ label, value, tone }) {
   );
 }
 
-export default function ReadinessPanel({ readiness, onDismiss }) {
+export default function ReadinessPanel({ readiness, onDismiss, compact = false }) {
+  const { can } = useUser();
   if (!readiness) return null;
 
   const { residents, vacation, attending, blockers, readyToGenerate } = readiness;
@@ -28,6 +31,7 @@ export default function ReadinessPanel({ readiness, onDismiss }) {
   const warnings = blockers.filter(item => item.severity === 'warning');
   const allGood = blockers.length === 0;
   const residentTotal = residents.inBlockTotal ?? residents.activeServiceTotal;
+  const block = { id: readiness.blockId, number: readiness.blockNumber };
 
   return (
     <section
@@ -47,8 +51,8 @@ export default function ReadinessPanel({ readiness, onDismiss }) {
           </h2>
           <p style={{ fontSize: 12, color: 'var(--ink-4)', marginTop: 2 }}>
             {readyToGenerate
-              ? 'Everything required is in place.'
-              : 'Some setup is still missing, so the generator would skip people.'}
+              ? warnings.length ? 'Resident preparation is complete. Review the coverage warnings below.' : 'Preparation is complete. Generation can still leave calls unfilled; review the result.'
+              : 'Resolve the preparation issues below before generating.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-x-6 gap-y-3">
@@ -63,7 +67,7 @@ export default function ReadinessPanel({ readiness, onDismiss }) {
             tone="var(--brand)"
           />
           <Stat
-            label="days have attending coverage"
+            label="days with attending entries"
             value={`${attending.daysCovered}/${attending.totalDays}`}
             tone={attending.complete ? 'var(--success)' : 'var(--warn-ink)'}
           />
@@ -84,6 +88,8 @@ export default function ReadinessPanel({ readiness, onDismiss }) {
       </div>
 
       {blockers.length > 0 && (
+        <details open={!compact} className="readiness-issues">
+        <summary style={{ padding: '0 20px 14px', color: 'var(--ink-2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{errors.length} preparation issue{errors.length === 1 ? '' : 's'} · {warnings.length} coverage warning{warnings.length === 1 ? '' : 's'}</summary>
         <ul style={{ listStyle: 'none', margin: 0, padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[...errors, ...warnings].map(item => {
             const style = SEVERITY_STYLE[item.severity] ?? SEVERITY_STYLE.warning;
@@ -104,27 +110,30 @@ export default function ReadinessPanel({ readiness, onDismiss }) {
                   <p style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>
                     {residents.missingAvailability.map(r => r.residentName).join(', ')}
                     {' · '}
-                    <Link to={`/blocks/${readiness.blockNumber}/residents`} style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                    {can('manage_block_availability') && <Link to={blockPath(block, 'residents')} style={{ color: 'var(--accent)', fontWeight: 600 }}>
                       Manage block residents
-                    </Link>
+                    </Link>}
                   </p>
                 )}
-                {item.code === 'ATTENDING_COVERAGE_INCOMPLETE' && (
+                {item.code === 'ATTENDING_COVERAGE_INCOMPLETE' && can('manage_attending_schedule') && (
                   <p style={{ fontSize: 12, marginTop: 4 }}>
-                    <Link to="/attending" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                    <Link to={blockPath(block, 'attending')} style={{ color: 'var(--accent)', fontWeight: 600 }}>
                       Open the attending schedule
                     </Link>
                   </p>
                 )}
+                {['NO_SENIOR_AVAILABLE', 'NO_JUNIOR_AVAILABLE', 'UNRESOLVED_RESIDENT_RECORDS'].includes(item.code) && can('manage_block_availability') && <Link to={blockPath(block, 'residents')} style={{ color: 'var(--accent)', fontSize: 12, fontWeight: 600 }}>Review block residents</Link>}
+                {!can('manage_block_availability') && item.severity === 'error' && <p style={{ color: 'var(--ink-3)', fontSize: 12 }}>Ask a Program Admin or a Chief Resident with availability access to resolve this.</p>}
               </li>
             );
           })}
         </ul>
+        </details>
       )}
 
       {allGood && (
         <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--success)', margin: 0, padding: '0 20px 16px' }}>
-          All residents have block availability and attending coverage is complete.
+          All residents have block availability and every day has an attending entry. Review on-call coverage in Attendings.
         </p>
       )}
     </section>

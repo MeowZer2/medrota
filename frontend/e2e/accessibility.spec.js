@@ -77,7 +77,7 @@ test('public and authenticated pages name every control', async ({ page }) => {
   await login(page, 'qa-admin@medrota.local');
   // Every Program Settings section is audited: each one mounts its own controls.
   const settingsSections = ['general', 'clinical', 'attendings', 'scheduling', 'access', 'history'].map(tab => `/settings?tab=${tab}`);
-  for (const path of ['/dashboard', '/calendar', '/residents', '/attending', '/blocks/1/settings', ...settingsSections]) {
+  for (const path of ['/dashboard', '/calendar', '/residents', '/attending', '/blocks/1', '/blocks/1/residents', '/blocks/1/attending', '/blocks/1/calendar', '/blocks/1/settings', ...settingsSections]) {
     await page.goto(path);
     await page.waitForLoadState('networkidle');
     await expectAccessible(page, path);
@@ -93,6 +93,7 @@ test('every dialog is a labelled modal that closes on Escape', async ({ page }) 
     { label: 'clear schedule', path: '/calendar', open: p => p.getByRole('button', { name: 'Clear schedule' }) },
     { label: 'day editor', path: '/calendar', open: p => p.getByRole('button', { name: /^Edit / }).first() },
     { label: 'add resident', path: '/residents', open: p => p.getByRole('button', { name: 'Add Resident', exact: true }) },
+    { label: 'overview availability', path: '/blocks/1', open: p => p.getByRole('button', { name: /^Edit availability for/ }).first() },
     { label: 'clear attending block', path: '/attending', open: p => p.getByRole('button', { name: 'Clear block' }) },
   ];
 

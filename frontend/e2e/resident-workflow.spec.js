@@ -58,7 +58,9 @@ test('Block opens with its roster and eligible in-service residents already pres
   await expect(card).toBeVisible();
   await expect(card).toContainText(DISPLAY_IN_SERVICE);
   await card.getByRole('button', { name: 'Manage block residents' }).click();
-  await expect(page).toHaveURL(/\/blocks\/1\/residents$/);
+  await expect(page).toHaveURL(/\/blocks\/1\/residents\?blockId=/);
+  const selectedBlockId = await page.getByLabel('Workspace block').inputValue();
+  expect(new URL(page.url()).searchParams.get('blockId')).toBe(selectedBlockId);
   await expect(page.getByText(DISPLAY_IN_SERVICE, { exact: true })).toBeVisible();
 });
 

@@ -32,8 +32,8 @@ export function toISODate(date) {
  * startDate and endDate (inclusive). Accepts ISO strings or Date objects.
  */
 export function getDaysFromDates(startDate, endDate) {
-  const start = startDate instanceof Date ? startDate : new Date(startDate);
-  const end   = endDate   instanceof Date ? endDate   : new Date(endDate);
+  const start = blockDate(startDate);
+  const end = blockDate(endDate);
   // Use local date components to avoid UTC-shift issues
   const cur     = new Date(start.getFullYear(), start.getMonth(), start.getDate());
   const endLocal = new Date(end.getFullYear(),  end.getMonth(),   end.getDate());
@@ -43,6 +43,18 @@ export function getDaysFromDates(startDate, endDate) {
     cur.setDate(cur.getDate() + 1);
   }
   return days;
+}
+
+// API block boundaries are calendar dates, not instants. Preserve their date
+// key when converting UTC-midnight strings for display or local day iteration.
+export function blockDate(value) {
+  if (value instanceof Date) return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  const [year, month, day] = String(value).slice(0, 10).split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+export function formatBlockDate(value, options = { day: 'numeric', month: 'short', year: 'numeric' }) {
+  return blockDate(value).toLocaleDateString('en-GB', options);
 }
 
 /** Returns an array of Date objects for every day in a hardcoded block range. */

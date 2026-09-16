@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import Layout from '../components/Layout';
+import { BlockPageFrame as Layout } from '../components/BlockWorkspace';
+import { useWorkingBlock } from '../lib/useWorkingBlock';
 import PageWrapper from '../components/PageWrapper';
 import Modal from '../components/Modal';
 import BlockSelector from '../components/BlockSelector';
@@ -582,22 +583,12 @@ function OnCallSummary({ days, schedule }) {
 
 export default function AttendingSchedule() {
   const { blockNumber } = useParams();
-  const { currentProgram } = useUser();
-  const { currentBlock, setCurrentBlock, currentAcademicYear } = useBlock();
-
-  const blockNum  = blockNumber ? parseInt(blockNumber, 10) : (currentBlock?.number ?? 1);
+  const shownBlock = useWorkingBlock();
+  const { currentProgram, can } = useUser();
+  const { setCurrentBlock, currentAcademicYear } = useBlock();
+  const blockNum = shownBlock?.number ?? 1;
   const programId = currentProgram?.programId ?? null;
-  const routeBlock = blockNumber && currentAcademicYear?.blocks
-    ? currentAcademicYear.blocks.find(b => b.number === blockNum)
-    : null;
-  const shownBlock = routeBlock ?? currentBlock;
-  const blockId   = shownBlock?.id ?? null;
-
-  useEffect(() => {
-    if (routeBlock && routeBlock.id !== currentBlock?.id) {
-      setCurrentBlock(routeBlock);
-    }
-  }, [routeBlock, currentBlock?.id, setCurrentBlock]);
+  const blockId = shownBlock?.id ?? null;
 
   const days = (shownBlock?.startDate && shownBlock?.endDate)
     ? getDaysFromDates(shownBlock.startDate, shownBlock.endDate)
@@ -897,6 +888,8 @@ export default function AttendingSchedule() {
   const allYearBlocks = currentAcademicYear?.blocks ?? [];
   const previousBlock = allYearBlocks.find(b => b.number === blockNum - 1);
 
+  if (!can('manage_attending_schedule')) return <Layout><p>You do not have permission to manage attending coverage. Open the schedule to view published coverage.</p></Layout>;
+
   return (
     <Layout>
       <PageWrapper>
@@ -908,7 +901,7 @@ export default function AttendingSchedule() {
               <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-1)', margin: '0 0 10px' }}>Attending Schedule</h1>
 
               {/* Block selector */}
-              {allYearBlocks.length > 0 && (
+              {!blockNumber && allYearBlocks.length > 0 && (
                 <BlockSelector
                   blocks={allYearBlocks}
                   activeBlockId={blockId}

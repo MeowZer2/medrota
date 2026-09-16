@@ -21,6 +21,10 @@ const PASSWORD = 'QA_only_password_123!';
 test.describe.configure({ mode: 'serial' });
 
 const PAGES = [
+  { label: 'block overview', path: '/blocks/1' },
+  { label: 'block residents', path: '/blocks/1/residents' },
+  { label: 'block attendings', path: '/blocks/1/attending' },
+  { label: 'block schedule', path: '/blocks/1/calendar' },
   { label: 'dashboard', path: '/dashboard' },
   { label: 'calendar', path: '/calendar' },
   { label: 'resident directory', path: '/residents' },

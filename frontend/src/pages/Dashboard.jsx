@@ -1,3 +1,5 @@
+import { blockPath } from '../lib/blockNavigation';
+import { formatBlockDate } from '../lib/blockUtils';
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -11,7 +13,7 @@ import BlockSelector from '../components/BlockSelector';
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(iso) {
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatBlockDate(iso);
 }
 
 function getGreeting() {
@@ -330,15 +332,16 @@ export default function Dashboard() {
               <motion.button
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                 className="px-5 py-2.5 rounded-lg text-sm font-semibold text-on-solid"
+                onClick={() => currentBlock && navigate(blockPath(currentBlock))}
                 style={{ background: 'var(--brand)' }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'var(--brand)'; }}
               >
-                Auto-generate
+                Prepare block
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                onClick={() => currentBlock && navigate(`/blocks/${blockNum}/calendar`)}
+                onClick={() => currentBlock && navigate(blockPath(currentBlock, 'calendar'))}
                 className="px-5 py-2.5 rounded-lg text-sm font-semibold"
                 style={{ background: 'var(--surface-1)', color: 'var(--accent)', border: '1px solid var(--accent-border-3)' }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft)'; e.currentTarget.style.borderColor = 'var(--accent)'; }}
