@@ -10,9 +10,48 @@ const { hasPermission } = require('../lib/roles');
 const { validateSchedule } = require('../services/scheduleValidator');
 const { recordAuditEvent, recordAuditEventTx } = require('../services/auditLog');
 const { buildResidentDisplayNames } = require('../services/residentDisplayName');
+const { publicationState } = require('../services/publicationStatus');
 
 const router = express.Router();
 router.use(auth);
+
+// The latest public version remains immutable. Compute draft status on demand
+// from its public content, so every edit path reports the same answer.
+router.get('/publication-status', async (req, res) => {
+  const { blockId } = req.query;
+  if (!blockId) return res.status(400).json({ error: 'blockId required' });
+  try {
+    const membership = await requireBlockPermission(req, res, blockId, 'view_draft_schedule');
+    if (!membership) return;
+    const block = await prisma.block.findUnique({
+      where: { id: blockId },
+      include: {
+        academicYear: { include: { program: { select: { name: true, specialty: true } }, holidays: true } },
+        enrollments: { include: { resident: { select: { id: true, name: true } } } },
+        attendingEntries: true,
+        callDays: { include: { assignments: { include: { resident: { select: { id: true, name: true } } } } } },
+      },
+    });
+    if (!block) return res.status(404).json({ error: 'Block not found' });
+    const latest = await prisma.scheduleVersion.findFirst({ where: { blockId }, orderBy: { publishedAt: 'desc' }, select: { id: true, publishedAt: true, snapshotJson: true } });
+    const displayNames = buildResidentDisplayNames(block.enrollments.map(item => item.resident));
+    const live = {
+      block: {
+        number: block.number, startDate: block.startDate, endDate: block.endDate,
+        programName: block.academicYear.program.name, specialty: block.academicYear.program.specialty,
+        holidays: block.academicYear.holidays,
+      },
+      attendingEntries: block.attendingEntries,
+      callDays: block.callDays.map(day => ({ ...day, assignments: day.assignments.map(item => ({
+        ...item, resident: { ...item.resident, name: displayNames.get(item.residentId) ?? item.resident.name },
+      })) })),
+    };
+    res.json({ state: publicationState(block, latest?.snapshotJson, live), publishedAt: latest?.publishedAt ?? null, versionId: latest?.id ?? null });
+  } catch (err) {
+    console.error('[schedule/publication-status] Error:', err.message);
+    res.status(500).json({ error: 'Failed to check publication status' });
+  }
+});
 
 // POST /api/schedule/generate â€” clear + regenerate all assignments for a block
 router.post('/generate', async (req, res) => {

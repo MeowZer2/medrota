@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const prisma = require('../lib/prisma');
 const { ROLES } = require('../lib/roles');
 const { E2E_PREFIX, pruneE2ERegistryRecords } = require('./lib/qaRegistry');
+const { buildResidentDisplayNames } = require('../services/residentDisplayName');
 
 const PASSWORD = 'QA_only_password_123!';
 const ORG_NAME = 'MedRota QA';
@@ -195,10 +196,14 @@ async function upsertResident(programId, resident) {
 }
 
 async function upsertEnrollment(blockId, residentId) {
+  const baseline = {
+    vacationDates: [], otherUnavailableDates: [], academicTimes: null,
+    academicDayPref: null, availabilityConfirmed: true, callCapOverride: null,
+  };
   return prisma.blockEnrollment.upsert({
     where: { blockId_residentId: { blockId, residentId } },
-    update: { vacationDates: [] },
-    create: { blockId, residentId, vacationDates: [] },
+    update: baseline,
+    create: { blockId, residentId, ...baseline },
   });
 }
 
@@ -292,6 +297,7 @@ async function resetPublishedSchedule(blockId, publishedBy) {
         },
       },
       attendingEntries: true,
+      enrollments: { include: { resident: { select: { id: true, name: true } } } },
       callDays: {
         orderBy: { date: 'asc' },
         include: {
@@ -304,6 +310,7 @@ async function resetPublishedSchedule(blockId, publishedBy) {
   });
   if (!block) throw new Error('QA block disappeared before publication');
 
+  const displayNames = buildResidentDisplayNames(block.enrollments.map(item => item.resident));
   const snapshotJson = {
     block: {
       id: block.id,
@@ -315,7 +322,9 @@ async function resetPublishedSchedule(blockId, publishedBy) {
       holidays: block.academicYear.holidays,
     },
     attendingEntries: block.attendingEntries,
-    callDays: block.callDays,
+    callDays: block.callDays.map(day => ({ ...day, assignments: day.assignments.map(item => ({
+      ...item, resident: { ...item.resident, name: displayNames.get(item.residentId) ?? item.resident.name },
+    })) })),
   };
 
   await prisma.$transaction(async tx => {

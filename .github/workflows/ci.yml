@@ -90,6 +90,7 @@ jobs:
           npm run settings:save-smoke
           npm run qa:isolation-smoke
           npm run publish:safety-smoke
+          npm run publish:status-smoke
           npm run publish:revocation-smoke
           npm run audit:smoke
           npm run deploy:smoke
