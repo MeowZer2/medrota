@@ -270,6 +270,7 @@ test('program admin can persist program call-type settings', async ({ page }) =>
   await juniorToggle.setChecked(false);
   await seniorToggle.setChecked(true);
   await page.getByRole('button', { name: 'Save call configuration' }).click();
+  await expect(page.getByText('Call configuration saved')).toBeVisible();
   await expect(juniorToggle).not.toBeChecked();
   await expect(seniorToggle).toBeChecked();
 

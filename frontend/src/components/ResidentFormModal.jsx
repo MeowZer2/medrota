@@ -17,9 +17,11 @@ function initialForm(resident) {
   };
 }
 
-export default function ResidentFormModal({ programId, blockId = null, resident = null, onClose, onSaved }) {
+export default function ResidentFormModal({ programId, blockId = null, resident = null, existingResidents = [], onUseExisting, onClose, onSaved }) {
   const [form, setForm] = useState(() => initialForm(resident));
   const [saving, setSaving] = useState(false);
+  const [allowDuplicate, setAllowDuplicate] = useState(false);
+  const matches = resident ? [] : existingResidents.filter(item => item.name.trim().toLocaleLowerCase() === form.name.trim().toLocaleLowerCase());
   const set = (field, value) => setForm(current => ({ ...current, [field]: value }));
   const inService = form.classification === 'in_service';
   const medicalStudent = form.classification === 'medical_student';
@@ -36,6 +38,7 @@ export default function ResidentFormModal({ programId, blockId = null, resident 
   const save = async event => {
     event.preventDefault();
     if (!form.name.trim()) return toast.error('Name is required');
+    if (matches.length && !allowDuplicate) return toast.error('Review the existing resident before creating another record.');
     if (inService && !form.programStartDate && !form.pgyLevel) return toast.error('Add a program start date or manual PGY');
     setSaving(true);
     try {
@@ -68,6 +71,7 @@ export default function ResidentFormModal({ programId, blockId = null, resident 
     )}>
       <form id="resident-directory-form" onSubmit={save} style={{ display: 'grid', gap: 14 }}>
         <div><label htmlFor="resident-name" style={labelStyle}>Name</label><input id="resident-name" value={form.name} onChange={event => set('name', event.target.value)} style={inputStyle} required /></div>
+        {matches.length > 0 && <div style={{ padding: 10, borderRadius: 9, background: 'var(--warn-soft)', color: 'var(--warn-ink-strong)', fontSize: 12 }}><strong>Resident already in the directory</strong>{matches.map(item => <div key={item.id} style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 7 }}><span>{item.displayName || item.name} · {item.homeProgram || (item.isServiceResident ? 'In-service' : 'Off-service')}</span>{onUseExisting && <button type="button" className="secondary-btn" onClick={() => onUseExisting(item)}>Use existing</button>}</div>)}<label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}><input type="checkbox" checked={allowDuplicate} onChange={event => setAllowDuplicate(event.target.checked)} />Create a separate person with the same name</label></div>}
         <div><label htmlFor="resident-classification" style={labelStyle}>Service classification</label><select id="resident-classification" value={form.classification} onChange={event => changeClassification(event.target.value)} style={inputStyle}><option value="in_service">In-service resident</option><option value="off_service">Off-service resident</option><option value="medical_student">Medical Student</option></select></div>
         {inService ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 }}>

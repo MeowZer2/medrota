@@ -84,6 +84,6 @@ export default function BlockPage() {
       {filtered.length === 0 && <p className="workspace-empty">{inBlock.length ? 'No residents match your search.' : 'No residents are participating yet. Add residents to prepare this block.'}</p>}
     </section>
     {can('manage_block_settings') && <details className="workspace-card workspace-advanced"><summary>Advanced block rules</summary><p>Review call limits and academic-day preferences when this block needs different rules.</p><button className="secondary-btn" onClick={() => navigate(blockPath(block, 'settings'))}>Block settings</button></details>}
-    {editing && <BlockResidentAvailabilityModal resident={editing} blockId={block.id} onClose={() => setEditing(null)} onSaved={load} />}
+    {editing && <BlockResidentAvailabilityModal resident={editing} blockId={block.id} blockStart={String(block.startDate).slice(0, 10)} blockEnd={String(block.endDate).slice(0, 10)} onClose={() => setEditing(null)} onSaved={load} />}
   </Layout>;
 }

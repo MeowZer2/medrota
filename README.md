@@ -54,13 +54,14 @@ Canonical program roles are `chief_resident`, `program_admin`, `program_director
 
 ## Chief Resident workflow
 
-1. **Resident Directory** — maintain program-level identity, classification, optional contact information and training dates. In-service residents are reusable across the program; off-service residents and medical students remain directory records without being copied.
-2. **Open a Block** — its Overview identifies the next preparation task. Search *Residents this block* and confirm availability, vacation, unavailable days and academic time directly from a resident's row. Use *Residents & availability* to add reusable rotating residents. Eligible in-service residents appear automatically; off-service residents and medical students are added only to selected blocks.
-3. **Attendings** — use the block workspace navigation to build coverage from the roster or a weekly template without selecting the block again.
-4. **Schedule** — continue within the same workspace. Overview and Calendar reuse the server's readiness check. Counts describe confirmed availability, vacation periods and days with attending entries; an entry does not necessarily mean on-call coverage, and readiness does not guarantee that generation can fill every call.
+1. **Dashboard** — see current or upcoming preparation tasks and older blocks with unpublished schedule changes. Each issue links to the relevant block section.
+2. **Resident Directory** — search reusable program-level identities by name, PGY, role, service or status. Reuse an existing rotating resident when adding them to a block. In-service residents participate automatically when eligible; off-service residents and medical students are enrolled explicitly.
+3. **Open a Block** — its Overview identifies the next preparation task. Confirm availability, vacation, unavailable days and academic time directly from a resident's row. Vacation and other unavailable dates accept inclusive ranges; the editor still stores individual date-only values and requires confirmation.
+4. **Attendings** — maintain the reusable roster, contacts, activities and weekly pattern at program scope. Use the block workspace to apply the pattern or edit daily entries for this block. An attending entry counts toward preparation coverage; only an entry marked call day counts toward on-call coverage.
+5. **Schedule** — continue within the same workspace. Overview and Calendar reuse the server's readiness check. Readiness does not guarantee that generation can fill every call.
 5. **Auto-generate**, then adjust individual days. A violating edit needs explicit confirmation and a reason.
 6. **Validate** — every violation says who, what date, what rule, why it matters, what to do about it, and whether it was an intentional override. Unfilled slots list which residents were unavailable and why.
-7. **Publish** — validation runs first; an unreviewed non-compliant schedule is never published silently. Share the public link, or unpublish or rotate it later.
+7. **Publish and amend** — validation runs first; an unreviewed non-compliant schedule is never published silently. For a later absence, open the assigned calendar day, edit that resident's availability, return to the same date, repair the assignment, validate and re-publish. The workspace and Schedule show when the working draft differs from the public snapshot. Share the public link, or unpublish or rotate it later.
 
 ## Scheduling behavior
 
@@ -84,6 +85,8 @@ Publishing creates an immutable `ScheduleVersion` snapshot and a random public t
 Publishing validates the stored schedule first. Documented manual overrides are intentional exceptions and never block; any other violation stops the publish and is shown, and an authorized user can then publish with an explicit acknowledgement.
 
 A published schedule can be **unpublished**, which stops the public link resolving while keeping version history and the draft untouched, or given a **new public link**, which invalidates the previous one. Both are confirmed and audited.
+
+`GET /api/schedule/publication-status?blockId=...` compares the public schedule content in the latest immutable snapshot with the current draft. It reports never published, published/current, changes not published, or unpublished. Assignment, attending, holiday and public block text changes affect the result; availability alone does not alter the public snapshot until an assignment or other public content changes. Database row IDs, timestamps and private contact metadata do not create false unpublished-change warnings. The endpoint requires draft-view permission.
 
 ## Theming
 
@@ -189,6 +192,7 @@ npm run data:integrity-smoke
 npm run availability:smoke
 npm run resident:workflow-smoke
 npm run publish:safety-smoke
+npm run publish:status-smoke
 npm run publish:revocation-smoke
 npm run audit:smoke
 npm run deploy:smoke
@@ -240,7 +244,7 @@ The canonical roles remain Program Admin, Program Director, Chief Resident, and 
 
 The block workspace keeps a shared header and navigation across Overview, Residents & availability, Attendings and Schedule. New links include the block's stable ID (`/blocks/2/attending?blockId=...`) so a refresh or link opened in another session identifies the same block across academic years. Existing numbered URLs remain supported in the selected academic year. Invalid or mismatched block links show an error instead of silently opening a different block. Block boundaries are displayed as calendar dates, without a timezone shift.
 
-The workspace distinguishes the editable draft from an existing published snapshot: changes reach the public schedule only after re-publication. This explanation does not imply that a draft/snapshot difference comparison has been implemented. Block rules and workload calculations remain available behind disclosures. See [WORKFLOW_UX_AUDIT.md](WORKFLOW_UX_AUDIT.md) for the pre-implementation audit and [WORKFLOW_UX_RESULTS.md](WORKFLOW_UX_RESULTS.md) for the measured workflow and validation results.
+The workspace distinguishes the editable draft from an existing published snapshot and detects public-content differences. Changes reach the public schedule only after re-publication. The Schedule day is encoded as `?date=YYYY-MM-DD`, so refreshing or moving between workspace sections preserves the affected date. Block rules and workload calculations remain available behind disclosures. See [WORKFLOW_UX_AUDIT.md](WORKFLOW_UX_AUDIT.md) for the earlier audit, [WORKFLOW_UX_RESULTS.md](WORKFLOW_UX_RESULTS.md) for the previous release, and [WORKFLOW_CONVERGENCE_RESULTS.md](WORKFLOW_CONVERGENCE_RESULTS.md) for this release.
 
 `ResidentProfile` is the durable program directory record; `BlockEnrollment` is participation and availability for one block. Adding someone to a block never creates another person. In-service residents are automatically attached only to blocks overlapping their active training window. Changing dates or deactivating a resident updates safe future automatic participation, while historical enrollments, assignments and published snapshots remain readable and are never silently rewritten.
 

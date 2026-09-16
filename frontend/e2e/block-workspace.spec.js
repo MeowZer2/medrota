@@ -191,7 +191,8 @@ test('switching blocks replaces local edits and preserves publication context th
   await expect(page.getByText('No residents match your search.')).toBeVisible();
   await page.getByLabel('Workspace block').selectOption(first.id);
   await expect(page.getByLabel('Find a resident')).toHaveValue('');
-  await expect(page.getByTestId('workspace-publication')).toContainText('A published snapshot is live');
+  const publication = await api(page, `/schedule/publication-status?blockId=${first.id}`);
+  await expect(page.getByTestId('workspace-publication')).toContainText(publication.state === 'current' ? 'Working schedule matches the public version' : 'Changes not published');
   await expect(page.getByLabel('Workspace block')).toHaveValue(first.id);
   await page.getByRole('navigation', { name: 'Block workspace' }).getByRole('link', { name: 'Schedule', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Block 1 Calendar' })).toBeVisible();
@@ -199,7 +200,7 @@ test('switching blocks replaces local edits and preserves publication context th
   await expect(page.getByRole('heading', { name: 'Block overview' })).toBeVisible();
   await page.goBack();
   await expect(page.getByLabel('Workspace block')).toHaveValue(second.id);
-  await expect(page.getByTestId('workspace-publication')).toContainText('No published schedule yet');
+  await expect(page.getByTestId('workspace-publication')).toContainText('No public schedule yet');
 });
 
 test('limited Chief permissions do not expose availability or attending mutations', async ({ page }) => {

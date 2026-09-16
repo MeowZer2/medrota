@@ -17,7 +17,7 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
-  webServer: [
+  webServer: process.env.PLAYWRIGHT_REUSE_SERVERS ? [] : [
     {
       command: 'cd ../backend && node scripts/dev-seed-qa.js && node index.js',
       url: 'http://127.0.0.1:3000/api/health',

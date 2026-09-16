@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { BlockPageFrame as Layout } from '../components/BlockWorkspace';
@@ -9,6 +9,7 @@ import Modal from '../components/Modal';
 import BlockSelector from '../components/BlockSelector';
 import api from '../api/axios';
 import { useBlock, useUser } from '../context/AppContext';
+import { notifyScheduleChanged } from '../lib/usePublicationStatus';
 import {
   getDaysFromDates, getDaysInBlock, isWeekend,
   toISODate, fmtShort, fmtDay, DAYS_OF_WEEK,
@@ -28,8 +29,9 @@ const label10 = { display: 'block', fontSize: 10, fontWeight: 500, color: 'var(-
 
 function SaveDot({ status }) {
   if (!status) return null;
-  const colors = { saving: 'var(--warn)', saved: 'var(--success)', error: 'var(--danger)' };
-  return <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors[status], display: 'inline-block', flexShrink: 0 }} />;
+  const labels = { saving: 'Saving…', saved: 'Saved', error: 'Save failed' };
+  const colors = { saving: 'var(--warn-ink-strong)', saved: 'var(--success-ink-strong)', error: 'var(--danger)' };
+  return <span role="status" aria-live="polite" style={{ color: colors[status], fontSize: 10, fontWeight: 700, display: 'block' }}>{labels[status]}</span>;
 }
 
 // ── DayActivityInput — small input/select for the template grid ───────────────
@@ -108,7 +110,7 @@ function AttendingTemplateRow({ attending, activities, template, onUpdateTemplat
               onChange={val => handleChange(di, val)}
             />
             {dotStatus[di] && (
-              <span style={{ position: 'absolute', top: -3, right: -3 }}>
+              <span>
                 <SaveDot status={dotStatus[di]} />
               </span>
             )}
@@ -637,6 +639,7 @@ export default function AttendingSchedule() {
       map[iso].push({ id: e.id, attendingName: e.attendingName, activityLabel: e.activityLabel ?? '', isCallDay: e.isCallDay ?? false });
     }
     setSchedule(map);
+    notifyScheduleChanged(blockId);
   }, [blockId]);
 
   useEffect(() => {
@@ -775,6 +778,7 @@ export default function AttendingSchedule() {
         ),
       }));
     }
+    notifyScheduleChanged(blockId);
   }, [blockId]);
 
   const handleDeleteEntry = useCallback(async (iso, entryIdx) => {
@@ -786,7 +790,8 @@ export default function AttendingSchedule() {
       ...prev,
       [iso]: (prev[iso] ?? []).filter((_, i) => i !== entryIdx),
     }));
-  }, []);
+    notifyScheduleChanged(blockId);
+  }, [blockId]);
 
   // ── Reset a single day to template ────────────────────────────────────────
 
@@ -810,6 +815,7 @@ export default function AttendingSchedule() {
       }
     }
     setSchedule(prev => ({ ...prev, [iso]: newEntries }));
+    notifyScheduleChanged(blockId);
   }, [blockId, roster, template]);
 
   const handleCopyPreviousBlock = async () => {
@@ -898,7 +904,9 @@ export default function AttendingSchedule() {
           {/* Page header */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-1)', margin: '0 0 10px' }}>Attending Schedule</h1>
+              <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-1)', margin: '0 0 10px' }}>Block attending coverage</h1>
+              <p style={{ fontSize: 13, color: 'var(--ink-4)', lineHeight: 1.5, marginBottom: 8 }}>Daily entries below change this block. The weekly pattern is reusable across blocks; applying it fills block dates. An entry counts toward preparation coverage, while only entries marked as call day count as on-call coverage.</p>
+              {can('manage_attending_roster') && <Link to="/settings?tab=attendings" style={{ color: 'var(--accent)', fontSize: 13, fontWeight: 700 }}>Manage attending contacts and activities</Link>}
 
               {/* Block selector */}
               {!blockNumber && allYearBlocks.length > 0 && (
@@ -929,6 +937,9 @@ export default function AttendingSchedule() {
                 {copying ? 'Copying...' : 'Copy previous block'}
               </motion.button>
 
+              <details style={{ position: 'relative' }}>
+                <summary className="secondary-btn" style={{ cursor: 'pointer', listStyle: 'none', padding: '9px 14px' }}>More actions</summary>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
               {/* Clear block */}
               <motion.button
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
@@ -962,6 +973,8 @@ export default function AttendingSchedule() {
               </motion.button>
 
               {/* Apply template button + scope chooser */}
+                </div>
+              </details>
               <div style={{ position: 'relative', minWidth: 0 }}>
               <motion.button
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
@@ -1017,6 +1030,8 @@ export default function AttendingSchedule() {
             onRemoveAttending={handleRemoveAttending}
             onUpdateTemplate={handleUpdateTemplate}
           />
+
+          <h2 style={{ color: 'var(--ink-1)', fontSize: 16, margin: '20px 0 10px' }}>Dates in this block</h2>
 
           {/* Section 2 — Day-by-day accordion */}
           {loading ? (

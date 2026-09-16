@@ -70,8 +70,10 @@ test('public and authenticated pages name every control', async ({ page }) => {
   test.setTimeout(120_000);
 
   await page.goto('/login');
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
   await expectAccessible(page, 'login');
   await page.goto('/register');
+  await expect(page.getByRole('button', { name: 'Register' })).toBeVisible();
   await expectAccessible(page, 'register');
 
   await login(page, 'qa-admin@medrota.local');
@@ -94,13 +96,13 @@ test('every dialog is a labelled modal that closes on Escape', async ({ page }) 
     { label: 'day editor', path: '/calendar', open: p => p.getByRole('button', { name: /^Edit / }).first() },
     { label: 'add resident', path: '/residents', open: p => p.getByRole('button', { name: 'Add Resident', exact: true }) },
     { label: 'overview availability', path: '/blocks/1', open: p => p.getByRole('button', { name: /^Edit availability for/ }).first() },
-    { label: 'clear attending block', path: '/attending', open: p => p.getByRole('button', { name: 'Clear block' }) },
+    { label: 'clear attending block', path: '/attending', open: async p => { await p.getByText('More actions').click(); return p.getByRole('button', { name: 'Clear block' }); } },
   ];
 
   for (const item of cases) {
     await page.goto(item.path);
     await page.waitForLoadState('networkidle');
-    const trigger = item.open(page);
+    const trigger = await item.open(page);
     await trigger.click();
 
     const dialog = page.getByRole('dialog');

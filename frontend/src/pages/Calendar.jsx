@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { BlockPageFrame as Layout } from '../components/BlockWorkspace';
@@ -17,6 +17,8 @@ import ReadinessPanel from '../components/ReadinessPanel';
 import Modal, { useDialogA11y } from '../components/Modal';
 import { ViolationCard, UnfilledSlotCard } from '../components/ViolationList';
 import AuditHistory from '../components/AuditHistory';
+import BlockResidentAvailabilityModal from '../components/BlockResidentAvailabilityModal';
+import { notifyScheduleChanged, usePublicationStatus } from '../lib/usePublicationStatus';
 
 // â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -571,7 +573,7 @@ function FlagSection({ day, blockId, flag, onFlagChange }) {
 
 // â”€â”€ DayModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-function DayModal({ isOpen, day, attendings, residents, roster, assignment, blockId, flag, onSave, onClose, onAttendingChange, onFlagChange, saving }) {
+function DayModal({ isOpen, day, attendings, residents, roster, assignment, blockId, flag, onSave, onClose, onAttendingChange, onFlagChange, onEditAvailability, dayViolations, canAssign, canEditAttending, saving }) {
   const [visible, setVisible] = useState(false);
   const [seniorId, setSeniorId] = useState('');
   const [juniorId, setJuniorId] = useState('');
@@ -611,6 +613,10 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
   const assignedJuniorMissing = assignment?.juniorId && !juniors.some(r => r.id === assignment.juniorId);
 
   const dayKey = toISODate(day);
+  const assignedResidents = [assignment?.seniorId, assignment?.juniorId].filter(Boolean).map(id => residents.find(item => item.id === id)).filter(Boolean);
+  const availabilityConflict = assignedResidents.filter(item =>
+    [...(item.vacationDates ?? []), ...(item.otherUnavailableDates ?? [])].some(date => normalizeDateKey(date) === dayKey)
+  );
   const warning = seniorId && juniorId && seniorId === juniorId
     ? 'The same resident cannot be assigned as both senior and junior on the same call day.'
     : null;
@@ -653,15 +659,28 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
           </button>
         </div>
 
-        <AttendingSection
+        {canEditAttending && <AttendingSection
           day={day}
           blockId={blockId}
           roster={roster ?? []}
           initialEntries={attendings ?? []}
           onChange={onAttendingChange}
-        />
+        />}
 
-        <div className="px-5 py-4 space-y-4">
+        {onEditAvailability && assignedResidents.length > 0 && <div className="px-5 py-3" style={{ borderBottom: '1px solid var(--border-1)' }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', marginBottom: 8 }}>Assigned resident availability</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>{assignedResidents.map(item =>
+            <button key={item.id} type="button" onClick={() => onEditAvailability(item)} style={{ ...miniInput, width: 'auto', cursor: 'pointer' }}>Edit {item.name} availability</button>
+          )}</div>
+        </div>}
+
+        {(availabilityConflict.length > 0 || dayViolations.length > 0) && <div role="alert" className="px-5 py-3" style={{ background: 'var(--warn-soft)', color: 'var(--warn-ink-strong)' }}>
+          <strong>Assignment needs review</strong>
+          <p style={{ fontSize: 12, marginTop: 4 }}>Availability changed. The assignment remains until you repair it or document an intentional override.</p>
+          {dayViolations.slice(0, 3).map((item, index) => <p key={`${item.code}-${index}`} style={{ fontSize: 12, marginTop: 4 }}>{item.message}</p>)}
+        </div>}
+
+        {canAssign && <div className="px-5 py-4 space-y-4">
           <div>
             <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--ink-4)', marginBottom: 4 }}>Senior resident</label>
             <select key={`senior-${dayKey}`} name="seniorId" className={modalSelectClass} value={seniorId} onChange={event => setSeniorId(event.target.value)}>
@@ -687,27 +706,27 @@ function DayModal({ isOpen, day, attendings, residents, roster, assignment, bloc
               <span style={{ fontSize: 12, color: 'var(--danger)' }}>Warning: {warning}</span>
             </div>
           )}
-        </div>
+        </div>}
 
-        <FlagSection
+        {canAssign && <FlagSection
           day={day}
           blockId={blockId}
           flag={flag}
           onFlagChange={onFlagChange}
-        />
+        />}
 
         <div className="flex gap-2 px-5 pb-5">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-sm font-medium"
             style={{ border: '1px solid var(--border-1)', color: 'var(--ink-4)', background: 'var(--surface-2)', cursor: 'pointer' }}
             onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-soft-2)'}
             onMouseLeave={e => e.currentTarget.style.background = 'var(--surface-2)'}>Cancel</button>
-          <button
+          {canAssign && <button
             onClick={handleSave}
             disabled={Boolean(warning) || saving}
             className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-on-solid"
             style={{ background: 'var(--brand)', cursor: warning || saving ? 'not-allowed' : 'pointer', opacity: warning || saving ? 0.6 : 1, border: 'none' }}
             onMouseEnter={e => e.currentTarget.style.background = 'var(--accent)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'var(--brand)'}>{saving ? 'Saving...' : 'Save'}</button>
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--brand)'}>{saving ? 'Saving...' : 'Save'}</button>}
         </div>
       </div>
     </div>
@@ -805,7 +824,7 @@ function ValidationModal({ result, onClose, onEditDate }) {
 
   return (
     <Modal
-      title={result?.compliant ? 'Schedule is compliant' : 'Schedule needs attention'}
+      title={result?.compliant ? 'No scheduling rule violations' : 'Schedule needs attention'}
       description={
         `${outstanding.length} outstanding violation${outstanding.length === 1 ? '' : 's'}, ` +
         `${documented.length} documented override${documented.length === 1 ? '' : 's'}, ` +
@@ -982,6 +1001,16 @@ function PublishConfirmModal({ onConfirm, onClose, publishing }) {
   );
 }
 
+function PublishBlockedModal({ violations, onAcknowledge, onClose, onEditDate, publishing }) {
+  return <Modal title="Review rule violations before publishing" description={`${violations.length} outstanding scheduling rule issue${violations.length === 1 ? '' : 's'}`} onClose={onClose} maxWidth="max-w-2xl" footer={<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+    <button type="button" className="secondary-btn" onClick={onClose}>Return to schedule</button>
+    <button type="button" className="primary-btn" onClick={onAcknowledge} disabled={publishing}>{publishing ? 'Publishing…' : 'Acknowledge issues and publish'}</button>
+  </div>}>
+    <p style={{ fontSize: 13, color: 'var(--ink-3)', marginBottom: 12 }}>The current draft has rule violations that are not documented overrides. Review each issue. Acknowledging them publishes this version without changing the rules or assignments.</p>
+    <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: 8 }}>{violations.map((item, index) => <ViolationCard key={`${item.code}-${item.date}-${index}`} item={item} onEditDate={onEditDate} />)}</ul>
+  </Modal>;
+}
+
 // â”€â”€ ClearConfirmModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ClearConfirmModal({ blockNum, onConfirm, onClose, clearing }) {
@@ -1115,7 +1144,7 @@ const CalendarTopBar = memo(function CalendarTopBar({
   onAutoGenerate, generating,
   onClearSchedule, clearingSchedule,
   onPublish, publishPulsing,
-  isPublished, publicToken,
+  isPublished, publicationState, publicToken,
   publicUrl,
   onCopyLink,
   onUnpublish,
@@ -1163,11 +1192,11 @@ const CalendarTopBar = memo(function CalendarTopBar({
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 4,
             padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700,
-            background: isPublished ? 'var(--success-soft-2)' : 'var(--surface-3)',
-            color: isPublished ? 'var(--success-ink)' : 'var(--ink-5)',
+            background: publicationState === 'changes_unpublished' ? 'var(--warn-soft)' : isPublished ? 'var(--success-soft-2)' : 'var(--surface-3)',
+            color: publicationState === 'changes_unpublished' ? 'var(--warn-ink-strong)' : isPublished ? 'var(--success-ink)' : 'var(--ink-5)',
           }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: isPublished ? 'var(--success)' : 'var(--border-strong)', display: 'inline-block' }} />
-            {isPublished ? 'Published' : 'Draft'}
+            {publicationState === 'changes_unpublished' ? 'Changes not published' : isPublished ? 'Published' : 'Draft'}
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1356,12 +1385,22 @@ const CalendarTopBar = memo(function CalendarTopBar({
 
 export default function Calendar() {
   const shownBlock = useWorkingBlock();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { currentProgram, refreshContext, can } = useUser();
   const { setCurrentBlock } = useBlock();
   const blockNum = shownBlock?.number ?? 1;
   const programId = currentProgram?.programId ?? null;
 
   const blockId = shownBlock?.id ?? null;
+  const selectedDateKey = searchParams.get('date');
+  const setSelectedDateKey = useCallback(dateKey => {
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      if (dateKey) next.set('date', dateKey); else next.delete('date');
+      return next;
+    }, { replace: !dateKey });
+  }, [setSearchParams]);
+  const { status: publicationStatus } = usePublicationStatus(blockId, can('view_draft_schedule'));
 
   const days = useMemo(() => {
     if (shownBlock?.startDate && shownBlock?.endDate) {
@@ -1376,7 +1415,9 @@ export default function Calendar() {
   const [roster, setRoster]                     = useState([]);
   const [flags, setFlags]                       = useState([]);
   const [holidays, setHolidays]                 = useState([]);
-  const [selectedDateKey, setSelectedDateKey]   = useState(null);
+  const [dayOpen, setDayOpen]                   = useState(Boolean(selectedDateKey));
+  const [availabilityResident, setAvailabilityResident] = useState(null);
+  const [dayViolations, setDayViolations] = useState([]);
   const [loadingData, setLoadingData]           = useState(false);
   const [generating, setGenerating]             = useState(false);
   const [readiness, setReadiness]               = useState(null);
@@ -1402,9 +1443,13 @@ export default function Calendar() {
   const [overrideSaving, setOverrideSaving]         = useState(false);
   const latestBlockIdRef = useRef(blockId);
   const canEditResidents = can('edit_residents');
+  const canManageAvailability = can('manage_block_availability');
   const canEditAttending = can('edit_attendings');
-  const canEditSchedule = can('manual_assign_calls') || canEditAttending;
+  const canAssign = can('manual_assign_calls');
+  const canEditSchedule = canAssign || canEditAttending || canManageAvailability;
   const canGenerate = can('generate_schedule');
+
+  useEffect(() => { setDayOpen(Boolean(selectedDateKey)); }, [selectedDateKey]);
 
   useEffect(() => {
     latestBlockIdRef.current = blockId;
@@ -1449,7 +1494,7 @@ export default function Calendar() {
         const [att, asgn, res, ros, fl, hol, ready] = await Promise.all([
           api.get(`/attending?blockId=${currentBlockId}`, { signal }),
           api.get(`/assignments?blockId=${currentBlockId}`, { signal }),
-          programId && canEditResidents ? api.get(`/residents?programId=${programId}&blockId=${currentBlockId}`, { signal }) : Promise.resolve({ data: [] }),
+          programId && (canEditResidents || canManageAvailability || canAssign) ? api.get(`/residents?programId=${programId}&blockId=${currentBlockId}`, { signal }) : Promise.resolve({ data: [] }),
           programId && canEditAttending ? api.get(`/attending/roster?programId=${programId}`, { signal }) : Promise.resolve({ data: [] }),
           api.get(`/flags?blockId=${currentBlockId}`, { signal }),
           api.get(`/blocks/${currentBlockId}/holidays`, { signal }),
@@ -1480,7 +1525,7 @@ export default function Calendar() {
       cancelled = true;
       controller.abort();
     };
-  }, [blockId, canEditAttending, canEditResidents, canGenerate, programId]);
+  }, [blockId, canEditAttending, canEditResidents, canManageAvailability, canAssign, canGenerate, programId]);
 
   const attendingMap = useMemo(() => {
     const map = {};
@@ -1529,18 +1574,31 @@ export default function Calendar() {
   const handleDayClick = useCallback((dayData) => {
     if (!canEditSchedule) return;
     setSelectedDateKey(dayData.dateKey);
-  }, [canEditSchedule]);
+    setDayOpen(true);
+    setDayViolations([]);
+  }, [canEditSchedule, setSelectedDateKey]);
 
   const closeDayModal = useCallback(() => {
-    setSelectedDateKey(null);
+    setDayOpen(false);
+    setDayViolations([]);
   }, []);
+
+  const handleAvailabilitySaved = useCallback(async () => {
+    const [residentResponse, validationResponse] = await Promise.all([
+      api.get(`/residents?programId=${programId}&blockId=${blockId}`),
+      can('validate_schedule') ? api.get(`/schedule/validate?blockId=${blockId}`) : Promise.resolve({ data: { violations: [] } }),
+    ]);
+    setResidents(residentResponse.data.filter(item => item.isEnrolledThisBlock).map(item => ({ ...item, name: item.displayName || item.name })));
+    setDayViolations((validationResponse.data.violations ?? []).filter(item => item.date === selectedDateKey));
+  }, [blockId, programId, selectedDateKey, can]);
 
   const handleAttendingChange = useCallback((iso, updatedEntries) => {
     setAttendingEntries(prev => [
       ...prev.filter(e => normalizeDateKey(e.date) !== iso),
       ...updatedEntries,
     ]);
-  }, []);
+    notifyScheduleChanged(blockId);
+  }, [blockId]);
 
   const handleFlagChange = useCallback((iso, flagOrNull) => {
     setFlags(prev => {
@@ -1579,7 +1637,8 @@ export default function Calendar() {
           juniorId: juniorId || undefined, junior: junior || undefined, juniorAssignmentId: juniorAssignment?.id,
         },
       }));
-      setSelectedDateKey(null);
+      notifyScheduleChanged(blockId);
+      setDayOpen(false);
       toast.success(`${fmtShort(dateFromDateKey(iso))} saved`);
     } catch (err) {
       if (err.response?.data?.requiresOverrideConfirmation) {
@@ -1630,14 +1689,15 @@ export default function Calendar() {
         },
       }));
       setPendingOverride(null);
-      setSelectedDateKey(null);
+      notifyScheduleChanged(blockId);
+      setDayOpen(false);
       toast.success('Manual override saved with reason');
     } catch (err) {
       toast.error(err.response?.data?.error ?? 'Failed to save override');
     } finally {
       setOverrideSaving(false);
     }
-  }, [pendingOverride]);
+  }, [pendingOverride, blockId]);
 
   const handleValidateSchedule = useCallback(async () => {
     if (!blockId) return;
@@ -1661,6 +1721,7 @@ export default function Calendar() {
       const { data: asgn } = await api.get(`/assignments?blockId=${currentBlockId}`);
       if (latestBlockIdRef.current !== currentBlockId) return;
       setAssignmentsMap(buildAssignmentsMap(asgn));
+      notifyScheduleChanged(blockId);
       setGenSummary(summary);
       const warningText = summary.warnings?.length ? ` (${summary.warnings.length} warning${summary.warnings.length === 1 ? '' : 's'})` : '';
       toast.success(`Schedule generated${warningText}!`);
@@ -1680,6 +1741,7 @@ export default function Calendar() {
       const { data: asgn } = await api.get(`/assignments?blockId=${currentBlockId}`);
       if (latestBlockIdRef.current !== currentBlockId) return;
       setAssignmentsMap(buildAssignmentsMap(asgn));
+      notifyScheduleChanged(blockId);
       setGenSummary(null);
       setShowClearModal(false);
       toast.success('Schedule cleared successfully');
@@ -1701,6 +1763,7 @@ export default function Calendar() {
       const { data } = await api.post('/schedule/publish', { blockId, acknowledgeViolations });
       // Refresh context so isPublished + publicToken persist in AppContext
       await refreshContext();
+      notifyScheduleChanged(blockId);
       // Update currentBlock to the refreshed version with new publicToken
       setCurrentBlock(prev => prev ? { ...prev, isPublished: true, publicToken: data.publicToken } : prev);
       setPublishResult(data);
@@ -1730,6 +1793,7 @@ export default function Calendar() {
     try {
       await api.post('/schedule/unpublish', { blockId });
       await refreshContext();
+      notifyScheduleChanged(blockId);
       setCurrentBlock(prev => (prev ? { ...prev, isPublished: false } : prev));
       setLinkControlMode(null);
       toast.success('Schedule unpublished. The public link no longer works.');
@@ -1856,6 +1920,7 @@ export default function Calendar() {
           onPublish={handlePublish}
           publishPulsing={publishPulsing}
           isPublished={isPublished}
+          publicationState={publicationStatus?.state}
           publicToken={publicToken}
           publicUrl={publicUrl}
           onCopyLink={handleCopyLink}
@@ -1875,6 +1940,10 @@ export default function Calendar() {
           canPublishSchedule={can('publish_schedule')}
           canValidateSchedule={can('validate_schedule')}
         />
+
+        {publicationStatus?.state === 'changes_unpublished' && <div role="status" className="workspace-card" style={{ margin: '12px 0', background: 'var(--warn-soft)', color: 'var(--warn-ink-strong)' }}>
+          <strong>Changes not published</strong> · The public link still shows the previous schedule. Validate and re-publish after reviewing this draft.
+        </div>}
 
         {canGenerate && readiness && !readiness.dismissed && (
           <ReadinessPanel
@@ -1967,7 +2036,7 @@ export default function Calendar() {
 
         {/* Day edit modal */}
         <DayModal
-          isOpen={canEditSchedule && selectedDateKey !== null}
+          isOpen={canEditSchedule && dayOpen && Boolean(selectedDayData) && !availabilityResident}
           day={selectedDayData?.day ?? null}
           attendings={selectedDayData?.attendings ?? []}
           residents={residents}
@@ -1979,8 +2048,23 @@ export default function Calendar() {
           onClose={closeDayModal}
           onAttendingChange={handleAttendingChange}
           onFlagChange={handleFlagChange}
+          onEditAvailability={canManageAvailability ? setAvailabilityResident : null}
+          dayViolations={dayViolations}
+          canAssign={canAssign}
+          canEditAttending={canEditAttending}
           saving={assignmentSaving}
         />
+
+        {availabilityResident && selectedDayData && <BlockResidentAvailabilityModal
+          key={`${availabilityResident.id}-${selectedDateKey}`}
+          resident={availabilityResident}
+          blockId={blockId}
+          blockStart={String(shownBlock.startDate).slice(0, 10)}
+          blockEnd={String(shownBlock.endDate).slice(0, 10)}
+          initialDate={selectedDateKey}
+          onClose={() => setAvailabilityResident(null)}
+          onSaved={handleAvailabilitySaved}
+        />}
 
         {/* Generation summary modal */}
         <AnimatePresence>
@@ -1996,6 +2080,7 @@ export default function Calendar() {
             onEditDate={canEditSchedule ? (dateKey) => {
               setValidationResult(null);
               setSelectedDateKey(dateKey);
+              setDayOpen(true);
             } : null}
           />
         )}
@@ -2050,7 +2135,7 @@ export default function Calendar() {
               publishing={publishing}
               onAcknowledge={() => handleConfirmPublish(true)}
               onClose={() => setPublishBlockedBy(null)}
-              onEditDate={dateKey => { setPublishBlockedBy(null); setSelectedDateKey(dateKey); }}
+              onEditDate={dateKey => { setPublishBlockedBy(null); setSelectedDateKey(dateKey); setDayOpen(true); }}
             />
           )}
         </AnimatePresence>

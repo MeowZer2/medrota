@@ -72,36 +72,6 @@ function BlockGrid({ blocks }) {
   );
 }
 
-// ── Celebration confetti burst ─────────────────────────────────────────────────
-
-function Confetti() {
-  const pieces = Array.from({ length: 18 }, (_, i) => ({
-    id: i,
-    x: Math.random() * 360 - 180,
-    y: -(80 + Math.random() * 120),
-    rotate: Math.random() * 360,
-    color: ['var(--ink-1)', 'var(--accent-bright)', 'var(--success)', 'var(--warn)', 'var(--violet)', 'var(--danger)'][i % 6],
-  }));
-  return (
-    <div style={{ position: 'absolute', top: '50%', left: '50%', pointerEvents: 'none' }}>
-      {pieces.map(p => (
-        <motion.div
-          key={p.id}
-          initial={{ x: 0, y: 0, opacity: 1, rotate: 0, scale: 1 }}
-          animate={{ x: p.x, y: p.y, opacity: 0, rotate: p.rotate, scale: 0.3 }}
-          transition={{ duration: 1.2, ease: 'easeOut', delay: p.id * 0.03 }}
-          style={{
-            position: 'absolute',
-            width: 8, height: 8,
-            borderRadius: 2,
-            background: p.color,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function Setup() {
@@ -110,7 +80,6 @@ export default function Setup() {
 
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
 
   // Step 1 fields
   const [orgName, setOrgName] = useState('');
@@ -154,9 +123,7 @@ export default function Setup() {
     try {
       const { data } = await api.post('/programs', { name: programName, specialty, orgId, startDate });
       setCreatedBlocks(data.blocks);
-      setShowConfetti(true);
       setStep(3);
-      setTimeout(() => setShowConfetti(false), 1500);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to create program');
     } finally {
@@ -173,7 +140,8 @@ export default function Setup() {
     } finally {
       setLoading(false);
     }
-    navigate('/dashboard');
+    const first = [...createdBlocks].sort((a, b) => String(a.startDate).localeCompare(String(b.startDate)))[0];
+    navigate(first ? `/blocks/${first.number}?blockId=${encodeURIComponent(first.id)}` : '/dashboard');
   }
 
   // ── Shared input style ───────────────────────────────────────────────────────
@@ -223,13 +191,13 @@ export default function Setup() {
                 </svg>
               </div>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-1)', letterSpacing: '-0.5px', margin: 0 }}>
-                {step === 0 ? 'You are not in a program yet' : step === 3 ? "You're all set!" : 'Set up MedRota'}
+                {step === 0 ? 'You are not in a program yet' : step === 3 ? 'Program created' : 'Set up MedRota'}
               </h1>
               <p style={{ fontSize: 12, color: 'var(--ink-5)', marginTop: 4 }}>
                 {step === 0 && 'Choose how you want to get started'}
                 {step === 1 && 'Create your organization'}
                 {step === 2 && 'Set up your residency program'}
-                {step === 3 && '13 blocks are ready to go'}
+                {step === 3 && 'Empty blocks are ready for schedule preparation'}
               </p>
             </div>
 
@@ -419,7 +387,7 @@ export default function Setup() {
                         boxShadow: 'var(--shadow-md)',
                       }}
                     >
-                      {loading ? <><Spinner /> Creating blocks…</> : 'Generate schedule →'}
+                      {loading ? <><Spinner /> Creating blocks…</> : 'Create program and blocks →'}
                     </motion.button>
                   </div>
                 </motion.form>
@@ -435,8 +403,6 @@ export default function Setup() {
                   transition={{ duration: 0.22 }}
                   style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}
                 >
-                  {showConfetti && <Confetti />}
-
                   <div
                     className="flex items-center gap-2 px-3 py-2 rounded-lg"
                     style={{ background: 'var(--success-soft)', border: '1px solid var(--success-border)' }}
@@ -450,6 +416,7 @@ export default function Setup() {
                   </div>
 
                   <BlockGrid blocks={createdBlocks} />
+                  <p style={{ color: 'var(--ink-3)', fontSize: 13, lineHeight: 1.5 }}>Next: add or confirm residents, set up your attending roster and weekly pattern, then prepare your first block. No call schedule has been generated yet.</p>
 
                   <motion.button
                     onClick={handleDone}
@@ -465,7 +432,7 @@ export default function Setup() {
                       boxShadow: 'var(--shadow-md)',
                     }}
                   >
-                    {loading ? <><Spinner /> Loading…</> : 'Go to Dashboard →'}
+                    {loading ? <><Spinner /> Loading…</> : 'Prepare first block →'}
                   </motion.button>
                 </motion.div>
               )}

@@ -37,7 +37,7 @@ QA blocks:
 
 | Block | Dates | State |
 |---|---|---|
-| Block 1 | 2026-06-15 to 2026-06-28 | Published, seeded assignments, attending, holiday and flag |
+| Block 1 | 2026-06-15 to 2026-06-28 | Published/current, seeded assignments, attending, holiday and flag |
 | Block 2 | 2026-06-29 to 2026-07-12 | Draft with **no resident availability**, reset on every seed run |
 
 Block 2 exists so the availability workflow and the pre-generation readiness
@@ -87,11 +87,12 @@ If browsers have not been installed on the machine yet, run once from `frontend`
 npx playwright install chromium
 ```
 
-Current E2E coverage includes the existing workflow suites and ten block-workspace checks:
+Current E2E coverage includes the existing workflow suites, block-workspace checks, and publication amendment workflows:
 
 | Spec | Covers |
 |---|---|
 | `block-workspace.spec.js` | A real preparation job at 375/768/1024/1440px: save vacation and academic time directly from Overview, apply attending coverage, reach schedule readiness in two page transitions, retain the same shell and exact block through refresh, keyboard navigation, resident search, block changes/Back, invalid links, readiness failures, date/DST handling and Viewer/limited-Chief controls |
+| `workflow-convergence.spec.js` | Published absence amendment through contextual availability, same-day repair, reload, validation, republishing, public output and immutable history at 375/768/1024/1440px; inclusive vacation range save/removal at each width; DST date iteration; attending changes versus unrelated contact metadata; Dashboard attention and Viewer denial |
 | `core-calendar.spec.js` | Route guards, calendar prefill/save/reload, duplicate-resident rejection, override confirmation and reason, actionable validation detail, unfilled-slot explanations, publishing with documented overrides, holidays, Viewer restrictions and direct mutation rejection, call-type settings, password visibility, public access, mojibake checks |
 | `availability.spec.js` | Block-centered readiness, per-resident availability confirmation, compatibility bulk confirmation, block history visible to a Chief Resident and hidden from a Viewer |
 | `resident-workflow.spec.js` | Resident Directory creation/editing, calculated PGY, in-service auto-participation, off-service/student enrollment, one Medical Student badge, Tuesday academic time, workload summaries, duplicate-name handling, assigned-removal protection, mobile and Viewer behavior |
@@ -139,6 +140,8 @@ npm run e2e
 ```
 
 The explicit seed is required because reused servers bypass Playwright's embedded seed command. Stop the manually started local servers afterward. This runner limitation does not change test assertions or browser behavior.
+
+`PLAYWRIGHT_REUSE_SERVERS=1` disables Playwright-owned `webServer` startup and teardown. The manually started backend must listen on port 3000 and Vite on `127.0.0.1:5173` before running the suite.
 
 Running the suite repeatedly on Windows can also exhaust ephemeral sockets, which surfaces as `net::ERR_NO_BUFFER_SPACE` on a `page.goto`. It is a host limitation, not a product failure: wait a few seconds and re-run. If it recurs, use the server-reuse procedure above.
 

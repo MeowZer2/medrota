@@ -54,6 +54,7 @@ export default function Residents() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [query, setQuery] = useState('');
 
   const load = useCallback(async () => {
     if (!programId) return;
@@ -88,10 +89,12 @@ export default function Residents() {
 
       <section style={{ background: 'var(--surface-1)', border: '1px solid var(--border-2)', borderRadius: 14, overflow: 'hidden' }}>
         <div style={{ padding: '13px 16px', background: 'var(--surface-2)', color: 'var(--ink-4)', fontSize: 12 }}>{residents.filter(item => item.isActive).length} active · {residents.length} total</div>
-        {loading ? <div style={{ padding: 32, textAlign: 'center', color: 'var(--ink-4)' }}>Loading directory…</div> : residents.length === 0 ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-4)' }}>No residents in the directory yet.</div> : residents.map(resident => <DirectoryRow key={resident.id} resident={resident} canEdit={canEdit} onEdit={setEditing} onDeactivate={deactivate} />)}
+        <label className="workspace-search" style={{ margin: 16 }}>Find a resident<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Name, PGY, role, service or status" /></label>
+        {loading ? <div style={{ padding: 32, textAlign: 'center', color: 'var(--ink-4)' }}>Loading directory…</div> : residents.length === 0 ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-4)' }}>No residents in the directory yet.</div> : residents.filter(item => `${item.name} ${item.displayName} ${item.pgyLevel} PGY-${item.pgyLevel} ${item.residentRole} ${classificationLabel(item)} ${item.homeProgram ?? ''} ${item.isActive ? 'active' : 'inactive'}`.toLowerCase().includes(query.trim().toLowerCase())).map(resident => <DirectoryRow key={resident.id} resident={resident} canEdit={canEdit} onEdit={setEditing} onDeactivate={deactivate} />)}
+        {!loading && residents.length > 0 && !residents.some(item => `${item.name} ${item.displayName} ${item.pgyLevel} PGY-${item.pgyLevel} ${item.residentRole} ${classificationLabel(item)} ${item.homeProgram ?? ''} ${item.isActive ? 'active' : 'inactive'}`.toLowerCase().includes(query.trim().toLowerCase())) && <p style={{ padding: 16, color: 'var(--ink-4)' }}>No residents match your search.</p>}
       </section>
 
-      {(adding || editing) && <ResidentFormModal programId={programId} resident={editing} onClose={() => { setAdding(false); setEditing(null); }} onSaved={load} />}
+      {(adding || editing) && <ResidentFormModal key={editing?.id ?? 'new'} programId={programId} resident={editing} existingResidents={residents} onUseExisting={item => { setAdding(false); setEditing(item); }} onClose={() => { setAdding(false); setEditing(null); }} onSaved={load} />}
     </Layout>
   );
 }

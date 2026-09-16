@@ -5,6 +5,7 @@ import { useBlock, useUser } from '../context/AppContext';
 import { useWorkingBlock } from '../lib/useWorkingBlock';
 import { blockPath } from '../lib/blockNavigation';
 import { formatBlockDate } from '../lib/blockUtils';
+import { usePublicationStatus } from '../lib/usePublicationStatus';
 
 // Existing standalone calendar/attending routes retain their full page frame.
 // Nested working pages use the shared shell, which stays mounted across steps.
@@ -20,8 +21,10 @@ export default function BlockWorkspace() {
   const navigate = useNavigate();
   const location = useLocation();
   const section = location.pathname.split('/')[3] ?? '';
+  const activeDate = new URLSearchParams(location.search).get('date');
   const bodyRef = useRef(null);
   const previousPath = useRef(location.pathname);
+  const { status, refresh } = usePublicationStatus(block?.id, can('view_draft_schedule'));
 
   useEffect(() => {
     if (previousPath.current !== location.pathname) {
@@ -30,6 +33,8 @@ export default function BlockWorkspace() {
     }
     previousPath.current = location.pathname;
   }, [location.pathname]);
+
+  useEffect(() => { refresh(); }, [location.pathname, refresh]);
 
   if (!block) return <Layout><section role="alert" className="workspace-card"><h1>Block not found</h1><p>This link does not identify a block in your program. Choose a block from the menu.</p><Link to="/dashboard">Return to Dashboard</Link></section></Layout>;
 
@@ -60,11 +65,15 @@ export default function BlockWorkspace() {
       </div>
       <p className="workspace-publication" data-testid="workspace-publication">
         {can('view_draft_schedule')
-          ? block.isPublished ? 'Editing draft · A published snapshot is live. Re-publish after reviewing changes to update the public schedule.' : 'Draft · No published schedule yet.'
+          ? status?.state === 'changes_unpublished' ? 'Changes not published · The public link still shows the previous schedule. Review and re-publish from Schedule.'
+            : status?.state === 'current' ? 'Published · Working schedule matches the public version.'
+              : status?.state === 'unpublished' ? 'Unpublished · The public link is inactive; publication history is retained.'
+                : status?.state === 'never_published' ? 'Draft · No public schedule yet.'
+                  : 'Checking publication status…'
           : block.isPublished ? 'Published schedule · Read-only access.' : 'No published schedule is available for this block.'}
       </p>
       <nav aria-label="Block workspace" className="workspace-nav">
-        {links.map(([path, label]) => <Link key={path} to={blockPath(block, path)} aria-current={section === path ? 'page' : undefined}>{label}</Link>)}
+        {links.map(([path, label]) => <Link key={path} to={`${blockPath(block, path)}${activeDate ? `&date=${encodeURIComponent(activeDate)}` : ''}`} aria-current={section === path ? 'page' : undefined}>{label}</Link>)}
       </nav>
     </header>
     <div ref={bodyRef} tabIndex={-1} className="workspace-content" aria-label={`Block ${block.number} ${section || 'overview'}`}>
