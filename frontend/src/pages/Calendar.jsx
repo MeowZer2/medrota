@@ -183,6 +183,10 @@ const DayCell = memo(function DayCell({ dayData, onClick, canEdit }) {
         borderRadius: 8,
         padding: 8,
         minHeight: 90,
+        minWidth: 0,
+        // Names must wrap within a narrow day column, including long surnames
+        // and identifiers whose minimum text width varies across platforms.
+        overflowWrap: 'anywhere',
         cursor: canEdit ? 'pointer' : 'default',
         position: 'relative',
         transition: 'transform 90ms ease, border-color 90ms ease, background-color 90ms ease',
@@ -1906,13 +1910,13 @@ export default function Calendar() {
         )}
 
         {loadingData ? (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hidden md:grid grid-cols-7 gap-1">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hidden lg:grid grid-cols-7 gap-1">
             {[...Array(35)].map((_, i) => <Skeleton key={i} height={100} radius={12} style={{ minHeight: 100 }} />)}
           </motion.div>
         ) : (
           <>
-            {/* Desktop grid */}
-            <div className="hidden md:block">
+            {/* The sidebar leaves too little room for seven columns on tablets. */}
+            <div className="hidden lg:block">
               <div className="grid grid-cols-7 gap-1 mb-1">
                 {DAYS_OF_WEEK.map(d => (
                   <div key={d} className="text-center py-2"
@@ -1942,8 +1946,8 @@ export default function Calendar() {
               </div>
             </div>
 
-            {/* Mobile list */}
-            <div className="md:hidden rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-1)', boxShadow: 'var(--shadow-xs)' }}>
+            {/* Phone and tablet list */}
+            <div className="lg:hidden rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-1)', boxShadow: 'var(--shadow-xs)' }}>
               <div className="px-4 py-3" style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border-1)' }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-5)' }}>
                   {days.length} days - {canEditSchedule ? 'Tap a day to assign residents' : 'Read-only schedule'}

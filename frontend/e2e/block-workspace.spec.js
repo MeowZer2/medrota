@@ -38,7 +38,7 @@ for (const width of [375, 768, 1024, 1440]) {
     const target = residents[0];
     const beforeEntries = await api(page, `/attending?blockId=${block.id}`);
     const beforeIds = new Set(beforeEntries.map(item => item.id));
-    const name = ownedName(`Workspace attending ${width}`);
+    const name = ownedName(`Workspace attending MontgomeryWorthington ${width}`);
     let roster;
     const templates = [];
     try {
@@ -99,8 +99,13 @@ for (const width of [375, 768, 1024, 1440]) {
       await page.reload();
       await expect(page.getByLabel('Workspace block')).toHaveValue(block.id);
       await expect(page.getByRole('heading', { name: 'Block 2 Calendar' })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Edit Sunday, 12 July 2026' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Edit Sunday, 12 July 2026' })).toContainText(name);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
+      const clippedDays = await page.getByRole('button', { name: /^Edit (Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),/ }).evaluateAll(elements => elements.filter(el => {
+        const rect = el.getBoundingClientRect();
+        return rect.left < 0 || rect.right > innerWidth || el.scrollWidth > el.clientWidth + 1;
+      }).map(el => el.getAttribute('aria-label')));
+      expect(clippedDays).toEqual([]);
       await page.getByRole('navigation', { name: 'Block workspace' }).getByRole('link', { name: 'Overview', exact: true }).click();
       await expect(page.getByTestId(`overview-resident-${target.id}`)).toBeVisible();
       const clipped = await page.locator('.workspace-resident, .workspace-nav a').evaluateAll(elements => elements.filter(el => {

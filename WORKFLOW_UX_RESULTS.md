@@ -1,6 +1,6 @@
 # MedRota workflow redesign: product report
 
-September 16, 2026. Baseline: `3e19fa0`. The [pre-implementation audit](WORKFLOW_UX_AUDIT.md) contains the original findings, scenario walkthroughs, severity/frequency ratings, and batch decision. This report describes the delivered change and local validation. The completion message records the final report commit, push, and GitHub Actions result for the exact pushed revision.
+September 16, 2026. Baseline: `3e19fa0`. The [pre-implementation audit](WORKFLOW_UX_AUDIT.md) contains the original findings, scenario walkthroughs, severity/frequency ratings, and batch decision. This report describes the delivered change and local validation. The completion message records the final revision, push, and GitHub Actions result for the exact pushed revision.
 
 The central problem was structural: preparing one block required navigating separate data-management screens while remembering the selected block. The delivered workspace makes that preparation a continuous job. It also fixes contradictory block dates and unreliable block links. It does not resolve every scheduling UX problem identified in the audit.
 
@@ -132,14 +132,16 @@ Theme guard passes **132 contrast pairs in both themes**, and rendered contrast,
 
 ## 15. Responsive results
 
-The complete preparation scenario passes at **375, 768, 1024 and 1440px** in America/New_York. Tests check page overflow plus roster and action bounds; this catches the original hidden clipping problem. Phone navigation wraps into a compact grid and the participating roster appears before the available pool. Dark-theme captures at all four widths and a light-theme pass were visually inspected. The final browser tour recorded no uncaught page errors.
+The complete preparation scenario passes at **375, 768, 1024 and 1440px** in America/New_York. Tests check page overflow plus roster, action and calendar-day bounds; this catches the original hidden clipping problem. Phone navigation wraps into a compact grid and the participating roster appears before the available pool. Dark-theme captures at all four widths and a light-theme pass were visually inspected. The final browser tour recorded no uncaught page errors.
+
+The first Linux CI run exposed 3px of calendar overflow at 768px with populated attending entries. A longer surname reproduced the problem locally with 43px of overflow. Day cells now wrap unbroken names within their column, and tablets use the existing readable day list until 1024px rather than squeezing seven columns beside the sidebar. The strengthened workflow regression waits for persisted attending text after reload and checks each day button for internal clipping. The zero-page-overflow assertion was retained unchanged.
 
 ## 16. Performance result
 
 - Performance guard passes. No new dependency, heavy animation, blur, or continuous transition was introduced.
 - The workspace shell survives section navigation; block-specific local state resets only when changing block.
-- Production JS gzip: **194.65 → 196.65 kB**, an increase of **2.00 kB (1.03%)**.
-- Production CSS gzip: **10.57 → 11.23 kB**, an increase of **0.66 kB**.
+- Production JS gzip: **194.65 → 196.66 kB**, an increase of **2.01 kB (1.03%)**.
+- Production CSS gzip: **10.57 → 11.24 kB**, an increase of **0.67 kB**.
 - Both bundle measurements use the same installed toolchain, with baseline source in an isolated local archive.
 - The existing large-main-chunk build warning and finite Calendar box-shadow animation warning remain. Neither guard failed. No runtime-speed benchmark or Web Vitals improvement is claimed.
 
@@ -165,15 +167,18 @@ The preparation regression saves vacation and academic availability, verifies co
 
 Backend commands: `roles:audit`, `roles:smoke`, `authz:smoke`, `phase5:smoke`, `phase5:db`, `phase6:smoke`, `paro:smoke`, `scheduler:integration`, `scheduler:acceptance`, `schedule:validate-smoke`, `data:integrity-audit`, `data:integrity-smoke`, `availability:smoke`, `resident:workflow-smoke`, `program-config:smoke`, `registry:lifecycle-smoke`, `settings:save-smoke`, `qa:isolation-smoke`, `publish:safety-smoke`, `publish:revocation-smoke`, `audit:smoke`, and `deploy:smoke`.
 
+The separate `scheduler:fairness` diagnostic also completed successfully. It reports the existing greedy generator's residual roster-order sensitivity (up to two calls between individuals in that fixture); this workflow batch does not alter the generator.
+
 The isolated program/account created to inspect onboarding was removed after verifying ownership. The pre-existing untracked `START_MEDROTA_TEST.bat` was left untouched and excluded from commits. Local audit captures/logs remain ignored under `.audit/`.
 
 ## 19–21. Commits, push, and CI
 
 - `e00a809` — Document the workflow audit and block workspace decision.
 - `ffbcb63` — Center block preparation on an actionable shared workspace.
-- A third logical commit contains this report; its hash appears in the completion message.
+- `b8e3bfa` — Record workflow results and validation evidence.
+- A focused follow-up fixes the calendar wrapping defect found by Linux CI and strengthens its regression; its hash appears in the completion message.
 
-This report is committed before the normal, non-force push to `main`. Push confirmation and the Backend, Frontend, and End-to-end GitHub Actions results are verified afterward against the final pushed SHA and recorded in the completion message with the run link. Local test success alone is not treated as CI success.
+The first normal, non-force push to `main` succeeded at `b8e3bfa`. Its [CI run](https://github.com/MeowZer2/medrota/actions/runs/35071068250) passed Backend and Frontend but failed one of 79 browser tests on tablet calendar overflow. That failure is addressed by the focused follow-up above. Final push confirmation and all three GitHub Actions results are verified against the final pushed SHA and recorded in the completion message with the run link. Local test success alone is not treated as CI success.
 
 ## 22. Remaining workflow problems, ranked
 
